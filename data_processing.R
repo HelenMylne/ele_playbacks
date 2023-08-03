@@ -8,6 +8,7 @@
 ## set up ####
 library(tidyverse)
 
+#### initial processing to produce non-wacky format ####
 ## data import: stimuli ####
 ### playback number 1
 # import data
@@ -222,16 +223,6 @@ for(i in 2:length(file_list)){
   
 }
 
-# save output
-saveRDS(df_eles, file = '../data_processed/elephants.RDS')
-
-# clean environment
-rm(df_new, eles, file_data, metadata, file, file_list, i, labels, row_num) ; gc()
-
-## convert to proportions of time spent on each activity ####
-# reimport data if necessary
-#df_eles <- readRDS('../data_processed/elephants.RDS') ; df_stim <- readRDS('../data_processed/stimuli.RDS')
-
 # simplify and sort structure
 df_eles <- df_eles %>% 
   select(-media_file_path, -total_length, -fps, -media, -offset)
@@ -291,7 +282,19 @@ df_eles$behavioral_category <- case_when(df_eles$action == 'approach at an angle
                                          df_eles$action == 'not visible' ~ 'stress',
                                          df_eles$action == 'relaxed (back or flapping regularly)' ~ 'stress')
 
-### split activities into time before stimulus, time during stimulus and time after stimulus -- if an action starts before the stimulus does and finishes during it, take this as 2 actions, one before and one during, with the cut off being when the stimulus starts.
+# save output
+saveRDS(df_eles, file = '../data_processed/elephants.RDS')
+
+# clean environment
+rm(df_new, eles, file_data, metadata, file, file_list, i, labels, row_num) ; gc()
+
+#### convert to proportions of time spent on each activity -- NOT ELEPHANT RELATED ####
+#df_eles <- readRDS('../data_processed/elephants.RDS') ; df_stim <- readRDS('../data_processed/stimuli.RDS')
+
+## split activities unrelated to other elephants into time before stimulus, time during stimulus and time after stimulus ####
+# if an action starts before the stimulus does and finishes during it, take this as 2 actions, one before and one during, with the cut off being when the stimulus starts
+#df_eles <- readRDS('../data_processed/elephants.RDS') ; df_stim <- readRDS('../data_processed/stimuli.RDS')
+
 # obtain data frame of stimuli only -- ignore other noises for now
 stimuli <- df_stim %>%
   filter(behavior == 'STIMULUS') %>% 
@@ -342,7 +345,7 @@ for(i in 1:nrow(stim)){
 
 # merge elephant actions with stimuli
 df <- left_join(df_eles, stim, by = 'pb_num')
-rm(df_eles, df_stim, stim, stimuli, x, i) ; gc()
+rm(df_stim, stim, stimuli, x, i) ; gc()
 
 # add column for if line is before, during or after stimulus
 df$bda <- ifelse(df$time < df$stim_start, 'before',
@@ -351,6 +354,16 @@ table(df$bda) # this looks like a reasonable split
 
 # breakdown to behavioural types to combine into pairs
 df$activity_unique <- paste0(df$subject,'_',df$behavioral_category,'_',df$type)
+
+# split off elephant-relative movements/looks as more likely to have matched times
+df <- df[df$behavior != 'NEW VIDEO: NEW VIDEO',]
+eles <- df[df$type == 'elephant',] ; eles <- eles[!is.na(eles$time),]
+df <- df[df$type != 'elephant',] ; df <- df[!is.na(df$time),]
+unique(df$behavior)
+
+# split off point actions as don't have a start/stop time
+pt <- df[df$status == 'POINT',] ; pt <- pt[!is.na(pt$time),]
+df <- df[df$status != 'POINT',] ; df <- df[!is.na(df$time),]
 
 # create set of individual/behaviour breakdowns to go through
 id_behav <- sort(unique(df$activity_unique))
@@ -374,13 +387,18 @@ for(elephant_behaviour in 1:N){
   response$order_correct <- NA
   response$order_correct[1] <- ifelse(response$time[1] < response$time[2], 'yes', 
                                       ifelse(response$time[1] == response$time[2], 'match', 'no'))
-  for(i in 2:(nrow(response)-1)){
-    response$order_correct[i] <- ifelse(response$time[i] < response$time[i+1] &
-                                          response$time[i] > response$time[i-1], 'yes', 
-                                        ifelse(response$time[i] == response$time[i+1] |
-                                                 response$time[i] == response$time[i-1], 'match',
-                                               'no'))
+  if(nrow(response) > 2 ) {
+    for(i in 2:(nrow(response)-1)){
+      response$order_correct[i] <- ifelse(response$time[i] < response$time[i+1] &
+                                            response$time[i] > response$time[i-1], 'yes', 
+                                          ifelse(response$time[i] == response$time[i+1] |
+                                                   response$time[i] == response$time[i-1], 'match',
+                                                 'no'))
+    }
+  } else {
+    response$order_correct <- ifelse(response$time[1] < response$time[2], 'yes', 'no')
   }
+    
   if(length(which(response$order_correct == 'no')) > 0) {
     cowsay::say('STOP: ORDER INCORRECT', by = names(cowsay::animals)[runif(1,1,length(names(cowsay::animals)))] )
     response$order_correct*response$order_correct # will throw an error and halt operation if 'no' is an option
@@ -406,13 +424,42 @@ for(elephant_behaviour in 1:N){
   }
   
   # check pairs are together (should be if all in correct order!)
-  response$pairs_together <- NA ; for(i in 1:(nrow(response)-1)){
-    response$pairs_together[i] <- ifelse(response$status[i] == 'START' & response$status[i+1] == 'STOP', 'yes',
-                                     ifelse(response$status[i] == 'STOP' & response$status[i+1] == 'START', 'yes', 'no'))
+  response$pairs_together <- NA
+  if(nrow(response) > 2 ) {
+    for(i in 1:(nrow(response)-1)){
+      response$pairs_together[i] <- ifelse(response$status[i] == 'START' & response$status[i+1] == 'STOP', 'yes',
+                                       ifelse(response$status[i] == 'STOP' & response$status[i+1] == 'START', 'yes', 'no'))
+    }
+  } else {
+    response$pairs_together <- ifelse(response$status[1] == 'START' & response$status[2] == 'STOP', 'yes', 'no')
   }
+  
   if(length(which(response$pairs_together == 'no')) > 0) {
     cowsay::say('STOP: PAIRS NOT TOGETHER', by = names(cowsay::animals)[runif(1,1,length(names(cowsay::animals)))] )
-    response$pairs_together*response$pairs_together # will throw an error and halt operation if 'no' is an option
+    for(k in 1:(nrow(response)-1)){
+      if(response$pairs_together[k] == 'no' & #response$pairs_together[k+1] == 'yes' &
+         response$status[k] == 'START' & response$status[k+1] == 'START') {
+        response$time[k+1] <- response$time[k+1]+0.001
+      }
+      if(response$pairs_together[k] == 'no' & #response$pairs_together[k+1] == 'yes' &
+         response$status[k] == 'STOP' & response$status[k+1] == 'STOP') {
+        response$time[k] <- response$time[k]-0.001
+      }
+    }
+    response <- response %>% arrange(time)
+    # repeat to ensure has now worked
+    if(nrow(response) > 2 ) {
+      for(i in 1:(nrow(response)-1)){
+        response$pairs_together[i] <- ifelse(response$status[i] == 'START' & response$status[i+1] == 'STOP', 'yes',
+                                             ifelse(response$status[i] == 'STOP' & response$status[i+1] == 'START', 'yes', 'no'))
+      }
+    } else {
+      response$pairs_together <- ifelse(response$status[1] == 'START' & response$status[2] == 'STOP', 'yes', 'no')
+    }
+    if(length(which(response$pairs_together == 'no')) > 0) {
+      cowsay::say('STOP: PAIRS NOT TOGETHER', by = names(cowsay::animals)[runif(1,1,length(names(cowsay::animals)))] )
+      response$pairs_together*response$pairs_together # auto fail out if still hasn't worked
+    }
   }
   
   # add label per start/stop pair
@@ -469,12 +516,12 @@ for(elephant_behaviour in 1:N){
   
     # recombine into individual elephant actions per category
     response <- rbind(response, response_split)
-    response <- response %>% 
-      arrange(time) %>% 
-      mutate(activity_id = as.numeric(as.factor(paste0(action_unique, bda)))) %>% 
-      select(subject, behaviour, time, bda, status, type, action, behavioral_category, target, comment, pb_num, stim_num, stim_type, stim_start, stim_stop, stim_duration, activity_id, act_id, action_unique, activity_unique, group_size, age, bull, date, play_time, description)
     
   }
+    response <- response %>% 
+      arrange(time) %>% 
+      mutate(activity_id = as.numeric(as.factor(paste0(action_unique, bda)))) %>%
+      select(-order_correct, -pairs_together, -bda_split)
   
   # recombine into full dataset
   df <- rbind(df, response)
@@ -484,112 +531,256 @@ for(elephant_behaviour in 1:N){
   
 }
 
-rm(response, response_split, elephant_behaviour, i, id_behav, j, N) ; gc()
+rm(response, response_split, elephant_behaviour, i, id_behav, j, k, N) ; gc()
 
 saveRDS(df, '../data_processed/elephants_behaviour_split_relative_to_stimulus.RDS')
 
 
+## calculate length of action by subtracting START time from STOP time ####
+# df <- readRDS('../data_processed/elephants_behaviour_split_relative_to_stimulus.RDS')
 
-# calculate length of action by subtracting START time from STOP time
-# calculate time per elephant that was in frame in each part of the experiment
-oos <- df_eles[df_eles$action == 'OUT OF SIGHT',]
+# create a variable with a unique value for every action, also split across before/during/after
+df$action_unique <- paste0(df$action_unique, '_', df$bda)
+df$act_id <- as.integer(as.factor(df$action_unique))
 
+# combine start and stop lines for every action so it is a single row per behaviour
+start <- df %>% 
+  filter(status == 'START') %>% 
+  select(subject,behaviour,time,act_id) %>% 
+  rename(start_time = time)
+stop <- df %>% 
+  filter(status == 'STOP') %>% 
+  select(-subject, -behaviour, -status, -activity_unique, -activity_id) %>% 
+  rename(stop_time = time)
+behav <- left_join(start, stop, by = 'act_id') %>% 
+  relocate(act_id)
 
+# calculate duration of each behaviour
+behav$duration <- behav$stop_time - behav$start_time
 
+# neaten up
+behav <- behav[,c(1:5,25,6:24)]
 
+# standardise subject name format
+behav$subject <- ifelse(behav$subject == 'exp4_bull1','b1_e4',
+                        ifelse(behav$subject == 'exp4_bull2','b2_e4',
+                               ifelse(behav$subject == 'exp4_bull3','b3_e4',behav$subject)))
 
+## calculate time per elephant that was in frame in each part of the experiment ####
+# separate out OUT OF SIGHT behaviours
+unseen <- behav %>% filter(behaviour == 'OUT OF SIGHT: OUT OF SIGHT')
 
+# create data frame to calculate total possible time per experiment
+playbacks <- data.frame(pb_num = rep(sort(unique(behav$pb_num)), each = 3),
+                        section = rep(c('before','during','after'), length(unique(behav$pb_num))),
+                        start_time = NA,
+                        end_time = NA,
+                        duration = NA)
 
-
-
-
-
-
-
-
-
-
-
-
-####### SCRAP ALL THIS I THINK ##########
-# breakdown to behavioural types to combine into pairs -- example
-test <- df[df$subject == 'b4_e44' & df$target == 'vehicle' & df$behavioral_category == 'look',] ; test <- test[is.na(test$time) == F,]
-
-# check in correct order
-test$order_correct <- NA ; for(i in 1:(nrow(test)-1)){
-  test$order_correct[i] <- ifelse(test$time[i] < test$time[i+1], 'yes', 'no')
-}
-table(test$order_correct)
-test$pairs_together <- NA ; for(i in 1:(nrow(test)-1)){
-  test$pairs_together[i] <- ifelse(test$status[i] == 'START' & test$status[i+1] == 'STOP', 'yes',
-                                   ifelse(test$status[i] == 'STOP' & test$status[i+1] == 'START', 'yes', 'no'))
-}
-table(test$pairs_together)
-
-# add label per start/stop pair
-test$act_id <- rep(1:(nrow(test)/2), each = 2)
-test$action_unique <- paste0(test$subject,'_',test$type,'_',test$action,'_',test$act_id)
-
-# for pairs that span across multiple parts of experiment, create variable indicating which parts
-test$bda_split <- NA; for(i in 1:nrow(test)){
-  x <- test[test$act_id == test$act_id[i],]
-  test$bda_split[i] <- ifelse(x$bda[1] == x$bda[2], 'no',
-                              ifelse(x$bda[1] == 'before',
-                                     ifelse(x$bda[2] == 'during', 'bd','ba'),
-                                     'da'))
-}
-
-# for pairs that span before-during or during-after, single split. for pairs that span before-after, double split
-if(length(which(test$bda_split != 'no') > 0)) {
-  test_split <- test[test$bda_split != 'no',]
-  if(test_split$bda_split[1] == 'bd'){
-    test_split <- rbind(test_split, test_split)
-    test_split$time[2] <- test_split$stim_start[1]-0.001
-    test_split$time[3] <- test_split$stim_start[1]
-  }
-  if(test_split$bda_split[1] == 'da'){
-    test_split <- rbind(test_split, test_split)
-    test_split$time[2] <- test_split$stim_stop[1]
-    test_split$time[3] <- test_split$stim_stop[1]+0.001
-  }
-  if(test_split$bda_split[1] == 'ba'){
-    test_split <- rbind(test_split, test_split, test_split)
-    test_split$time[2] <- test_split$stim_start[1]-0.001
-    test_split$time[3] <- test_split$stim_start[1]
-    test_split$time[4] <- test_split$stim_stop[1]
-    test_split$time[5] <- test_split$stim_stop[1]+0.001
-  }
-  test_split$bda <- ifelse(test_split$time < test_split$stim_start, 'before',
-                           ifelse(test_split$time > test_split$stim_stop, 'after', 'during'))
+# extract start and end times for each playback section
+start <- df %>% filter(status == 'START') %>% 
+  select(pb_num, time, bda) %>% distinct()
+stop <- df %>% filter(status == 'STOP') %>% 
+  select(pb_num, time, bda) %>% distinct()
+for(i in 1:nrow(playbacks)){
+  pb_start <- start %>% filter(pb_num == playbacks$pb_num[i] & bda == playbacks$section[i])
+  pb_stop <- stop %>% filter(pb_num == playbacks$pb_num[i] & bda == playbacks$section[i])
+  playbacks$start_time[i] <- min(pb_start$time)
+  playbacks$end_time[i] <- max(pb_stop$time)
 }
 
+# calculate total duration of each experiment
+playbacks$duration <- playbacks$end_time - playbacks$start_time
 
-#-- THIS DOESN'T WORK IF THERE IS A SPAN ACROSS BEFORE-DURING AND ANOTHER ACROSS DURING-AFTER
-#  if(length(which(response$bda_split != 'no') > 0)) {
-#    response_split <- response[response$bda_split != 'no',]
-#    response <- anti_join(response, response_split)
-#    if(response_split$bda_split[1] == 'bd'){
-#      response_split <- rbind(response_split, response_split)
-#      response_split$time[2] <- response_split$stim_start[1]-0.001
-#      response_split$time[3] <- response_split$stim_start[1]
-#    }
-#    if(response_split$bda_split[1] == 'da'){
-#      response_split <- rbind(response_split, response_split)
-#      response_split$time[2] <- response_split$stim_stop[1]
-#    }
-#      response_split$time[3] <- response_split$stim_stop[1]+0.001
-#    if(response_split$bda_split[1] == 'ba'){
-#      response_split <- rbind(response_split, response_split, response_split)
-#      response_split$time[2] <- response_split$stim_start[1]-0.001
-#      response_split$time[3] <- response_split$stim_start[1]
-#      response_split$time[4] <- response_split$stim_stop[1]
-#      response_split$time[5] <- response_split$stim_stop[1]+0.001
-#    }
-#    response_split$bda <- ifelse(response_split$time < response_split$stim_start, 'before',
-#                             ifelse(response_split$time > response_split$stim_stop, 'after', 'during'))
-#  # recombine
-#  before
+# create data frame containing total time each elephant is visible within each playback section
+in_frame <- data.frame(subject = rep(sort(unique(behav$subject)), each = 3),
+                       section = rep(c('before','during','after'), length(unique(behav$subject)))) %>% 
+  separate(subject, into = c('bull','pb_num'), remove = F, sep = '_e') %>% 
+  select(-bull) %>% 
+  mutate(pb_num = as.numeric(pb_num)) %>%
+  left_join(playbacks, by = c('pb_num','section')) %>% 
+  rename(video_duration = duration,
+         video_start = start_time,
+         video_end = end_time) %>% 
+  mutate(out_frame_seconds = NA,
+         in_frame_seconds = NA)
+for( i in 1:nrow(in_frame) ){
+  out_of_sight <- unseen %>%
+    filter(subject == in_frame$subject[i]) %>% 
+    filter(bda == in_frame$section[i])
+  in_frame$out_frame_seconds[i] <- sum(out_of_sight$duration)
+}
+in_frame$in_frame_seconds <- in_frame$video_duration - in_frame$out_frame_seconds
 
-#    response <- rbind(response, response_split)
+# clean up
+rm(out_of_sight, pb_start, pb_stop, playbacks, start, stop, unseen, i) ; gc()
+
+## calculate proportion of time spent per activity ####
+# create data frame showing amount of time spent on each behaviour by every elephant in each playback section
+num_eles <- length(unique(behav$subject))
+num_behav <- length(unique(behav$behaviour))
+props <- data.frame(subject = rep(rep(sort(unique(behav$subject)), each = 3), each = num_behav),
+                    section = rep(rep(c('before','during','after'), num_eles), each = num_behav),
+                    behaviour = rep(sort(unique(behav$behaviour)), num_eles*3)#,
+                    ) %>% 
+  left_join(in_frame, by = c('subject','section')) %>% 
+  rename() %>% 
+  mutate(behav_seconds = NA,
+         propn = NA) %>% 
+  filter(behaviour != 'nearest neighbour: nearest neighbour') %>% 
+  filter(behaviour != 'OUT OF SIGHT: OUT OF SIGHT')
+
+# calculate time per elephant per playback section spent on each behaviour
+for( i in 1:nrow(props) ) {
+  elephant_behaviour <- behav %>%
+    filter(subject == props$subject[i]) %>% 
+    filter(bda == props$section[i]) %>% 
+    filter(behaviour == props$behaviour[i])
+  props$behav_seconds[i] <- ifelse(nrow(elephant_behaviour) == 0, 0, sum(elephant_behaviour$duration) )
+}
+
+# convert times to proportions so that duration in frame does not affect total
+props$propn <- props$behav_seconds / props$in_frame_seconds
+
+# add in additional information about each behaviour and elephant ages
+props <- props %>% 
+ left_join(distinct(behav[,c('behaviour', 'type', 'action', 'behavioral_category', 'target')]), by = 'behaviour') %>% 
+ left_join(distinct(df_eles[,c('subject','age', 'stim_num', 'stim_type', 'group_size')]), by = 'subject')
+
+# save
+saveRDS(props, '../data_processed/speaker_vehicle_stress_behaviour_proportions.RDS')
+
+# clean up
+rm(elephant_behaviour, in_frame, i, num_behav, num_eles) ; gc()
+
+## COME BACK TO THIS AND WORK OUT WHY A FEW DON'T HAVE AGE DATA AND WHY EXPERIMENT 4 DOESN'T HAVE A STIMULUS NUMBER OR TYPE ####
+table(props$age)
+length(which(is.na(props$age) == TRUE ))
+
+missing_age <- props %>% filter(is.na(age))
+sort(unique(missing_age$subject))
+
+## graph proportions ####
+theme_set(theme_classic())
+props$section <- factor(props$section, levels = c('before','during','after'))
+props$stim_num <- ifelse(is.na(props$stim_num) == TRUE,
+                         ifelse(props$pb_num == 4, 23, NA),
+                         props$stim_num)
+props$stim_type <- ifelse(is.na(props$stim_type) == TRUE,
+                          ifelse(props$pb_num == 4, 'h', NA),
+                          props$stim_type)
+props$stimulus <- ifelse(props$stim_type == 'ctd', 'cape turtle dove (control)', 
+                         ifelse(props$stim_type == 'h', 'human', 'lion'))
+
+look <- props %>% 
+  filter(behavioral_category == 'look') %>% 
+  mutate(looking_direction = factor(action, levels = c('look at directly', 'side-on', 'look directly away'))) %>% 
+  filter(propn != 'NaN')
+ggplot(data = look, aes(x = section, y = propn, group = subject))+
+  geom_line(linewidth = 0.1, aes(colour = subject))+
+  geom_point(size = 0.1, alpha = 0.4, aes(colour = subject))+
+  facet_grid(looking_direction ~ target)+
+  scale_y_continuous('proportion of time visible on camera spent looking at vehicle and speaker')+
+  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
+  theme(legend.position = 'none')
+ggplot(data = look, aes(x = section, y = propn, group = subject))+
+  geom_line(linewidth = 0.1, aes(colour = stimulus))+
+  geom_point(size = 0.1, alpha = 0.4, aes(colour = stimulus))+
+  facet_grid(looking_direction ~ target)+
+  scale_y_continuous('proportion of time visible on camera spent looking at vehicle and speaker')+
+  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
+  scale_colour_viridis_d()+
+  #labs(colour = 'stimulus')+
+  theme(legend.position = 'bottom')
+
+move <- props %>% 
+  filter(behavioral_category == 'move') %>% 
+  mutate(looking_direction = factor(action, levels = c('approach directly', 'approach at an angle', 'move neither towards or away', 'move away at an angle', 'move away directly'))) %>% 
+  filter(propn != 'NaN')
+ggplot(data = move, aes(x = section, y = propn, group = subject))+
+  geom_line(linewidth = 0.1, aes(colour = subject))+
+  geom_point(size = 0.1, alpha = 0.4, aes(colour = subject))+
+  facet_grid(looking_direction ~ target)+
+  scale_y_continuous('proportion of time visible on camera spent moving relative to vehicle and speaker')+
+  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
+  theme(legend.position = 'none')
+ggplot(data = move, aes(x = section, y = propn, group = subject))+
+  geom_line(linewidth = 0.1, aes(colour = stimulus))+
+  geom_point(size = 0.1, alpha = 0.4, aes(colour = stimulus))+
+  facet_grid(looking_direction ~ target)+
+  scale_y_continuous('proportion of time visible on camera spent moving relative to vehicle and speaker')+
+  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
+  scale_colour_viridis_d()+
+  theme(legend.position = 'bottom')
+
+trunk <- props %>% 
+  filter(type == 'trunk') %>% 
+  #mutate(looking_direction = factor(action, levels = c('approach directly', 'approach at an angle', 'move neither towards or away', 'move away at an angle', 'move away directly'))) %>% 
+  #mutate(stimulus = ifelse(stim_type == 'ctd', 'cape turtle dove (control)', 
+  #                         ifelse(stim_type == 'h', 'human', 'lion'))) %>% 
+  filter(propn != 'NaN') %>% 
+  filter(action != 'tip not visible')
+ggplot(data = trunk, aes(x = section, y = propn, group = subject))+
+  #geom_line(linewidth = 0.1, aes(colour = subject))+
+  geom_jitter(alpha = 0.4, aes(colour = stimulus))+
+  facet_grid(. ~ action)+
+  scale_y_continuous('proportion of time visible on camera spent using trunk')+
+  scale_x_discrete(expand = c(0.2,0.2), 'time relative to stimulus')+
+  scale_colour_viridis_d()+
+  theme(legend.position = 'bottom')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##
+#### convert to proportions of time spent on each activity -- ELEPHANT RELATED ####
+## split activities  related  to other elephants into time before stimulus, time during stimulus and time after stimulus ####
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
