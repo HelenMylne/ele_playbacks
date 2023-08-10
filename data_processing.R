@@ -1072,3 +1072,282 @@ nrow(correct_in_boris)
 # clean up
 rm(correct_in_boris, response, response_split, elephant_behaviour, i, id_behav, j, k, N) ; gc()
 
+## calculate length of action by subtracting START time from STOP time -- NOT DONE YET ####
+# elephants <- readRDS('../data_processed/elephants_behaviour_split_relative_to_stimulus_elephantdirections.RDS')
+
+# create a variable with a unique value for every action, also split across before/during/after
+elephants$action_unique <- paste0(elephants$action_unique, '_', elephants$bda)
+elephants$act_id <- as.integer(as.factor(elephants$action_unique))
+
+# combine start and stop lines for every action so it is a single row per behaviour
+start <- elephants %>% 
+  filter(status == 'START') %>% 
+  select(subject,behaviour,time,act_id) %>% 
+  rename(start_time = time)
+stop <- elephants %>% 
+  filter(status == 'STOP') %>% 
+  select(-subject, -behaviour, -status, -activity_unique, -activity_id) %>% 
+  rename(stop_time = time)
+behav <- left_join(start, stop, by = 'act_id') %>% 
+  relocate(act_id)
+
+# calculate duration of each behaviour
+behav$duration <- behav$stop_time - behav$start_time
+
+# neaten up
+behav <- behav[,c(1:5,25,6:24)]
+
+## calculate time per elephant that was in frame in each part of the experiment -- NOT DONE YET ####
+# separate out OUT OF SIGHT behaviours
+unseen <- behav %>% filter(behaviour == 'OUT OF SIGHT: OUT OF SIGHT')
+
+# create data frame to calculate total possible time per experiment
+playbacks <- data.frame(pb_num = rep(sort(unique(behav$pb_num)), each = 3),
+                        section = rep(c('before','during','after'), length(unique(behav$pb_num))),
+                        start_time = NA,
+                        end_time = NA,
+                        duration = NA)
+
+# extract start and end times for each playback section
+start <- df %>% filter(status == 'START') %>% 
+  select(pb_num, time, bda) %>% distinct()
+stop <- df %>% filter(status == 'STOP') %>% 
+  select(pb_num, time, bda) %>% distinct()
+for(i in 1:nrow(playbacks)){
+  pb_start <- start %>% filter(pb_num == playbacks$pb_num[i] & bda == playbacks$section[i])
+  pb_stop <- stop %>% filter(pb_num == playbacks$pb_num[i] & bda == playbacks$section[i])
+  playbacks$start_time[i] <- min(pb_start$time)
+  playbacks$end_time[i] <- max(pb_stop$time)
+}
+
+# calculate total duration of each experiment
+playbacks$duration <- playbacks$end_time - playbacks$start_time
+
+# create data frame containing total time each elephant is visible within each playback section
+in_frame <- data.frame(subject = rep(sort(unique(behav$subject)), each = 3),
+                       section = rep(c('before','during','after'), length(unique(behav$subject)))) %>% 
+  separate(subject, into = c('bull','pb_num'), remove = F, sep = '_e') %>% 
+  select(-bull) %>% 
+  mutate(pb_num = as.numeric(pb_num)) %>%
+  left_join(playbacks, by = c('pb_num','section')) %>% 
+  rename(video_duration = duration,
+         video_start = start_time,
+         video_end = end_time) %>% 
+  mutate(out_frame_seconds = NA,
+         in_frame_seconds = NA)
+for( i in 1:nrow(in_frame) ){
+  out_of_sight <- unseen %>%
+    filter(subject == in_frame$subject[i]) %>% 
+    filter(bda == in_frame$section[i])
+  in_frame$out_frame_seconds[i] <- sum(out_of_sight$duration)
+}
+in_frame$in_frame_seconds <- in_frame$video_duration - in_frame$out_frame_seconds
+
+# clean up
+rm(out_of_sight, pb_start, pb_stop, playbacks, start, stop, unseen, i) ; gc()
+
+## calculate proportion of time spent per activity -- NOT DONE YET  ####
+# create data frame showing amount of time spent on each behaviour by every elephant in each playback section
+num_eles <- length(unique(behav$subject))
+num_behav <- length(unique(behav$behaviour))
+props <- data.frame(subject = rep(rep(sort(unique(behav$subject)), each = 3), each = num_behav),
+                    section = rep(rep(c('before','during','after'), num_eles), each = num_behav),
+                    behaviour = rep(sort(unique(behav$behaviour)), num_eles*3)#,
+) %>% 
+  left_join(in_frame, by = c('subject','section')) %>% 
+  rename() %>% 
+  mutate(behav_seconds = NA,
+         propn = NA) %>% 
+  filter(behaviour != 'nearest neighbour: nearest neighbour') %>% 
+  filter(behaviour != 'OUT OF SIGHT: OUT OF SIGHT')
+
+# calculate time per elephant per playback section spent on each behaviour
+for( i in 1:nrow(props) ) {
+  elephant_behaviour <- behav %>%
+    filter(subject == props$subject[i]) %>% 
+    filter(bda == props$section[i]) %>% 
+    filter(behaviour == props$behaviour[i])
+  props$behav_seconds[i] <- ifelse(nrow(elephant_behaviour) == 0, 0, sum(elephant_behaviour$duration) )
+}
+
+# convert times to proportions so that duration in frame does not affect total
+props$propn <- props$behav_seconds / props$in_frame_seconds
+
+# add in additional information about each behaviour and elephant ages
+props <- props %>% 
+  left_join(distinct(behav[,c('behaviour', 'type', 'action', 'behavioral_category', 'target')]), by = 'behaviour') %>% 
+  left_join(distinct(df_eles[,c('subject','age', 'stim_num', 'stim_type', 'group_size')]), by = 'subject')
+
+# correct wrong age
+props$age <- ifelse(props$age == '16-25', '21-25', props$age) # experiment 19, bull1 listed as 16-25, which is not a correct age
+
+# save
+saveRDS(props, '../data_processed/speaker_vehicle_stress_behaviour_proportions.RDS')
+
+# clean up
+rm(elephant_behaviour, in_frame, i, num_behav, num_eles) ; gc()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## graph proportions -- NOT DONE YET ####
+#props <- readRDS('../data_processed/speaker_vehicle_stress_behaviour_proportions.RDS')
+theme_set(theme_classic())
+props$section <- factor(props$section, levels = c('before','during','after'))
+props$stimulus <- ifelse(props$stim_type == 'ctd', 'cape turtle dove (control)', 
+                         ifelse(props$stim_type == 'h', 'human', 'lion')) %>% 
+  factor(levels = c('cape turtle dove (control)','lion','human'))
+props$age <- factor(props$age, levels = c('10-15','16-20'))
+
+# looking direction relative to speaker and vehicle
+look <- props %>% 
+  filter(behavioral_category == 'look') %>% 
+  mutate(looking_direction = factor(action, levels = c('look at directly', 'side-on', 'look directly away'))) %>% 
+  filter(propn != 'NaN')
+ggplot(data = look, aes(x = section, y = propn, group = subject))+
+  geom_line(linewidth = 0.1, aes(colour = subject))+
+  geom_point(size = 0.1, alpha = 0.4, aes(colour = subject))+
+  facet_grid(looking_direction ~ target)+
+  scale_y_continuous('proportion of time visible on camera spent looking at vehicle and speaker')+
+  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
+  theme(legend.position = 'none')
+ggplot(data = look, aes(x = section, y = propn, group = subject))+
+  geom_line(linewidth = 0.2, aes(colour = stimulus))+
+  geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
+  facet_grid(looking_direction ~ target)+
+  scale_y_continuous('proportion of time visible on camera spent looking at vehicle and speaker')+
+  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
+  scale_colour_viridis_d(direction = -1)+
+  theme(legend.position = 'bottom')
+look$behaviour <- factor(look$behaviour, levels = c('speaker: look at directly','speaker: side-on','speaker: look directly away',
+                                                    'vehicle: look at directly','vehicle: side-on','vehicle: look directly away'))
+ggplot(data = look, aes(x = section, y = propn, group = subject))+
+  geom_line(linewidth = 0.2, aes(colour = age))+
+  geom_point(size = 0.4, alpha = 0.6, aes(colour = age))+
+  facet_grid(stimulus ~ behaviour)+
+  scale_y_continuous('proportion of time visible on camera spent looking at vehicle and speaker')+
+  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
+  scale_colour_viridis_d(direction = -1)+
+  theme(legend.position = 'bottom')
+ggplot(data = look, aes(x = section, y = propn, group = subject))+
+  geom_line(linewidth = 0.2, aes(colour = stimulus))+
+  geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
+  facet_grid(age ~ behaviour)+
+  scale_y_continuous('proportion of time visible on camera spent looking at vehicle and speaker')+
+  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
+  scale_colour_viridis_d(direction = -1)+
+  theme(legend.position = 'bottom')
+
+# movements relative to speaker and vehicle
+move <- props %>% 
+  filter(behavioral_category == 'move') %>% 
+  mutate(looking_direction = factor(action, levels = c('approach directly', 'approach at an angle', 'move neither towards or away', 'move away at an angle', 'move away directly'))) %>% 
+  filter(propn != 'NaN')
+ggplot(data = move, aes(x = section, y = propn, group = subject))+
+  geom_line(linewidth = 0.1, aes(colour = subject))+
+  geom_point(size = 0.1, alpha = 0.4, aes(colour = subject))+
+  facet_grid(looking_direction ~ target)+
+  scale_y_continuous('proportion of time visible on camera spent moving relative to vehicle and speaker')+
+  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
+  theme(legend.position = 'none')
+ggplot(data = move, aes(x = section, y = propn, group = subject))+
+  geom_line(linewidth = 0.2, aes(colour = stimulus))+
+  geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
+  facet_grid(looking_direction ~ target)+
+  scale_y_continuous('proportion of time visible on camera spent moving relative to vehicle and speaker')+
+  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
+  scale_colour_viridis_d(direction = -1)+
+  theme(legend.position = 'bottom')
+
+# trunk movements
+trunk <- props %>% 
+  filter(type == 'trunk') %>% 
+  mutate(action_trunk = ifelse(action == 'not sniffing (rest/feed/dust/stationary)', 'relaxed',
+                               ifelse(action == 'up and periscope sniffing', 'periscope sniff', 'ground-level sniff'))) %>% 
+  mutate(action_trunk = factor(action_trunk, levels = c('relaxed', 'ground-level sniff', 'periscope sniff'))) %>% 
+  filter(propn != 'NaN')
+ggplot(data = trunk, aes(x = section, y = propn, group = subject))+
+  geom_jitter(alpha = 0.4, aes(colour = stimulus), width = 0.3)+
+  facet_grid(stimulus ~ action_trunk)+
+  scale_y_continuous('proportion of time visible on camera spent using trunk')+
+  scale_x_discrete(expand = c(0.2,0.2), 'time relative to stimulus')+
+  scale_colour_viridis_d(direction = -1)+
+  theme(legend.position = 'bottom')
+
+# add a grouped and stacked bar plot with 9 bars, or 3 sets of 3 stacks: before/during/after and dove/lion/human, each one split into colours by proportion relaxed vs GL-sniff vs P-sniff -- DON'T THINK THIS IS ACTUALLY RIGHT, BUT ALSO DON'T THINK IT'S FAR OFF
+trunk_props <- trunk %>% select(section, action_trunk) %>% distinct()
+trunk_props$propn <- NA
+for(i in 1:nrow(trunk_props)){
+  x <- trunk %>% filter(section == trunk_props$section[i] &
+                          action_trunk == trunk_props$action[i])
+  trunk_props$propn[i] <- sum(x$propn)
+}
+trunk_props$propn_new <- NA
+for(bda in c('before','during','after')){
+  x <- trunk_props %>% filter(section == bda)
+  x$propn_new <- x$propn / sum(x$propn)
+  trunk_props$propn_new[which(trunk_props$section == bda)] <- x$propn_new
+}
+ggplot(data = trunk_props, aes(x = section, y = propn_new))+
+  geom_col(aes(fill = action_trunk))+
+  #facet_grid(stimulus ~ .)+
+  scale_y_continuous('proportion of time visible on camera spent using trunk')+
+  scale_x_discrete(expand = c(0.2,0.2), 'time relative to stimulus')+
+  scale_fill_viridis_d(direction = -1)+
+  labs(fill = '')+
+  theme(legend.position = 'bottom')
+
+# ear movements
+ears <- props %>% 
+  filter(type == 'ears') %>% 
+  mutate(action_ears = ifelse(action == 'relaxed (back or flapping regularly)', 'relaxed', action)) %>% 
+  mutate(action_ears = factor(action_ears, levels = c('relaxed', 'flared', 'not visible'))) %>% 
+  filter(propn != 'NaN')
+ggplot(data = ears, aes(x = section, y = propn, group = subject))+
+  geom_jitter(alpha = 0.4, aes(colour = stimulus), width = 0.3)+
+  facet_grid(stimulus ~ action_ears)+
+  scale_y_continuous('proportion of time visible on camera spent showing stress with ears and head position')+
+  scale_x_discrete(expand = c(0.2,0.2), 'time relative to stimulus')+
+  scale_colour_viridis_d(direction = -1)+
+  theme(legend.position = 'bottom')
+# add a grouped and stacked bar plot with 9 bars, or 3 sets of 3 stacks: before/during/after and dove/lion/human, each one split into colours by proportion relaxed vs flared
+
+# tail position
+tail <- props %>% 
+  filter(type == 'tail') %>% 
+  mutate(action_tail = factor(action, levels = c('down', 'up', 'not visible'))) %>% 
+  filter(propn != 'NaN') %>% 
+  filter(action != 'not visible') # STILL NEED TO REMOVE THIS FROM TOTAL TIME SO THAT RELAXED VS FLARED IS THE TOTAL 100% OF THE TIME
+ggplot(data = tail, aes(x = section, y = propn, group = subject))+
+  geom_jitter(alpha = 0.4, aes(colour = stimulus), width = 0.3)+
+  facet_grid(stimulus ~ action_tail)+
+  scale_y_continuous('proportion of time visible on camera spent showing stress in tail position')+
+  scale_x_discrete(expand = c(0.2,0.2), 'time relative to stimulus')+
+  scale_colour_viridis_d(direction = -1)+
+  theme(legend.position = 'bottom')
+# add a grouped and stacked bar plot with 9 bars, or 3 sets of 3 stacks: before/during/after and dove/lion/human, each one split into colours by proportion relaxed vs up
+
