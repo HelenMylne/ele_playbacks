@@ -386,6 +386,11 @@ df <- df %>%
   select(subject, behaviour, time, bda, status, type, action, behavioral_category, target, comment, pb_num, stim_num, stim_type, stim_start, stim_stop, stim_duration, activity_id, act_id, action_unique, activity_unique, group_size, age, bull, date, play_time, description)
 
 # run for loop
+animals_dont_work_on_windows <- c('anxiouscat', 'fish', 'grumpycat', 'longcat', 'longtailcat', 'mushroom', 'shortcat', 'signbunny', 'stretchycat')
+animals <- names(cowsay::animals)
+animals <- animals[! animals %in% animals_dont_work_on_windows ]
+rm(animals_dont_work_on_windows) ; gc()
+
 for(elephant_behaviour in 1:N){
   # select individual and behavioural set
   response <- df[df$activity_unique == id_behav[elephant_behaviour],] ; response <- response[is.na(response$time) == F,]
@@ -408,7 +413,7 @@ for(elephant_behaviour in 1:N){
   }
     
   if(length(which(response$order_correct == 'no')) > 0) {
-    cowsay::say('STOP: ORDER INCORRECT', by = names(cowsay::animals)[runif(1,1,length(names(cowsay::animals)))] )
+    cowsay::say('STOP: ORDER INCORRECT', by = animals[runif(1,1,length(animals))] )
     response$order_correct*response$order_correct # will throw an error and halt operation if 'no' is an option
   }
   if(length(which(response$order_correct == 'match')) > 0) {
@@ -443,7 +448,7 @@ for(elephant_behaviour in 1:N){
   }
   
   if(length(which(response$pairs_together == 'no')) > 0) {
-    cowsay::say('STOP: PAIRS NOT TOGETHER', by = names(cowsay::animals)[runif(1,1,length(names(cowsay::animals)))] )
+    cowsay::say('STOP: PAIRS NOT TOGETHER', by = animals[runif(1,1,length(animals))] )
     for(k in 1:(nrow(response)-1)){
       if(response$pairs_together[k] == 'no' & #response$pairs_together[k+1] == 'yes' &
          response$status[k] == 'START' & response$status[k+1] == 'START') {
@@ -465,7 +470,7 @@ for(elephant_behaviour in 1:N){
       response$pairs_together <- ifelse(response$status[1] == 'START' & response$status[2] == 'STOP', 'yes', 'no')
     }
     if(length(which(response$pairs_together == 'no')) > 0) {
-      cowsay::say('STOP: PAIRS NOT TOGETHER', by = names(cowsay::animals)[runif(1,1,length(names(cowsay::animals)))] )
+      cowsay::say('STOP: PAIRS NOT TOGETHER', by = animals[runif(1,1,length(animals))] )
       response$pairs_together*response$pairs_together # auto fail out if still hasn't worked
     }
   }
@@ -936,7 +941,7 @@ for(elephant_behaviour in 1:N){
   }
     
   if(length(which(response$order_correct == 'no')) > 0) {
-    cowsay::say('STOP: ORDER INCORRECT', by = names(cowsay::animals)[runif(1,1,length(names(cowsay::animals)))] )
+    cowsay::say('STOP: ORDER INCORRECT', by = animals[runif(1,1,length(animals))] )
     correct_in_boris$time_fails[which(correct_in_boris$id_behav == id_behav[elephant_behaviour])] <- list(response$time[which(response$order_correct == 'no')])
   }
   if(length(which(response$order_correct == 'match')) > 0) {
@@ -971,7 +976,7 @@ for(elephant_behaviour in 1:N){
   }
   
   if(length(which(response$pairs_together == 'no')) > 0) {
-    cowsay::say('STOP: PAIRS NOT TOGETHER', by = names(cowsay::animals)[runif(1,1,length(names(cowsay::animals)))] )
+    cowsay::say('STOP: PAIRS NOT TOGETHER', by = animals[runif(1,1,length(animals))] )
     for(k in 1:(nrow(response)-1)){
       if(response$pairs_together[k] == 'no' & #response$pairs_together[k+1] == 'yes' &
          response$status[k] == 'START' & response$status[k+1] == 'START') {
@@ -993,7 +998,7 @@ for(elephant_behaviour in 1:N){
       response$pairs_together <- ifelse(response$status[1] == 'START' & response$status[2] == 'STOP', 'yes', 'no')
     }
     if(length(which(response$pairs_together == 'no')) > 0) {
-      cowsay::say('STOP: PAIRS NOT TOGETHER', by = names(cowsay::animals)[runif(1,1,length(names(cowsay::animals)))] )
+      cowsay::say('STOP: PAIRS NOT TOGETHER', by = animals[runif(1,1,length(animals))] )
       correct_in_boris$time_fails[which(correct_in_boris$id_behav == id_behav[elephant_behaviour])] <- list(response$time[which(response$pairs_together == 'no')])
     }
   }
@@ -1298,26 +1303,28 @@ ggplot(data = move[move$action == 'move away directly',],
   theme(legend.position = 'bottom')+
   labs(title = 'move directly away from other elephants\n(rows = focal age, columns = partner age)')
 
-###### PROPORTIONS OF TIME PER ACTIVITY: NEAREST NEIGHBOUR -- NOT DONE YET ######
-## split into time before/during/after stimulus -- DONE AS FAR AS BIG LOOP ####
+###### PROPORTIONS OF TIME PER ACTIVITY: NEAREST NEIGHBOUR -- DONE, BUT HAVEN'T MESSED WITH EFFECT OF "unknown" NEIGHBOUR YET: WILL REDUCE TIME AVAILABLE TO BE NEAREST TO SPECIFIC ONES SO WILL CREATE A 0 TIME WHEN IT SHOULD BE AN NA TIME. ######
+## split into time before/during/after stimulus ####
+neighbour <- eles_long %>% 
+  filter(target == 'neighbour') %>% 
+  select(-elephant_looking_direction) %>% 
+  distinct()
 # filter out looking directions from neighbours
+rm(df, df_eles, eles, pt) ; gc()
 str(neighbour)
-sort(unique(neighbour$elephant_looking_direction))
+sort(unique(neighbour$comment))
 
 # standardise
-neighbour$neighbour <- ifelse(neighbour$elephant_looking_direction == 'b1' | 
-                                neighbour$elephant_looking_direction == 'b2' | 
-                                neighbour$elephant_looking_direction == 'b3' | 
-                                neighbour$elephant_looking_direction == 'b4' | 
-                                neighbour$elephant_looking_direction == 'b5' | 
-                                neighbour$elephant_looking_direction == 'b6' | 
-                                neighbour$elephant_looking_direction == 'b7' | 
-                                neighbour$elephant_looking_direction == 'b8',
-                              neighbour$elephant_looking_direction,
-                              'unknown')
+neighbour <- neighbour %>% 
+  separate(comment, into = c('neighbour','other'), remove = F, sep = ';') %>% 
+  mutate(neighbour = ifelse(neighbour == 'b1' | neighbour == 'b2' | 
+                              neighbour == 'b3' | neighbour == 'b4' | 
+                              neighbour == 'b5' | neighbour == 'b6' | 
+                              neighbour == 'b7' | neighbour == 'b8',
+                            neighbour, 'unknown'))
 
 # create set of individual/behaviour breakdowns to go through
-neighbour$elephant_neighbour_unique <- paste0(neighbour$subject,'_',neighbour$neighbour,'_')
+neighbour$elephant_neighbour_unique <- paste0(neighbour$subject,'_',neighbour$neighbour)
 id_behav <- sort(unique(neighbour$elephant_neighbour_unique))
 N <- length(id_behav)
 
@@ -1330,11 +1337,11 @@ neighbour <- neighbour %>%
 
 # set up list of ones which fail to come back to in BORIS
 correct_in_boris <- as.data.frame(id_behav) %>% 
-  separate(id_behav, into = c('bull', 'pb_num','target','type'), remove = F) %>% 
+  separate(id_behav, into = c('bull', 'pb_num','target'), remove = F) %>% 
   mutate(check = NA, time_fails = NA)
 
 # run for loop
-for(elephant_behaviour in 1:N){
+for(elephant_behaviour in 1:N){ # REMEMBER TO UNCOMMENT ANTI-JOIN ON LINE 1347 BEFORE RUNNING FOR REAL
   # select individual and behavioural set
   response <- neighbour[neighbour$elephant_neighbour_unique == id_behav[elephant_behaviour],]
   response <- response[is.na(response$time) == F,]
@@ -1357,7 +1364,7 @@ for(elephant_behaviour in 1:N){
   }
   
   if(length(which(response$order_correct == 'no')) > 0) {
-    cowsay::say('STOP: ORDER INCORRECT', by = names(cowsay::animals)[runif(1,1,length(names(cowsay::animals)))] )
+    cowsay::say('STOP: ORDER INCORRECT', by = animals[runif(1,1,length(animals))] )
     correct_in_boris$time_fails[which(correct_in_boris$id_behav == id_behav[elephant_behaviour])] <- list(response$time[which(response$order_correct == 'no')])
   }
   if(length(which(response$order_correct == 'match')) > 0) {
@@ -1392,7 +1399,7 @@ for(elephant_behaviour in 1:N){
   }
   
   if(length(which(response$pairs_together == 'no')) > 0) {
-    cowsay::say('STOP: PAIRS NOT TOGETHER', by = names(cowsay::animals)[runif(1,1,length(names(cowsay::animals)))] )
+    cowsay::say('STOP: PAIRS NOT TOGETHER', by = animals[runif(1,1,length(animals))] )
     for(k in 1:(nrow(response)-1)){
       if(response$pairs_together[k] == 'no' & #response$pairs_together[k+1] == 'yes' &
          response$status[k] == 'START' & response$status[k+1] == 'START') {
@@ -1414,7 +1421,7 @@ for(elephant_behaviour in 1:N){
       response$pairs_together <- ifelse(response$status[1] == 'START' & response$status[2] == 'STOP', 'yes', 'no')
     }
     if(length(which(response$pairs_together == 'no')) > 0) {
-      cowsay::say('STOP: PAIRS NOT TOGETHER', by = names(cowsay::animals)[runif(1,1,length(names(cowsay::animals)))] )
+      cowsay::say('STOP: PAIRS NOT TOGETHER', by = animals[runif(1,1,length(animals))] )
       correct_in_boris$time_fails[which(correct_in_boris$id_behav == id_behav[elephant_behaviour])] <- list(response$time[which(response$pairs_together == 'no')])
     }
   }
@@ -1495,20 +1502,21 @@ correct_in_boris <- correct_in_boris %>% filter(time_fails != 'NA')
 nrow(correct_in_boris)
 
 # clean up
-rm(correct_in_boris, response, response_split, elephant_behaviour, i, id_behav, j, k, N) ; gc()
+rm(correct_in_boris, response, response_split, elephant_behaviour, i, id_behav, N) ; gc()
 
-## calculate length of action by subtracting START time from STOP time -- NOT DONE YET ####
-# elephants <- readRDS('../data_processed/elephants_behaviour_split_relative_to_stimulus_elephantdirections.RDS')
+## calculate length of action by subtracting START time from STOP time ####
+# neighbour <- readRDS('../data_processed/elephants_behaviour_split_relative_to_stimulus_nearestneighbour.RDS')
 # create a variable with a unique value for every action, also split across before/during/after
-elephants$action_unique <- paste0(elephants$action_unique, '_', elephants$bda,'_',elephants$elephant_look)
-elephants$act_id <- as.integer(as.factor(elephants$action_unique))
+neighbour$action_unique <- paste0(neighbour$elephant_neighbour_unique, '_', neighbour$bda, '_', neighbour$activity_id)
+neighbour$act_id <- as.integer(as.factor(neighbour$action_unique))
+length(unique(neighbour$act_id))
 
 # combine start and stop lines for every action so it is a single row per behaviour
-start <- elephants %>% 
+start <- neighbour %>% 
   filter(status == 'START') %>% 
   select(subject,behaviour,time,act_id) %>% 
   rename(start_time = time)
-stop <- elephants %>% 
+stop <- neighbour %>% 
   filter(status == 'STOP') %>% 
   select(-subject, -behaviour, -status, -activity_unique, -activity_id) %>% 
   rename(stop_time = time)
@@ -1519,32 +1527,24 @@ behav <- left_join(start, stop, by = 'act_id') %>%
 behav$duration <- behav$stop_time - behav$start_time
 
 # neaten up
-behav <- behav[,c(1:5,27,6:26)]
+behav <- behav[,c(1:5,28,6:27)]
 
-## calculate proportion of time spent per activity -- NOT DONE YET ####
+## calculate proportion of time spent per activity ####
 # read in time in frame per elephant
-in_frame <- read_csv('../data_processed/elephants_time_in_frame.csv')
+#in_frame <- read_csv('../data_processed/elephants_time_in_frame.csv')
 #df_eles <- readRDS('../data_processed/elephants.RDS')
 
 # create data frame showing amount of time spent on each behaviour by every elephant in each playback section
 num_eles <- length(unique(behav$subject))
-num_behav <- length(unique(behav$behaviour))
-props <- data.frame(subject = rep(rep(rep(sort(unique(behav$subject)),
-                                          each = 8),
-                                      each = num_behav),
+props <- data.frame(subject = rep(rep(sort(unique(behav$subject)),
+                                      each = 8),
                                   each = 3),
-                    dyad_partner = rep(rep(rep(c('b1','b2','b3','b4','b5','b6','b7','b8'),
-                                               num_eles),
-                                           each = num_behav),
+                    dyad_partner = rep(rep(c('b1','b2','b3','b4','b5','b6','b7','b8'),
+                                           num_eles),
                                        each = 3),
-                    behaviour = rep(rep(rep(sort(unique(behav$behaviour)),
-                                            num_eles),
-                                        8),
-                                    each = 3),
-                    section = rep(rep(rep(c('before','during','after'),
-                                          8),
-                                      num_eles),
-                                  num_behav)) %>% 
+                    section = rep(rep(c('before','during','after'),
+                                      8),
+                                  num_eles)) %>% 
   separate(subject, into = c('focal','pb_num'), sep = '_e', remove = F) %>% 
   filter(focal != dyad_partner) %>% 
   mutate(pb_num = as.numeric(pb_num)) %>% 
@@ -1556,12 +1556,11 @@ props <- data.frame(subject = rep(rep(rep(sort(unique(behav$subject)),
 
 # calculate time per elephant per playback section spent on each behaviour
 for( i in 1:nrow(props) ) {
-  elephant_behaviour <- behav %>%
+  nearest <- behav %>%
     filter(subject == props$subject[i]) %>% 
-    filter(elephant_look == props$dyad_partner[i]) %>% 
-    filter(bda == props$section[i]) %>% 
-    filter(behaviour == props$behaviour[i])
-  props$behav_seconds[i] <- ifelse(nrow(elephant_behaviour) == 0, 0, sum(elephant_behaviour$duration) )
+    filter(neighbour == props$dyad_partner[i]) %>% 
+    filter(bda == props$section[i])
+  props$behav_seconds[i] <- ifelse(nrow(nearest) == 0, 0, sum(nearest$duration) )
 }
 
 # convert times to proportions so that duration in frame does not affect total
@@ -1569,7 +1568,6 @@ props$propn <- props$behav_seconds / props$in_frame_seconds
 
 # add in additional information about each behaviour and elephant ages
 props <- props %>% 
-  left_join(distinct(behav[,c('behaviour', 'action', 'behavioral_category')]), by = 'behaviour') %>% 
   left_join(distinct(df_eles[,c('subject','age', 'stim_num', 'stim_type', 'group_size')]), by = 'subject')
 partner_info <- df_eles %>% 
   select(subject, age) %>% 
@@ -1598,9 +1596,9 @@ props$age_difference <- ifelse(props$age_category == props$partner_age_category,
                                       'partner younger', 'partner older'))
 
 # save
-saveRDS(props, '../data_processed/elephant_behaviour_proportions.RDS')
+saveRDS(props, '../data_processed/neighbour_behaviour_proportions.RDS')
 
-## graph proportions -- NOT DONE YET ####
+## graph proportions ####
 #props <- readRDS('../data_processed/elephant_behaviour_proportions.RDS')
 props$section <- factor(props$section, levels = c('before','during','after'))
 props$stimulus <- ifelse(props$stim_type == 'ctd', 'cape turtle dove (control)', 
@@ -1612,23 +1610,21 @@ props$age_difference <- factor(props$age_difference,
                                levels = c('partner younger','matched','partner older'))
 props$dyad <- paste0('e',props$pb_num,'_', props$focal,'_', props$dyad_partner)
 
-# looking direction relative to elephants
-look <- props %>% 
-  filter(behavioral_category == 'look') %>% 
-  mutate(looking_direction = factor(action, levels = c('look at directly', 'side-on', 'look directly away'))) %>% 
-  filter(propn != 'NaN')
-
-ggplot(data = look, aes(x = section, y = propn, group = dyad))+
+# nearest neighbour
+props %>% 
+  filter(propn != 'NaN') %>% 
+  ggplot(aes(x = section, y = propn, group = dyad))+
   geom_line(linewidth = 0.2, aes(colour = stimulus))+
   geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
-  facet_grid(looking_direction ~ age_difference)+
-  scale_y_continuous('proportion of time visible on camera spent looking at other elephants')+
+  facet_grid(stimulus ~ age_difference)+
+  scale_y_continuous('proportion of time visible on camera spent closest to other elephants')+
   scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
   scale_colour_viridis_d(direction = -1)+
   theme(legend.position = 'bottom')
 
-ggplot(data = look[look$action == 'look at directly',],
-       aes(x = section, y = propn, group = dyad))+
+props %>% 
+  filter(propn != 'NaN') %>% 
+  ggplot(aes(x = section, y = propn, group = dyad))+
   geom_line(linewidth = 0.2, aes(colour = stimulus))+
   geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
   facet_grid(age ~ partner_age)+  # columns = partner age, rows = focal age
@@ -1636,539 +1632,4 @@ ggplot(data = look[look$action == 'look at directly',],
   scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
   scale_colour_viridis_d(direction = -1)+
   theme(legend.position = 'bottom')+
-  labs(title = 'look directly at other elephants\n(rows = focal age, columns = partner age)')
-
-ggplot(data = look[look$action == 'side-on',],
-       aes(x = section, y = propn, group = dyad))+
-  geom_line(linewidth = 0.2, aes(colour = stimulus))+
-  geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
-  facet_grid(age ~ partner_age)+
-  scale_y_continuous('proportion of time visible on camera spent looking at other elephants')+
-  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
-  scale_colour_viridis_d(direction = -1)+
-  theme(legend.position = 'bottom')+
-  labs(title = 'side on to other elephants\n(rows = focal age, columns = partner age)')
-
-ggplot(data = look[look$action == 'look directly away',],
-       aes(x = section, y = propn, group = dyad))+
-  geom_line(linewidth = 0.2, aes(colour = stimulus))+
-  geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
-  facet_grid(age ~ partner_age)+
-  scale_y_continuous('proportion of time visible on camera spent looking at other elephants')+
-  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
-  scale_colour_viridis_d(direction = -1)+
-  theme(legend.position = 'bottom')+
-  labs(title = 'look directly away from other elephants\n(rows = focal age, columns = partner age)')
-
-# movements relative to elephants
-move <- props %>% 
-  filter(behavioral_category == 'move') %>% 
-  mutate(looking_direction = factor(action, levels = c('approach directly', 'approach at an angle', 'move neither towards or away', 'move away at an angle', 'move away directly'))) %>% 
-  filter(propn != 'NaN')
-
-ggplot(data = move, aes(x = section, y = propn, group = dyad))+
-  geom_line(linewidth = 0.2, aes(colour = stimulus))+
-  geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
-  facet_grid(looking_direction ~ age_difference)+
-  scale_y_continuous('proportion of time visible on camera spent moving at other elephants')+
-  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
-  scale_colour_viridis_d(direction = -1)+
-  theme(legend.position = 'bottom')
-
-ggplot(data = move[move$action == 'approach directly',],
-       aes(x = section, y = propn, group = dyad))+
-  geom_line(linewidth = 0.2, aes(colour = stimulus))+
-  geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
-  facet_grid(age ~ partner_age)+  # columns = partner age, rows = focal age
-  scale_y_continuous('proportion of time visible on camera spent moving at other elephants')+
-  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
-  scale_colour_viridis_d(direction = -1)+
-  theme(legend.position = 'bottom')+
-  labs(title = 'move directly towards other elephants\n(rows = focal age, columns = partner age)')
-
-ggplot(data = move[move$action == 'approach at an angle',],
-       aes(x = section, y = propn, group = dyad))+
-  geom_line(linewidth = 0.2, aes(colour = stimulus))+
-  geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
-  facet_grid(age ~ partner_age)+
-  scale_y_continuous('proportion of time visible on camera spent moving at other elephants')+
-  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
-  scale_colour_viridis_d(direction = -1)+
-  theme(legend.position = 'bottom')+
-  labs(title = 'move indirectly towards other elephants\n(rows = focal age, columns = partner age)')
-
-ggplot(data = move[move$action == 'move away at an angle',],
-       aes(x = section, y = propn, group = dyad))+
-  geom_line(linewidth = 0.2, aes(colour = stimulus))+
-  geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
-  facet_grid(age ~ partner_age)+
-  scale_y_continuous('proportion of time visible on camera spent moving at other elephants')+
-  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
-  scale_colour_viridis_d(direction = -1)+
-  theme(legend.position = 'bottom')+
-  labs(title = 'move indirectly away from other elephants\n(rows = focal age, columns = partner age)')
-
-ggplot(data = move[move$action == 'move away directly',],
-       aes(x = section, y = propn, group = dyad))+
-  geom_line(linewidth = 0.2, aes(colour = stimulus))+
-  geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
-  facet_grid(age ~ partner_age)+
-  scale_y_continuous('proportion of time visible on camera spent moving at other elephants')+
-  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
-  scale_colour_viridis_d(direction = -1)+
-  theme(legend.position = 'bottom')+
-  labs(title = 'move directly away from other elephants\n(rows = focal age, columns = partner age)')
-
-###### PROPORTIONS OF TIME PER ACTIVITY: SOCIAL BEHAVIOUR -- NOT DONE YET ######
-## split into time before/during/after stimulus -- NOT DONE YET ####
-# split into separate elephants it's relative to
-eles$comment <- ifelse(eles$comment == 'b2_right; b3_right', 'b2_right;b3_right',
-                       ifelse(eles$comment == 'b3;b4;5b;b6;b7', 'b3;b4;b5;b6;b7',
-                              ifelse(eles$comment == 'b1;b2b4', 'b1;b2;b4',
-                                     ifelse(eles$comment == 'b1;b2;b3:b4', 'b1;b2;b3;b4',
-                                            eles$comment))))
-
-eles_long <- eles %>% 
-  separate(comment, into = c('ele1','ele2','ele3','ele4','ele5','ele6','ele7','ele8'), sep = ';', remove = F) %>% 
-  pivot_longer(cols = c('ele1','ele2','ele3','ele4','ele5','ele6','ele7','ele8'),
-               names_to = 'ele_num', values_to = 'elephant_looking_direction') %>% 
-  filter(is.na(elephant_looking_direction) == F) %>% 
-  select(-ele_num)
-
-# filter out looking directions from neighbours
-neighbour <- eles_long %>% filter(target == 'neighbour')
-elephants <- eles_long %>% filter(target == 'elephant')
-
-# separate out left and right for side-on
-sort(unique(elephants$elephant_looking_direction))
-elephants$elephant_looking_direction <- ifelse(elephants$elephant_looking_direction == 'backs_away_from_b4','backs away from b4',
-                                               ifelse(elephants$elephant_looking_direction == "displaced_by_b2","displaced by b2",
-                                                      ifelse(elephants$elephant_looking_direction == "displaces_b1","displaces b1",
-                                                             ifelse(elephants$elephant_looking_direction == "mock_charge_vehicle","mock charge vehicle",
-                                                                    ifelse(elephants$elephant_looking_direction == "no_obvious_stimulus","no obvious stimulus",
-                                                                           ifelse(elephants$elephant_looking_direction == "pushed_by_b2","pushed by b2",
-                                                                                  ifelse(elephants$elephant_looking_direction == "reverse_away","reverse away",
-                                                                                         ifelse(elephants$elephant_looking_direction == "reverse_towards","reverse towards"
-                                                                                                ,ifelse(elephants$elephant_looking_direction == "very_slow","very slow",
-                                                                                                        ifelse(elephants$elephant_looking_direction == "very_slowly","very slow",
-                                                                                                               elephants$elephant_looking_direction))))))))))
-elephants <- elephants %>% 
-  rename(elephant_comment = elephant_looking_direction,
-         behaviour = behavior) %>% 
-  separate(elephant_comment, into = c('elephant_look','elephant_side'), sep = '_', remove = F)
-other_comments <- elephants %>% 
-  filter(elephant_look != 'b1') %>% filter(elephant_look != 'b2') %>% 
-  filter(elephant_look != 'b3') %>% filter(elephant_look != 'b4') %>% 
-  filter(elephant_look != 'b5') %>% filter(elephant_look != 'b6') %>% 
-  filter(elephant_look != 'b7') %>% filter(elephant_look != 'b8')
-sort(unique(elephants$elephant_look))
-elephants <- elephants %>% 
-  filter(elephant_look == 'b1' | elephant_look == 'b2' | elephant_look == 'b3' | elephant_look == 'b4' |
-           elephant_look == 'b5' | elephant_look == 'b6' | elephant_look == 'b7' | elephant_look == 'b8') %>% 
-  mutate(remove_pb18_b7 = paste0(pb_num,elephant_look)) %>% 
-  filter(remove_pb18_b7 != '18b7') %>% 
-  select(-remove_pb18_b7)
-
-# create set of individual/behaviour breakdowns to go through
-sort(unique(elephants$elephant_look))
-elephants$elephant_look_unique <- paste0(elephants$subject,'_',elephants$elephant_look,'_', elephants$behavioral_category)
-id_behav <- sort(unique(elephants$elephant_look_unique))
-N <- length(id_behav)
-
-# prep data frame for rbind at end of loop, to put all of the levels back together
-elephants <- elephants %>% 
-  mutate(activity_id = rep(NA, nrow(elephants)),
-         act_id = rep(NA, nrow(elephants)),
-         action_unique = rep(NA, nrow(elephants))) %>% 
-  select(subject, behaviour, time, bda, status, type, action, behavioral_category, target, elephant_look, elephant_look_unique, comment, pb_num, stim_num, stim_type, stim_start, stim_stop, stim_duration, activity_id, act_id, action_unique, activity_unique, group_size, age, bull, date, play_time, description)
-
-# set up list of ones which fail to come back to in BORIS
-correct_in_boris <- as.data.frame(id_behav) %>% 
-  separate(id_behav, into = c('bull', 'pb_num','target','type'), remove = F) %>% 
-  mutate(check = NA, time_fails = NA)
-
-# run for loop
-for(elephant_behaviour in 1:N){
-  # select individual and behavioural set
-  response <- elephants[elephants$elephant_look_unique == id_behav[elephant_behaviour],]
-  response <- response[is.na(response$time) == F,]
-  elephants <- anti_join(elephants, response)
-  
-  # check in correct order
-  response$order_correct <- NA
-  response$order_correct[1] <- ifelse(response$time[1] < response$time[2], 'yes', 
-                                      ifelse(response$time[1] == response$time[2], 'match', 'no'))
-  if(nrow(response) > 2 ) {
-    for(i in 2:(nrow(response)-1)){
-      response$order_correct[i] <- ifelse(response$time[i] < response$time[i+1] &
-                                            response$time[i] > response$time[i-1], 'yes', 
-                                          ifelse(response$time[i] == response$time[i+1] |
-                                                   response$time[i] == response$time[i-1], 'match',
-                                                 'no'))
-    }
-  } else {
-    response$order_correct <- ifelse(response$time[1] < response$time[2], 'yes', 'no')
-  }
-  
-  if(length(which(response$order_correct == 'no')) > 0) {
-    cowsay::say('STOP: ORDER INCORRECT', by = names(cowsay::animals)[runif(1,1,length(names(cowsay::animals)))] )
-    correct_in_boris$time_fails[which(correct_in_boris$id_behav == id_behav[elephant_behaviour])] <- list(response$time[which(response$order_correct == 'no')])
-  }
-  if(length(which(response$order_correct == 'match')) > 0) {
-    matching_times <- response[response$order_correct == 'match',]
-    matching_times <- matching_times[!is.na(matching_times$order_correct),]
-    response <- anti_join(response,matching_times)
-    matching_times$change <- as.integer(as.factor(matching_times$time))
-    for(j in unique(matching_times$change)){
-      pair <- matching_times[matching_times$change == j,]
-      matching_times <- anti_join(matching_times, pair)
-      pair <- pair[!is.na(pair$change),]
-      pair$time[which(pair$status == 'STOP')] <- pair$time[which(pair$status == 'STOP')] - 0.001
-      matching_times <- rbind(matching_times, pair)
-    }
-    matching_times <- matching_times %>%
-      select(-change) %>% 
-      arrange(time)
-    response <- rbind(response, matching_times) %>% 
-      arrange(time)
-    rm(matching_times, pair)
-  }
-  
-  # check pairs are together (should be if all in correct order!)
-  response$pairs_together <- NA
-  if(nrow(response) > 2 ) {
-    for(i in 1:(nrow(response)-1)){
-      response$pairs_together[i] <- ifelse(response$status[i] == 'START' & response$status[i+1] == 'STOP', 'yes',
-                                           ifelse(response$status[i] == 'STOP' & response$status[i+1] == 'START', 'yes', 'no'))
-    }
-  } else {
-    response$pairs_together <- ifelse(response$status[1] == 'START' & response$status[2] == 'STOP', 'yes', 'no')
-  }
-  
-  if(length(which(response$pairs_together == 'no')) > 0) {
-    cowsay::say('STOP: PAIRS NOT TOGETHER', by = names(cowsay::animals)[runif(1,1,length(names(cowsay::animals)))] )
-    for(k in 1:(nrow(response)-1)){
-      if(response$pairs_together[k] == 'no' & #response$pairs_together[k+1] == 'yes' &
-         response$status[k] == 'START' & response$status[k+1] == 'START') {
-        response$time[k+1] <- response$time[k+1]+0.001
-      }
-      if(response$pairs_together[k] == 'no' & #response$pairs_together[k+1] == 'yes' &
-         response$status[k] == 'STOP' & response$status[k+1] == 'STOP') {
-        response$time[k] <- response$time[k]-0.001
-      }
-    }
-    response <- response %>% arrange(time)
-    # repeat to ensure has now worked
-    if(nrow(response) > 2 ) {
-      for(i in 1:(nrow(response)-1)){
-        response$pairs_together[i] <- ifelse(response$status[i] == 'START' & response$status[i+1] == 'STOP', 'yes',
-                                             ifelse(response$status[i] == 'STOP' & response$status[i+1] == 'START', 'yes', 'no'))
-      }
-    } else {
-      response$pairs_together <- ifelse(response$status[1] == 'START' & response$status[2] == 'STOP', 'yes', 'no')
-    }
-    if(length(which(response$pairs_together == 'no')) > 0) {
-      cowsay::say('STOP: PAIRS NOT TOGETHER', by = names(cowsay::animals)[runif(1,1,length(names(cowsay::animals)))] )
-      correct_in_boris$time_fails[which(correct_in_boris$id_behav == id_behav[elephant_behaviour])] <- list(response$time[which(response$pairs_together == 'no')])
-    }
-  }
-  
-  # add label per start/stop pair
-  response$act_id <- rep(1:(nrow(response)/2), each = 2)
-  response$action_unique <- paste0(response$act_id,'_',response$subject,'_',response$type,'_',response$action)
-  
-  # for pairs that span across multiple parts of experiment, create variable indicating which parts
-  response$bda_split <- NA; for(i in 1:nrow(response)){
-    x <- response[response$act_id == response$act_id[i],]
-    response$bda_split[i] <- ifelse(x$bda[1] == x$bda[2], 'no',
-                                    ifelse(x$bda[1] == 'before',
-                                           ifelse(x$bda[2] == 'during', 'bd','ba'),
-                                           'da'))
-  }
-  rm(x)
-  
-  # single split pairs that span before-during or during-after. double split pairs that span before-after.
-  if(length(which(response$bda_split != 'no') > 0)) {
-    response_split <- response[response$bda_split != 'no',]
-    response <- anti_join(response, response_split)
-    if('bd' %in% response_split$bda_split) {
-      bd <- response_split[response_split$bda_split == 'bd',]
-      response_split <- anti_join(response_split, bd)
-      bd <- rbind(bd, bd)
-      bd$time[2] <- bd$stim_start[1]-0.001
-      bd$time[3] <- bd$stim_start[1]
-      response_split <- rbind(bd, response_split)
-      rm(bd)
-    }
-    if('da' %in% response_split$bda_split) {
-      da <- response_split[response_split$bda_split == 'da',]
-      response_split <- anti_join(response_split, da)
-      da <- rbind(da, da)
-      da$time[2] <- da$stim_stop[1]
-      da$time[3] <- da$stim_stop[1]+0.001
-      response_split <- rbind(response_split, da)
-      rm(da)
-    }
-    if('ba' %in% response_split$bda_split) {
-      ba <- response_split[response_split$bda_split == 'ba',]
-      response_split <- anti_join(response_split, ba)
-      ba <- rbind(ba, ba, ba)
-      ba$time[2] <- ba$stim_start[1]-0.001
-      ba$time[3] <- ba$stim_start[1]
-      ba$time[4] <- ba$stim_stop[1]
-      ba$time[5] <- ba$stim_stop[1]+0.001
-      response_split <- rbind(response_split, ba)
-      rm(ba)
-    } 
-    
-    # re-calculate which section each one goes in
-    response_split$bda <- ifelse(response_split$time < response_split$stim_start, 'before',
-                                 ifelse(response_split$time > response_split$stim_stop, 'after', 'during'))
-    
-    # recombine into individual elephant actions per category
-    response <- rbind(response, response_split)
-    
-  }
-  response <- response %>% 
-    arrange(time) %>% 
-    mutate(activity_id = as.numeric(as.factor(paste0(action_unique, bda)))) %>%
-    select(-order_correct, -pairs_together, -bda_split)
-  
-  # recombine into full dataset
-  elephants <- rbind(elephants, response)
-  
-  # clean up
-  gc()
-  
-}
-
-saveRDS(elephants, '../data_processed/elephants_behaviour_split_relative_to_stimulus_elephantdirections.RDS')
-
-# ones to go back and check on
-correct_in_boris <- correct_in_boris %>% filter(time_fails != 'NA')
-nrow(correct_in_boris)
-
-# clean up
-rm(correct_in_boris, response, response_split, elephant_behaviour, i, id_behav, j, k, N) ; gc()
-
-## calculate length of action by subtracting START time from STOP time -- NOT DONE YET ####
-# elephants <- readRDS('../data_processed/elephants_behaviour_split_relative_to_stimulus_elephantdirections.RDS')
-# create a variable with a unique value for every action, also split across before/during/after
-elephants$action_unique <- paste0(elephants$action_unique, '_', elephants$bda,'_',elephants$elephant_look)
-elephants$act_id <- as.integer(as.factor(elephants$action_unique))
-
-# combine start and stop lines for every action so it is a single row per behaviour
-start <- elephants %>% 
-  filter(status == 'START') %>% 
-  select(subject,behaviour,time,act_id) %>% 
-  rename(start_time = time)
-stop <- elephants %>% 
-  filter(status == 'STOP') %>% 
-  select(-subject, -behaviour, -status, -activity_unique, -activity_id) %>% 
-  rename(stop_time = time)
-behav <- left_join(start, stop, by = 'act_id') %>% 
-  relocate(act_id)
-
-# calculate duration of each behaviour
-behav$duration <- behav$stop_time - behav$start_time
-
-# neaten up
-behav <- behav[,c(1:5,27,6:26)]
-
-## calculate proportion of time spent per activity -- NOT DONE YET ####
-# read in time in frame per elephant
-in_frame <- read_csv('../data_processed/elephants_time_in_frame.csv')
-#df_eles <- readRDS('../data_processed/elephants.RDS')
-
-# create data frame showing amount of time spent on each behaviour by every elephant in each playback section
-num_eles <- length(unique(behav$subject))
-num_behav <- length(unique(behav$behaviour))
-props <- data.frame(subject = rep(rep(rep(sort(unique(behav$subject)),
-                                          each = 8),
-                                      each = num_behav),
-                                  each = 3),
-                    dyad_partner = rep(rep(rep(c('b1','b2','b3','b4','b5','b6','b7','b8'),
-                                               num_eles),
-                                           each = num_behav),
-                                       each = 3),
-                    behaviour = rep(rep(rep(sort(unique(behav$behaviour)),
-                                            num_eles),
-                                        8),
-                                    each = 3),
-                    section = rep(rep(rep(c('before','during','after'),
-                                          8),
-                                      num_eles),
-                                  num_behav)) %>% 
-  separate(subject, into = c('focal','pb_num'), sep = '_e', remove = F) %>% 
-  filter(focal != dyad_partner) %>% 
-  mutate(pb_num = as.numeric(pb_num)) %>% 
-  mutate(targeted_elephant = paste0(dyad_partner, '_e', pb_num)) %>% 
-  filter(targeted_elephant %in% behav$subject) %>% 
-  left_join(in_frame, by = c('subject','pb_num','section')) %>% 
-  mutate(behav_seconds = NA,
-         propn = NA)
-
-# calculate time per elephant per playback section spent on each behaviour
-for( i in 1:nrow(props) ) {
-  elephant_behaviour <- behav %>%
-    filter(subject == props$subject[i]) %>% 
-    filter(elephant_look == props$dyad_partner[i]) %>% 
-    filter(bda == props$section[i]) %>% 
-    filter(behaviour == props$behaviour[i])
-  props$behav_seconds[i] <- ifelse(nrow(elephant_behaviour) == 0, 0, sum(elephant_behaviour$duration) )
-}
-
-# convert times to proportions so that duration in frame does not affect total
-props$propn <- props$behav_seconds / props$in_frame_seconds
-
-# add in additional information about each behaviour and elephant ages
-props <- props %>% 
-  left_join(distinct(behav[,c('behaviour', 'action', 'behavioral_category')]), by = 'behaviour') %>% 
-  left_join(distinct(df_eles[,c('subject','age', 'stim_num', 'stim_type', 'group_size')]), by = 'subject')
-partner_info <- df_eles %>% 
-  select(subject, age) %>% 
-  distinct() %>% 
-  rename(targeted_elephant = subject,
-         partner_age = age) %>% 
-  mutate(partner_age = ifelse(targeted_elephant == 'b1_e19', '21-25',
-                              partner_age))
-props <- props %>% 
-  left_join(partner_info, by = 'targeted_elephant')
-
-# correct wrong age
-props$age <- ifelse(props$age == '16-25', '21-25', props$age) # experiment 19, bull1 listed as 16-25, which is not a correct age
-
-# age differences
-props$age_category <- ifelse(props$age == '10-15', 1,
-                             ifelse(props$age == '16-20', 2,
-                                    ifelse(props$age == '21-25', 3,
-                                           ifelse(props$age == '26-35', 4, NA))))
-props$partner_age_category <- ifelse(props$partner_age == '10-15', 1,
-                                     ifelse(props$partner_age == '16-20', 2,
-                                            ifelse(props$partner_age == '21-25', 3,
-                                                   ifelse(props$partner_age == '26-35', 4, NA))))
-props$age_difference <- ifelse(props$age_category == props$partner_age_category, 'matched',
-                               ifelse(props$age_category > props$partner_age_category,
-                                      'partner younger', 'partner older'))
-
-# save
-saveRDS(props, '../data_processed/elephant_behaviour_proportions.RDS')
-
-## graph proportions -- NOT DONE YET ####
-#props <- readRDS('../data_processed/elephant_behaviour_proportions.RDS')
-props$section <- factor(props$section, levels = c('before','during','after'))
-props$stimulus <- ifelse(props$stim_type == 'ctd', 'cape turtle dove (control)', 
-                         ifelse(props$stim_type == 'h', 'human', 'lion')) %>% 
-  factor(levels = c('cape turtle dove (control)','lion','human'))
-props$age <- factor(props$age, levels = c('10-15','16-20','21-25','26-35','unkage'))
-props$partner_age <- factor(props$partner_age, levels = c('10-15','16-20','21-25','26-35','unkage'))
-props$age_difference <- factor(props$age_difference,
-                               levels = c('partner younger','matched','partner older'))
-props$dyad <- paste0('e',props$pb_num,'_', props$focal,'_', props$dyad_partner)
-
-# looking direction relative to elephants
-look <- props %>% 
-  filter(behavioral_category == 'look') %>% 
-  mutate(looking_direction = factor(action, levels = c('look at directly', 'side-on', 'look directly away'))) %>% 
-  filter(propn != 'NaN')
-
-ggplot(data = look, aes(x = section, y = propn, group = dyad))+
-  geom_line(linewidth = 0.2, aes(colour = stimulus))+
-  geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
-  facet_grid(looking_direction ~ age_difference)+
-  scale_y_continuous('proportion of time visible on camera spent looking at other elephants')+
-  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
-  scale_colour_viridis_d(direction = -1)+
-  theme(legend.position = 'bottom')
-
-ggplot(data = look[look$action == 'look at directly',],
-       aes(x = section, y = propn, group = dyad))+
-  geom_line(linewidth = 0.2, aes(colour = stimulus))+
-  geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
-  facet_grid(age ~ partner_age)+  # columns = partner age, rows = focal age
-  scale_y_continuous('proportion of time visible on camera spent looking at other elephants')+
-  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
-  scale_colour_viridis_d(direction = -1)+
-  theme(legend.position = 'bottom')+
-  labs(title = 'look directly at other elephants\n(rows = focal age, columns = partner age)')
-
-ggplot(data = look[look$action == 'side-on',],
-       aes(x = section, y = propn, group = dyad))+
-  geom_line(linewidth = 0.2, aes(colour = stimulus))+
-  geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
-  facet_grid(age ~ partner_age)+
-  scale_y_continuous('proportion of time visible on camera spent looking at other elephants')+
-  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
-  scale_colour_viridis_d(direction = -1)+
-  theme(legend.position = 'bottom')+
-  labs(title = 'side on to other elephants\n(rows = focal age, columns = partner age)')
-
-ggplot(data = look[look$action == 'look directly away',],
-       aes(x = section, y = propn, group = dyad))+
-  geom_line(linewidth = 0.2, aes(colour = stimulus))+
-  geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
-  facet_grid(age ~ partner_age)+
-  scale_y_continuous('proportion of time visible on camera spent looking at other elephants')+
-  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
-  scale_colour_viridis_d(direction = -1)+
-  theme(legend.position = 'bottom')+
-  labs(title = 'look directly away from other elephants\n(rows = focal age, columns = partner age)')
-
-# movements relative to elephants
-move <- props %>% 
-  filter(behavioral_category == 'move') %>% 
-  mutate(looking_direction = factor(action, levels = c('approach directly', 'approach at an angle', 'move neither towards or away', 'move away at an angle', 'move away directly'))) %>% 
-  filter(propn != 'NaN')
-
-ggplot(data = move, aes(x = section, y = propn, group = dyad))+
-  geom_line(linewidth = 0.2, aes(colour = stimulus))+
-  geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
-  facet_grid(looking_direction ~ age_difference)+
-  scale_y_continuous('proportion of time visible on camera spent moving at other elephants')+
-  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
-  scale_colour_viridis_d(direction = -1)+
-  theme(legend.position = 'bottom')
-
-ggplot(data = move[move$action == 'approach directly',],
-       aes(x = section, y = propn, group = dyad))+
-  geom_line(linewidth = 0.2, aes(colour = stimulus))+
-  geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
-  facet_grid(age ~ partner_age)+  # columns = partner age, rows = focal age
-  scale_y_continuous('proportion of time visible on camera spent moving at other elephants')+
-  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
-  scale_colour_viridis_d(direction = -1)+
-  theme(legend.position = 'bottom')+
-  labs(title = 'move directly towards other elephants\n(rows = focal age, columns = partner age)')
-
-ggplot(data = move[move$action == 'approach at an angle',],
-       aes(x = section, y = propn, group = dyad))+
-  geom_line(linewidth = 0.2, aes(colour = stimulus))+
-  geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
-  facet_grid(age ~ partner_age)+
-  scale_y_continuous('proportion of time visible on camera spent moving at other elephants')+
-  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
-  scale_colour_viridis_d(direction = -1)+
-  theme(legend.position = 'bottom')+
-  labs(title = 'move indirectly towards other elephants\n(rows = focal age, columns = partner age)')
-
-ggplot(data = move[move$action == 'move away at an angle',],
-       aes(x = section, y = propn, group = dyad))+
-  geom_line(linewidth = 0.2, aes(colour = stimulus))+
-  geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
-  facet_grid(age ~ partner_age)+
-  scale_y_continuous('proportion of time visible on camera spent moving at other elephants')+
-  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
-  scale_colour_viridis_d(direction = -1)+
-  theme(legend.position = 'bottom')+
-  labs(title = 'move indirectly away from other elephants\n(rows = focal age, columns = partner age)')
-
-ggplot(data = move[move$action == 'move away directly',],
-       aes(x = section, y = propn, group = dyad))+
-  geom_line(linewidth = 0.2, aes(colour = stimulus))+
-  geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
-  facet_grid(age ~ partner_age)+
-  scale_y_continuous('proportion of time visible on camera spent moving at other elephants')+
-  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
-  scale_colour_viridis_d(direction = -1)+
-  theme(legend.position = 'bottom')+
-  labs(title = 'move directly away from other elephants\n(rows = focal age, columns = partner age)')
+  labs(title = 'neighbour ages\n(rows = focal age, columns = partner age)')
