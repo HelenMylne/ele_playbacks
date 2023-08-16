@@ -545,11 +545,11 @@ for(elephant_behaviour in 1:N){
 
 rm(response, response_split, elephant_behaviour, i, id_behav, j, k, N) ; gc()
 
-saveRDS(df, '../data_processed/elephants_behaviour_split_relative_to_stimulus.RDS')
+saveRDS(df, '../data_processed/elephants_behaviour_split_relative_to_stimulus_speakervehicle.RDS')
 
 
 ## calculate length of action by subtracting START time from STOP time ####
-# df <- readRDS('../data_processed/elephants_behaviour_split_relative_to_stimulus.RDS')
+# df <- readRDS('../data_processed/elephants_behaviour_split_relative_to_stimulus_speakervehicle.RDS')
 
 # create a variable with a unique value for every action, also split across before/during/after
 df$action_unique <- paste0(df$action_unique, '_', df$bda)
@@ -572,6 +572,9 @@ behav$duration <- behav$stop_time - behav$start_time
 
 # neaten up
 behav <- behav[,c(1:5,25,6:24)]
+
+# save
+saveRDS(behav, '../data_processed/elephants_behaviour_startstop_speakervehiclestress.RData')
 
 ## calculate time per elephant that was in frame in each part of the experiment ####
 # separate out OUT OF SIGHT behaviours
@@ -1104,6 +1107,9 @@ behav$duration <- behav$stop_time - behav$start_time
 # neaten up
 behav <- behav[,c(1:5,27,6:26)]
 
+# save
+saveRDS(behav, '../data_processed/elephants_behaviour_startstop_elephants.RData')
+
 ## calculate proportion of time spent per activity ####
 # read in time in frame per elephant
 in_frame <- read_csv('../data_processed/elephants_time_in_frame.csv')
@@ -1552,6 +1558,9 @@ behav <- behav %>%
   mutate(neighbour_known = in_frame_seconds - neighbour_unk) %>% 
   mutate(propn_new = duration / neighbour_known)
 
+# save
+saveRDS(behav, '../data_processed/elephants_behaviour_startstop_neighbour.RData')
+
 ## calculate proportion of time spent per activity ####
 # read in time in frame per elephant
 #df_eles <- readRDS('../data_processed/elephants.RDS')
@@ -1997,6 +2006,9 @@ behav$duration <- behav$stop_time - behav$start_time
 # neaten up
 behav <- behav[,c(1:5,30,6:29)]
 
+# save
+saveRDS(behav, '../data_processed/elephants_behaviour_startstop_socialtouch.RData')
+
 ## calculate proportion of time spent per activity ####
 # read in time in frame per elephant
 #df_eles <- readRDS('../data_processed/elephants.RDS') ; in_frame <- read.csv('../data_processed/elephants_time_in_frame.csv')
@@ -2241,24 +2253,105 @@ rm(column_check, check2, na_cols, in_frame, nn, soc, svs, ele, column_order, i) 
 saveRDS(props, '../data_processed/proportions_of_time_per_behaviour.RDS')
 
 ###### LATENCY TO CHANGE BEHAVIOUR FROM START OF STIMULUS ######
+in_frame <- read_csv('../data_processed/elephants_time_in_frame.csv') %>% 
+  select('subject','section','in_frame_seconds')
+column_order <- c("subject","behaviour",
+                  "start_time","stop_time","duration",
+                  "type","action","behavioral_category",
+                  "section",
+                  "target","focal","partner","elephant_partner_unique",
+                  "comment",
+                  "age","bull",
+                  "pb_num","stim_num","stim_type","stim_start","stim_stop","stim_duration",
+                  "group_size","date","play_time",
+                  "action_unique","act_id",
+                  "in_frame_seconds","neighbour_unk","neighbour_known",
+                  "initiated_by","targeted_elephant")
 
+soc <- readRDS('../data_processed/elephants_behaviour_startstop_socialtouch.RData') %>% 
+  rename(section = bda,
+         elephant_partner_unique = elephant_social_unique) %>% 
+  left_join(in_frame, by = c('subject','section'))
 
+nn <- readRDS('../data_processed/elephants_behaviour_startstop_neighbour.RData') %>% 
+  rename(elephant_partner_unique = elephant_neighbour_unique,
+         partner = neighbour) %>% 
+  mutate(age = NA,
+         bull = NA,
+         play_time = NA,
+         focal = subject,
+         initiated_by = NA,
+         targeted_elephant = NA) %>% 
+  select(all_of(column_order))
 
+soc <- soc %>% 
+  left_join(distinct(nn[,c('subject','section','neighbour_unk','neighbour_known')]),
+            by = c('subject','section')) %>% 
+  select(all_of(column_order))
 
+svs <- readRDS('../data_processed/elephants_behaviour_startstop_speakervehiclestress.RData') %>% 
+  rename(section = bda) %>% 
+  left_join(in_frame, by = c('subject','section')) %>% 
+  left_join(distinct(nn[,c('subject','section','neighbour_unk','neighbour_known')]),
+            by = c('subject','section')) %>% 
+  mutate(partner = NA,
+         elephant_partner_unique = NA,
+         focal = subject,
+         initiated_by = NA,
+         targeted_elephant = NA) %>% 
+  select(all_of(column_order))
 
+ele <- readRDS('../data_processed/elephants_behaviour_startstop_elephants.RData') %>% 
+  rename(section = bda,
+         elephant_partner_unique = elephant_look_unique,
+         partner = elephant_look) %>% 
+  left_join(in_frame, by = c('subject','section')) %>% 
+  left_join(distinct(nn[,c('subject','section','neighbour_unk','neighbour_known')]),
+            by = c('subject','section')) %>% 
+  mutate(focal = subject,
+         initiated_by = subject,
+         targeted_elephant = partner) %>% 
+  select(all_of(column_order))
+  
+# combine together
+df <- rbind(svs, ele, nn, soc)
+rm(in_frame, column_order) ; gc()
+rm(svs, ele, nn, soc) ; gc()
 
+# standardise
+df$act_id_all <- as.integer(as.factor(df$action_unique))
+max(df$act_id_all)
 
+# start time since stimulus start and stop
+df$time_since_stim_start <- df$start_time - df$stim_start
+df$time_since_stim_stop  <- df$start_time - df$stim_stop
 
+# graph
+df %>% 
+  filter(action != 'not visible') %>% 
+  filter(action != 'tip not visible') %>% 
+  filter(behaviour != 'OUT OF SIGHT: OUT OF SIGHT') %>% 
+  mutate(behaviour = factor(behaviour, 
+                            levels = c("elephant: approach directly","elephant: approach at an angle","elephant: move directly with","elephant: move away at an angle","elephant: move away directly",
+                                       "elephant: look at directly","elephant: side-on","elephant: look directly away",
+                                       "nearest neighbour: nearest neighbour",
+                                       "social: physical contact elephant",
+                                       "ears: flared","ears: relaxed (back or flapping regularly)",
+                                       "speaker: approach directly","speaker: approach at an angle","speaker: move away at an angle","speaker: move away directly",
+                                       "speaker: look at directly","speaker: side-on","speaker: look directly away",
+                                       "tail: down","tail: up",
+                                       "trunk: up and periscope sniffing","trunk: down and ground-level sniff","trunk: not sniffing (rest/feed/dust/stationary)",
+                                       "vehicle: approach directly","vehicle: approach at an angle","vehicle: move neither towards or away","vehicle: move away at an angle","vehicle: move away directly",
+                                       "vehicle: look at directly","vehicle: side-on","vehicle: look directly away"))) %>% 
+  mutate(stimulus = ifelse(stim_type == 'ctd', 'cape turtle dove (control)',
+                           ifelse(stim_type == 'h', 'human', 'lion'))) %>% 
+  ggplot()+
+  geom_jitter(aes(x = behaviour, y = time_since_stim_start,
+                  colour = behavioral_category, alpha = duration))+
+  scale_colour_viridis_d()+
+  scale_y_continuous(name = 'time since start of stimulus\n(negative value = time until stimulus')+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))+
+  labs(colour = 'behavioural category')+
+  facet_wrap(. ~ stimulus, nrow = 3)
 
-
-
-
-
-
-
-
-
-
-
-
-
+  
