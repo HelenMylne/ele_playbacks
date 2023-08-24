@@ -574,11 +574,14 @@ behav$duration <- behav$stop_time - behav$start_time
 behav <- behav[,c(1:5,25,6:24)]
 
 # save
-saveRDS(behav, '../data_processed/elephants_behaviour_startstop_speakervehiclestress.RData')
+saveRDS(behav, '../data_processed/elephants_behaviour_startstop_speakervehiclestress.RDS')
 
 ## calculate time per elephant that was in frame in each part of the experiment ####
+# behav <- readRDS('../data_processed/elephants_behaviour_startstop_speakervehiclestress.RDS')
+
 # separate out OUT OF SIGHT behaviours
 unseen <- behav %>% filter(behaviour == 'OUT OF SIGHT: OUT OF SIGHT')
+saveRDS(unseen, '../data_processed/elephants_time_out_of_sight.RDS')
 
 # create data frame to calculate total possible time per experiment
 playbacks <- data.frame(pb_num = rep(sort(unique(behav$pb_num)), each = 3),
@@ -2355,3 +2358,459 @@ df %>%
   facet_wrap(. ~ stimulus, nrow = 3)
 
   
+###### AT EVERY SECOND, WHAT ARE THEY DOING ######
+### out of sight #### 
+# clean environment
+rm(list = ls()) ; gc()
+
+# read in data
+svs <- readRDS('../data_processed/elephants_behaviour_split_relative_to_stimulus_speakervehicle.RDS')
+
+# standardise timings
+#svs$time_std <- svs$time + (180 - svs$stim_start)
+#svs$stim_start_std <- svs$stim_start + (180 - svs$stim_start)
+#svs$stim_stop_std <- svs$stim_stop + (180 - svs$stim_start)
+
+# extract out of sight timings
+out_frame <- svs %>% filter(behaviour == 'OUT OF SIGHT: OUT OF SIGHT')
+
+# identify times out of sight
+out_frame$time_round <- round(out_frame$time, 0)
+
+# read in start/end data
+in_frame <- read_csv('../data_processed/elephants_time_in_frame.csv')
+videos <- data.frame(pb_num = unique(in_frame$pb_num),
+                     video_start = NA, video_end = NA)
+for(i in 1:nrow(videos)){
+  x <- in_frame[in_frame$pb_num == videos$pb_num[i], c('pb_num','video_start','video_end')] %>% distinct()
+  videos$video_start[i] <- min(x$video_start)
+  videos$video_end[i] <- max(x$video_end)
+}
+rm(x, i)
+
+# create data frame to fill in
+pb1_start <- ceiling(videos$video_start[videos$pb_num == 1])
+pb1_end <- ceiling(videos$video_end[videos$pb_num == 1])
+pb1_length <- pb1_end - pb1_start
+by_sec <- data.frame(subject = rep(unique(svs$subject[svs$pb_num == 1]), each = (pb1_length+1)),
+                     time_round = pb1_start:pb1_end)
+for(i in 2:nrow(videos)){
+  pb_start <- floor(videos$video_start[i])
+  pb_end <- ceiling(videos$video_end[i])
+  pb_length <- pb_end - pb_start
+  new <- data.frame(subject = rep(unique(svs$subject[svs$pb_num == videos$pb_num[i]]),
+                                  each = (pb_length+1)),
+                    time_round = pb_start:pb_end)
+  by_sec <- rbind(by_sec, new)
+}
+rm(i, pb_end, pb_length, pb_start, pb1_end, pb1_length, pb1_start) ; gc()
+
+# add in out of sight times
+by_sec <- by_sec %>% 
+  left_join(out_frame[, c('subject','time_round','status')],
+            by = c('subject','time_round')) %>% 
+  rename(out_frame = status,
+         second = time_round) %>% 
+  mutate(ears = NA, trunk = NA, tail = NA)
+
+# fill in times of static behaviour: out of sight
+filled_rows <- which(is.na(by_sec$out_frame) == FALSE)
+for(i in 1:(length(filled_rows)-1) ) {
+  if(by_sec[filled_rows[i],'out_frame'] == 'START') {
+    by_sec[(filled_rows[i]:(filled_rows[i+1]-1) ),'out_frame'] <- 'out_of_sight'
+  }
+}
+rm(filled_rows); gc()
+
+# standardise
+by_sec$out_frame <- ifelse(by_sec$out_frame == 'STOP', 'out_of_sight', by_sec$out_frame)
+by_sec$ears <- ifelse(by_sec$out_frame == 'out_of_sight', 'out_of_sight', by_sec$ears)
+by_sec$tail <- ifelse(by_sec$out_frame == 'out_of_sight', 'out_of_sight', by_sec$tail)
+by_sec$trunk <- ifelse(by_sec$out_frame == 'out_of_sight', 'out_of_sight', by_sec$trunk)
+
+# fill in blanks
+by_sec$out_frame <- ifelse( is.na(by_sec$out_frame) == TRUE, 'in_frame', by_sec$out_frame)
+
+### stress ####
+# import data
+svs <- readRDS('../data_processed/elephants_behaviour_startstop_speakervehiclestress.RData')
+
+# split into behavioural categories
+stress <- svs %>% filter(behavioral_category == 'stress')# %>% rbind(out_frame)
+svs_look <- svs %>% filter(behavioral_category == 'look')# %>% rbind(out_frame)
+svs_move <- svs %>% filter(behavioral_category == 'move')# %>% rbind(out_frame)
+
+# identify times of changing behaviour: stress
+for(i in 1:nrow(stress)){
+  by_sec[which(by_sec$second == round(stress$start_time[i], 0) &
+                 by_sec$subject == stress$subject[i]),
+         which(colnames(by_sec) == stress$type[i])] <- stress$action[i]
+}
+
+# fill in times of static behaviour: stress
+for(i in 1:nrow(by_sec)) {
+  for(j in 4:ncol(by_sec)) {
+    if( is.na(by_sec[i,j] == TRUE) ) {
+      by_sec[i,j] <- by_sec[(i-1), j]
+    }
+  }
+}
+
+# save output
+saveRDS(by_sec, '../data_processed/behaviour_by_second.RDS')
+
+### speaker and vehicle looking direction ####
+# by_sec <- readRDS('../data_processed/behaviour_by_second.RDS') ;  svs <- readRDS('../data_processed/elephants_behaviour_startstop_speakervehiclestress.RData') ; svs_look <- svs %>% filter(behavioral_category == 'look')
+by_sec <- by_sec %>% mutate(speaker = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+                            vehicle = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA))
+
+# identify times of changing behaviour: svs_look
+for(i in 1:nrow(svs_look)){
+  by_sec[which(by_sec$second == round(svs_look$start_time[i], 0) &
+                 by_sec$subject == svs_look$subject[i]),
+         which(colnames(by_sec) == svs_look$type[i])] <- svs_look$action[i]
+}
+
+# fill in times of static behaviour: svs_look
+for(i in 1:nrow(by_sec)) {
+  for(j in 7:ncol(by_sec)) {
+    if( is.na(by_sec[i,j] == TRUE) ) {
+      by_sec[i,j] <- by_sec[(i-1), j]
+    }
+  }
+}
+
+# rename speker and vehicle to indicate looking directions
+by_sec <- by_sec %>% 
+  rename(speaker_look = speaker,
+         vehicle_look = vehicle)
+
+# save output
+saveRDS(by_sec, '../data_processed/behaviour_by_second.RDS')
+
+### speaker and vehicle movement direction ####
+# by_sec <- readRDS('../data_processed/behaviour_by_second.RDS') ; svs <- readRDS('../data_processed/elephants_behaviour_startstop_speakervehiclestress.RData') ; svs_move <- svs %>% filter(behavioral_category == 'move')
+by_sec <- by_sec %>% mutate(speaker = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+                            vehicle = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA))
+
+# identify times of changing behaviour: svs_move
+for(i in 1:nrow(svs_move)){
+  # add in stop times because won't always be one or another, sometimes there's nothing
+  by_sec[which(by_sec$second == round(svs_move$stop_time[i], 0) &
+                 by_sec$subject == svs_move$subject[i]),
+         which(colnames(by_sec) == svs_move$type[i])] <- svs_move$action[i]
+  # add in start times so where movement direction just changes instead of halting, shows new start
+  by_sec[which(by_sec$second == round(svs_move$start_time[i], 0) &
+                 by_sec$subject == svs_move$subject[i]),
+         which(colnames(by_sec) == svs_move$type[i])] <- svs_move$action[i]
+}
+
+# fill in times of static behaviour: speaker/vehicle movement
+for(behaviour in 1:length(unique(svs_move$behaviour))){
+  for(elephant in 1:length(unique(by_sec$subject))){
+    x <- svs_move[svs_move$behaviour == unique(svs_move$behaviour)[behaviour] &
+                    svs_move$subject == unique(by_sec$subject)[elephant] , ]
+    if(nrow(x) > 0){
+      for( i in 1:nrow(x)){
+        times <- seq(from = floor(x$start_time[i]), to = ceiling(x$stop_time[i]), by = 1)
+        by_sec[which(by_sec$subject == unique(by_sec$subject)[elephant] &
+                       by_sec$second %in% times),
+               which(colnames(by_sec) == unique(svs_move$type)[behaviour])] <- unique(x$action)
+      }
+    }
+  }
+}
+
+# fill in NA values, rename speaker and vehicle to indicate movement directions
+by_sec <- by_sec %>% 
+  mutate(speaker = ifelse( is.na(speaker) == TRUE, 'not_moving', speaker),
+         vehicle = ifelse( is.na(vehicle) == TRUE, 'not_moving', vehicle)) %>% 
+  rename(speaker_move = speaker,
+         vehicle_move = vehicle)
+
+# save output
+saveRDS(by_sec, '../data_processed/behaviour_by_second.RDS')
+
+# clean environment
+rm(new, stress, svs, svs_look, svs_move, x, behaviour, elephant, i, j, times) ; gc()
+
+### elephants looking direction ####
+# by_sec <- readRDS('../data_processed/behaviour_by_second.RDS')
+
+# import data
+ele <- readRDS('../data_processed/elephants_behaviour_startstop_elephants.RData')
+unique(ele$behavioral_category)
+ele_look <- ele %>% 
+  filter(behavioral_category == 'look')
+ele_move <- ele %>% 
+  filter(behavioral_category == 'move')
+sort(unique(ele_look$elephant_look)) ; sort(unique(ele_move$elephant_look))
+rm(ele) ; gc()
+
+# create new columns for running
+by_sec <- by_sec %>% 
+  separate(subject, into = c('bull','pb_num'), sep = '_e', remove = F) %>% 
+  mutate(b1 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b2 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b3 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b4 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b5 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b6 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b7 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b8 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA))
+
+# identify times of changing behaviour: ele_look
+for(i in 1:nrow(ele_look)){
+  by_sec[which(by_sec$second == round(ele_look$start_time[i], 0) &
+                 by_sec$subject == ele_look$subject[i]),
+         which(colnames(by_sec) == ele_look$elephant_look[i])] <- ele_look$action[i]
+}
+
+# fill in times of static behaviour: ele_look
+for(i in 1:nrow(by_sec)) {
+  x <- ele_look[ele_look$subject == by_sec$subject[i],]
+  partners <- sort(unique(x$elephant_look))
+  for(partner in partners) {
+    col_num <- which(colnames(by_sec) == partner)
+    if( is.na(by_sec[i, col_num]) == TRUE ) {
+      by_sec[i,col_num] <- by_sec[(i-1), col_num]
+    }
+  }
+}
+
+# fill in impossible dyads
+for(row in 1:nrow(by_sec)) {
+  for(column in 13:20){
+    if(colnames(by_sec)[column] == by_sec$bull[row]){
+      by_sec[row,column] <- 'impossible_partner'
+    }
+  }
+}
+
+# rename elephant columns to indicate looking directions
+by_sec <- by_sec %>% 
+  rename(b1_look = b1,
+         b2_look = b2,
+         b3_look = b3,
+         b4_look = b4,
+         b5_look = b5,
+         b6_look = b6,
+         b7_look = b7,
+         b8_look = b8)
+
+# save output
+saveRDS(by_sec, '../data_processed/behaviour_by_second.RDS')
+
+### elephants movement direction ####
+# by_sec <- readRDS('../data_processed/behaviour_by_second.RDS') ; ele <- readRDS('../data_processed/elephants_behaviour_startstop_elephants.RData') ; ele_move <- ele %>% filter(behavioral_category == 'move')
+
+# create new columns for running
+by_sec <- by_sec %>% 
+  mutate(b1 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b2 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b3 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b4 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b5 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b6 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b7 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b8 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA))
+
+# identify times of changing behaviour: ele_move
+for(i in 1:nrow(ele_move)){
+  # add in stop times because won't always be one or another, sometimes there's nothing
+  by_sec[which(by_sec$second == round(ele_move$stop_time[i], 0) &
+                 by_sec$subject == ele_move$subject[i]),
+         which(colnames(by_sec) == ele_move$elephant_look[i])] <- ele_move$action[i]
+  # add in start times so where movement direction just changes instead of halting, shows new start
+  by_sec[which(by_sec$second == round(ele_move$start_time[i], 0) &
+                 by_sec$subject == ele_move$subject[i]),
+         which(colnames(by_sec) == ele_move$elephant_look[i])] <- ele_move$action[i]
+}
+
+# fill in times of static behaviour: elephant movement
+for(behaviour in 1:length(unique(ele_move$behaviour))){
+  for(elephant in 1:length(unique(by_sec$subject))){
+    x <- ele_move[ele_move$subject == unique(by_sec$subject)[elephant],]
+    partners <- sort(unique(x$elephant_look))
+    for(partner in partners){
+      x <- ele_move[ele_move$behaviour == unique(ele_move$behaviour)[behaviour] &
+                      ele_move$subject == unique(by_sec$subject)[elephant] & 
+                      ele_move$elephant_look == partner, ]
+      if(nrow(x) > 0){
+        for( i in 1:nrow(x)){
+          times <- seq(from = floor(x$start_time[i]), to = ceiling(x$stop_time[i]), by = 1)
+          by_sec[which(by_sec$subject == unique(by_sec$subject)[elephant] &
+                         by_sec$second %in% times),
+                 which(colnames(by_sec) == partner)] <- unique(x$action)
+        }
+      }
+    }
+  }
+}
+rm(x, behaviour, elephant, i, partner, partners, times)
+
+# fill in impossible dyads and zeroes
+for(row in 1:nrow(by_sec)) {
+  for(column in 21:28){
+    if(colnames(by_sec)[column] == by_sec$bull[row]){
+      by_sec[row,column] <- 'impossible_partner'
+    }
+  }
+}
+
+# fill in NA values, rename elephant columns to indicate looking directions
+by_sec <- by_sec %>% 
+  mutate(b1 = ifelse( is.na(b1) == TRUE, 'not_moving', b1),
+         b2 = ifelse( is.na(b2) == TRUE, 'not_moving', b2),
+         b3 = ifelse( is.na(b3) == TRUE, 'not_moving', b3),
+         b4 = ifelse( is.na(b4) == TRUE, 'not_moving', b4),
+         b5 = ifelse( is.na(b5) == TRUE, 'not_moving', b5),
+         b6 = ifelse( is.na(b6) == TRUE, 'not_moving', b6),
+         b7 = ifelse( is.na(b7) == TRUE, 'not_moving', b7),
+         b8 = ifelse( is.na(b8) == TRUE, 'not_moving', b8)) %>% 
+  rename(b1_move = b1,
+         b2_move = b2,
+         b3_move = b3,
+         b4_move = b4,
+         b5_move = b5,
+         b6_move = b6,
+         b7_move = b7,
+         b8_move = b8)
+
+# save output
+saveRDS(by_sec, '../data_processed/behaviour_by_second.RDS')
+
+# clean environment
+rm(list = ls()[!ls() %in% c('by_sec', 'videos')]) ; gc()
+
+### nearest neighbour ####
+# by_sec <- readRDS('../data_processed/behaviour_by_second.RDS')
+
+# import data
+nn <- readRDS('../data_processed/elephants_behaviour_startstop_neighbour.RData')
+
+# create new columns for running
+by_sec <- by_sec %>% 
+  mutate(neighbour = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b1 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b2 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b3 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b4 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b5 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b6 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b7 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b8 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA))
+
+# identify times of changing behaviour: neighbour
+for(i in 1:nrow(nn)){
+  row_num_start <- which(by_sec$second == ceiling(nn$start_time[i]) & by_sec$subject == nn$subject[i])
+  row_num_stop <- which(by_sec$second == round(nn$stop_time[i], 0) & by_sec$subject == nn$subject[i])
+  by_sec[row_num_start:row_num_stop, 'neighbour'] <- nn$neighbour[i]                       # produces a huge number of warnings but upon visual check all fine
+  by_sec[row_num_start:row_num_stop, which(colnames(by_sec) == nn$neighbour[i])] <- 1      # produces a huge number of warnings but upon visual check all fine
+}
+
+# fill in impossible dyads and zeroes
+for(row in 1:nrow(by_sec)) {
+  for(column in 30:37){
+    if(colnames(by_sec)[column] == by_sec$bull[row]){
+      by_sec[row,column] <- 'impossible_partner'
+    }
+  }
+}
+
+# rename elephant columns to indicate looking directions
+by_sec <- by_sec %>% 
+  mutate(b1 = ifelse( is.na(b1) == TRUE, '0', b1),
+         b2 = ifelse( is.na(b2) == TRUE, '0', b2),
+         b3 = ifelse( is.na(b3) == TRUE, '0', b3),
+         b4 = ifelse( is.na(b4) == TRUE, '0', b4),
+         b5 = ifelse( is.na(b5) == TRUE, '0', b5),
+         b6 = ifelse( is.na(b6) == TRUE, '0', b6),
+         b7 = ifelse( is.na(b7) == TRUE, '0', b7),
+         b8 = ifelse( is.na(b8) == TRUE, '0', b8)) %>% 
+  rename(b1_nn = b1,
+         b2_nn = b2,
+         b3_nn = b3,
+         b4_nn = b4,
+         b5_nn = b5,
+         b6_nn = b6,
+         b7_nn = b7,
+         b8_nn = b8)
+
+# save output
+saveRDS(by_sec, '../data_processed/behaviour_by_second.RDS')
+
+### social behaviour ####
+# by_sec <- readRDS('../data_processed/behaviour_by_second.RDS')
+
+# import data
+soc <- readRDS('../data_processed/elephants_behaviour_startstop_socialtouch.RData')
+
+# create new columns for running
+by_sec <- by_sec %>% 
+  mutate(b1 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b2 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b3 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b4 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b5 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b6 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b7 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b8 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA))
+
+# identify times of changing behaviour: neighbour
+for(i in 1:nrow(soc)){
+  row_num_start <- which(by_sec$second == ceiling(soc$start_time[i]) & by_sec$subject == soc$subject[i])
+  row_num_stop <- which(by_sec$second == round(soc$stop_time[i], 0) & by_sec$subject == soc$subject[i])
+  by_sec[row_num_start:row_num_stop, which(colnames(by_sec) == soc$partner[i])] <- soc$initiated_by[i]
+}
+
+# fill in impossible dyads and zeroes
+for(row in 1:nrow(by_sec)) {
+  for(column in 38:45){
+    if(colnames(by_sec)[column] == by_sec$bull[row]){
+      by_sec[row,column] <- 'impossible_partner'
+    }
+  }
+}
+
+# rename elephant columns to indicate looking directions
+by_sec <- by_sec %>% 
+  mutate(b1 = ifelse( is.na(b1) == TRUE, '0', b1),
+         b2 = ifelse( is.na(b2) == TRUE, '0', b2),
+         b3 = ifelse( is.na(b3) == TRUE, '0', b3),
+         b4 = ifelse( is.na(b4) == TRUE, '0', b4),
+         b5 = ifelse( is.na(b5) == TRUE, '0', b5),
+         b6 = ifelse( is.na(b6) == TRUE, '0', b6),
+         b7 = ifelse( is.na(b7) == TRUE, '0', b7),
+         b8 = ifelse( is.na(b8) == TRUE, '0', b8)) %>% 
+  rename(b1_social = b1,
+         b2_social = b2,
+         b3_social = b3,
+         b4_social = b4,
+         b5_social = b5,
+         b6_social = b6,
+         b7_social = b7,
+         b8_social = b8)
+
+# save output
+saveRDS(by_sec, '../data_processed/behaviour_by_second.RDS')
+
+### convert to long format and remove impossible dyads ####
+# by_sec <- readRDS('../data_processed/behaviour_by_second.RDS')
+rm(list = ls() [ !ls() %in% 'by_sec' ])
+
+by_sec_long <- by_sec %>% 
+  pivot_longer(cols = 6:45, names_to = 'behaviour_type', values_to = 'action') %>% 
+  filter(action != 'impossible_partner') %>% 
+  separate(behaviour_type, into = c('target','type'), remove = F) %>% 
+  mutate(type = ifelse(target == 'ears' | target == 'trunk' | target == 'tail', 'stress',
+                       ifelse(target == 'neighbour', 'intitiated_by', type))) %>% 
+  mutate(partner = ifelse( target == 'stress' | target == 'neighbour' | target == 'speaker' | target == 'vehicle',
+                           subject, paste0(target, '_e', pb_num))) %>% 
+  filter(partner %in% unique(by_sec$subject)) %>% 
+  mutate(partner = ifelse(partner == subject, NA, partner),
+         target = ifelse(target == 'b1' | target == 'b2' | target == 'b3' | target == 'b4' |
+                           target == 'b5' | target == 'b6' | target == 'b7' | target == 'b8',
+                         'elephant', target))
+
+saveRDS(by_sec_long, '../data_processed/behaviour_by_second_long.RDS')
