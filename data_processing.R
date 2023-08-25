@@ -2685,6 +2685,7 @@ rm(list = ls()[!ls() %in% c('by_sec', 'videos')]) ; gc()
 
 ### nearest neighbour ####
 # by_sec <- readRDS('../data_processed/behaviour_by_second.RDS')
+by_sec <- by_sec[,1:28]
 
 # import data
 nn <- readRDS('../data_processed/elephants_behaviour_startstop_neighbour.RData')
@@ -2701,15 +2702,42 @@ by_sec <- by_sec %>%
          b7 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
          b8 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA))
 
-# identify times of changing behaviour: neighbour
-for(i in 1:nrow(nn)){
-  row_num_start <- which(by_sec$second == ceiling(nn$start_time[i]) & by_sec$subject == nn$subject[i])
-  row_num_stop <- which(by_sec$second == round(nn$stop_time[i], 0) & by_sec$subject == nn$subject[i])
-  by_sec[row_num_start:row_num_stop, 'neighbour'] <- nn$neighbour[i]                       # produces a huge number of warnings but upon visual check all fine
-  by_sec[row_num_start:row_num_stop, which(colnames(by_sec) == nn$neighbour[i])] <- 1      # produces a huge number of warnings but upon visual check all fine
+# fill in times of each behaviour: neighbour
+for(behaviour in 1:length(unique(nn$behaviour))){
+  for(elephant in 1:length(unique(by_sec$subject))){
+    x <- nn[nn$subject == unique(by_sec$subject)[elephant],]
+    partners <- sort(unique(x$neighbour))
+    for(partner in partners){
+      x <- nn[nn$behaviour == unique(nn$behaviour)[behaviour] &
+                      nn$subject == unique(by_sec$subject)[elephant] & 
+                      nn$neighbour == partner, ]
+      if(nrow(x) > 0){
+        for( i in 1:nrow(x)){
+          times <- seq(from = round(x$start_time[i]), to = round(x$stop_time[i]), by = 1)
+          by_sec[which(by_sec$subject == unique(by_sec$subject)[elephant] &
+                         by_sec$second %in% times),
+                 'neighbour'] <- unique(x$neighbour)
+          by_sec[which(by_sec$subject == unique(by_sec$subject)[elephant] &
+                         by_sec$second %in% times),
+                 which(colnames(by_sec) == partner)] <- 1
+        }
+      }
+    }
+  }
 }
 
-# fill in impossible dyads and zeroes
+# remove times with 2 nearest neighbours at the same time
+for(i in 1:nrow(by_sec)){
+  if( length(which(is.na(by_sec[i,30:37]) == FALSE)) > 1 ){
+    for(j in 30:37){
+      old_neighbour <- colnames(by_sec)[(30:37)[!is.na(by_sec[(i-1),30:37])]]
+      by_sec[i,old_neighbour] <- NA
+    }
+  }
+}
+rm(x, behaviour, elephant, i, partner, partners, times)
+
+# fill in impossible dyads
 for(row in 1:nrow(by_sec)) {
   for(column in 30:37){
     if(colnames(by_sec)[column] == by_sec$bull[row]){
@@ -2717,6 +2745,7 @@ for(row in 1:nrow(by_sec)) {
     }
   }
 }
+rm(column, j, old_neighbour, row) ; gc()
 
 # rename elephant columns to indicate looking directions
 by_sec <- by_sec %>% 
@@ -2748,7 +2777,8 @@ soc <- readRDS('../data_processed/elephants_behaviour_startstop_socialtouch.RDat
 
 # create new columns for running
 by_sec <- by_sec %>% 
-  mutate(b1 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+  mutate(social = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+         b1 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
          b2 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
          b3 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
          b4 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
@@ -2757,16 +2787,26 @@ by_sec <- by_sec %>%
          b7 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
          b8 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA))
 
-# identify times of changing behaviour: neighbour
+# identify times of changing behaviour: social touch
 for(i in 1:nrow(soc)){
   row_num_start <- which(by_sec$second == ceiling(soc$start_time[i]) & by_sec$subject == soc$subject[i])
   row_num_stop <- which(by_sec$second == round(soc$stop_time[i], 0) & by_sec$subject == soc$subject[i])
+  by_sec[row_num_start:row_num_stop, 'social'] <- soc$partner[i]
   by_sec[row_num_start:row_num_stop, which(colnames(by_sec) == soc$partner[i])] <- soc$initiated_by[i]
 }
 
+check <- by_sec %>%
+  filter(!is.na(social)) %>% 
+  filter(out_frame == 'in_frame') %>% 
+  select(c(1:5,38:46)) %>% 
+  mutate(unique = paste0(subject, second)) %>% 
+  group_by(unique) %>% 
+  mutate(num_touch = length(which(is.na(c(b1,b2,b3,b4,b5,b6,b7,b8)) == FALSE))) %>% 
+  filter(num_touch > 1) # all 3 individuals were in contact on this occaison: this is correct
+
 # fill in impossible dyads and zeroes
 for(row in 1:nrow(by_sec)) {
-  for(column in 38:45){
+  for(column in 38:46){
     if(colnames(by_sec)[column] == by_sec$bull[row]){
       by_sec[row,column] <- 'impossible_partner'
     }
@@ -2775,7 +2815,8 @@ for(row in 1:nrow(by_sec)) {
 
 # rename elephant columns to indicate looking directions
 by_sec <- by_sec %>% 
-  mutate(b1 = ifelse( is.na(b1) == TRUE, '0', b1),
+  mutate(social = ifelse( is.na(social) == TRUE, 'no contact', social),
+         b1 = ifelse( is.na(b1) == TRUE, '0', b1),
          b2 = ifelse( is.na(b2) == TRUE, '0', b2),
          b3 = ifelse( is.na(b3) == TRUE, '0', b3),
          b4 = ifelse( is.na(b4) == TRUE, '0', b4),
@@ -2795,9 +2836,93 @@ by_sec <- by_sec %>%
 # save output
 saveRDS(by_sec, '../data_processed/behaviour_by_second.RDS')
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# fill in times of each behaviour: social touch
+for(behaviour in 1:length(unique(soc$behaviour))){
+  for(elephant in 1:length(unique(by_sec$subject))){
+    x <- soc[soc$subject == unique(by_sec$subject)[elephant],]
+    partners <- sort(unique(x$neighbour))
+    for(partner in partners){
+      x <- soc[soc$behaviour == unique(soc$behaviour)[behaviour] &
+                 soc$subject == unique(by_sec$subject)[elephant] & 
+                 soc$neighbour == partner, ]
+      if(nrow(x) > 0){
+        for( i in 1:nrow(x)){
+          times <- seq(from = round(x$start_time[i]), to = round(x$stop_time[i]), by = 1)
+          by_sec[which(by_sec$subject == unique(by_sec$subject)[elephant] &
+                         by_sec$second %in% times),
+                 'neighbour'] <- unique(x$neighbour)
+          by_sec[which(by_sec$subject == unique(by_sec$subject)[elephant] &
+                         by_sec$second %in% times),
+                 which(colnames(by_sec) == partner)] <- 1
+        }
+      }
+    }
+  }
+}
+
+# remove times with 2 nearest neighbours at the same time
+for(i in 1:nrow(by_sec)){
+  if( length(which(is.na(by_sec[i,30:37]) == FALSE)) > 1 ){
+    for(j in 30:37){
+      old_neighbour <- colnames(by_sec)[(30:37)[!is.na(by_sec[(i-1),30:37])]]
+      by_sec[i,old_neighbour] <- NA
+    }
+  }
+}
+rm(x, behaviour, elephant, i, partner, partners, times)
+
+# fill in impossible dyads
+for(row in 1:nrow(by_sec)) {
+  for(column in 30:37){
+    if(colnames(by_sec)[column] == by_sec$bull[row]){
+      by_sec[row,column] <- 'impossible_partner'
+    }
+  }
+}
+rm(column, j, old_neighbour, row) ; gc()
+
+# rename elephant columns to indicate looking directions
+by_sec <- by_sec %>% 
+  mutate(b1 = ifelse( is.na(b1) == TRUE, '0', b1),
+         b2 = ifelse( is.na(b2) == TRUE, '0', b2),
+         b3 = ifelse( is.na(b3) == TRUE, '0', b3),
+         b4 = ifelse( is.na(b4) == TRUE, '0', b4),
+         b5 = ifelse( is.na(b5) == TRUE, '0', b5),
+         b6 = ifelse( is.na(b6) == TRUE, '0', b6),
+         b7 = ifelse( is.na(b7) == TRUE, '0', b7),
+         b8 = ifelse( is.na(b8) == TRUE, '0', b8)) %>% 
+  rename(b1_nn = b1,
+         b2_nn = b2,
+         b3_nn = b3,
+         b4_nn = b4,
+         b5_nn = b5,
+         b6_nn = b6,
+         b7_nn = b7,
+         b8_nn = b8)
+
+# save output
+saveRDS(by_sec, '../data_processed/behaviour_by_second.RDS')
+
 ### convert to long format and remove impossible dyads ####
 # by_sec <- readRDS('../data_processed/behaviour_by_second.RDS')
-rm(list = ls() [ !ls() %in% 'by_sec' ])
+rm(list = ls() [ !ls() %in% c('by_sec','videos') ])
 
 by_sec_long <- by_sec %>% 
   pivot_longer(cols = 6:45, names_to = 'behaviour_type', values_to = 'action') %>% 
@@ -2814,3 +2939,118 @@ by_sec_long <- by_sec %>%
                          'elephant', target))
 
 saveRDS(by_sec_long, '../data_processed/behaviour_by_second_long.RDS')
+
+# obtain number of elephants with behaviour observed for each playback
+subjects <- data.frame(subject = sort(unique(by_sec$subject))) %>% 
+  separate(subject, into = c('bull','pb_num'), sep = '_e', remove = F) %>% 
+  mutate(pb_num = as.numeric(pb_num)) %>% 
+  left_join(videos, by = 'pb_num') %>% 
+  group_by(pb_num) %>% 
+  mutate(monitored_elephants = length(unique(subject))) %>% 
+  ungroup()
+
+# add new columns for identifying who is present (make non-existent partners NA)
+by_sec_wide <- by_sec %>% 
+  mutate(b1 = NA, b2 = NA, b3 = NA, b4 = NA,
+         b5 = NA, b6 = NA, b7 = NA, b8 = NA)
+
+# 1 = elephant present in group, 0 = elephant absent (e.g. only 4 elephants in first experiment threrefore all rows where pb_num=1 will have 1 for b1,b2,b3,b4 and 0 for b5,b6,b7,b8)
+for( i in 1:nrow(by_sec_wide)) {
+  for( j in 1:8){
+    column_name <- paste0('b',j)
+    by_sec_wide[i,column_name] <- ifelse(unique(subjects$monitored_elephants[subjects$pb_num == by_sec$pb_num[i]]) >= j, 1, 0)
+  }
+}
+
+# set values for all columns for NA where the partner elephant does not exist
+by_sec_wide <- by_sec_wide %>% 
+  mutate(b1_look = ifelse(b1 == 0, NA, b1_look), b2_look = ifelse(b2 == 0, NA, b2_look),
+         b3_look = ifelse(b3 == 0, NA, b3_look), b4_look = ifelse(b4 == 0, NA, b4_look),
+         b5_look = ifelse(b5 == 0, NA, b5_look), b6_look = ifelse(b6 == 0, NA, b6_look),
+         b7_look = ifelse(b7 == 0, NA, b7_look), b8_look = ifelse(b8 == 0, NA, b8_look)) %>% 
+  mutate(b1_move = ifelse(b1 == 0, NA, b1_move), b2_move = ifelse(b2 == 0, NA, b2_move),
+         b3_move = ifelse(b3 == 0, NA, b3_move), b4_move = ifelse(b4 == 0, NA, b4_move),
+         b5_move = ifelse(b5 == 0, NA, b5_move), b6_move = ifelse(b6 == 0, NA, b6_move),
+         b7_move = ifelse(b7 == 0, NA, b7_move), b8_move = ifelse(b8 == 0, NA, b8_move)) %>% 
+  mutate(b1_nn  = ifelse(b1 == 0, NA, b1_nn), b2_nn = ifelse(b2 == 0, NA, b2_nn),
+         b3_nn = ifelse(b3 == 0, NA, b3_nn), b4_nn = ifelse(b4 == 0, NA, b4_nn),
+         b5_nn = ifelse(b5 == 0, NA, b5_nn), b6_nn = ifelse(b6 == 0, NA, b6_nn),
+         b7_nn = ifelse(b7 == 0, NA, b7_nn), b8_nn = ifelse(b8 == 0, NA, b8_nn)) %>% 
+  mutate(b1_social = ifelse(b1 == 0, NA, b1_social), b2_social = ifelse(b2 == 0, NA, b2_social),
+         b3_social = ifelse(b3 == 0, NA, b3_social), b4_social = ifelse(b4 == 0, NA, b4_social),
+         b5_social = ifelse(b5 == 0, NA, b5_social), b6_social = ifelse(b6 == 0, NA, b6_social),
+         b7_social = ifelse(b7 == 0, NA, b7_social), b8_social = ifelse(b8 == 0, NA, b8_social)) %>% 
+  rename(b1_present = b1, b2_present = b2, b3_present = b3, b4_present = b4,
+         b5_present = b5, b6_present = b6, b7_present = b7, b8_present = b8)
+
+# convert to index variable
+by_sec_index <- by_sec_wide
+for( j in 5:45 ){
+  by_sec_index[,j] <- as.integer(as.factor(by_sec_index[,j]))
+}
+
+# combine to single data frame so have both index variable and name together
+by_sec_index2 <- by_sec_index %>% 
+  cbind(by_sec_wide[,5:46])
+
+# reorder columns
+colnames(by_sec_index2) <- c("subject","bull","pb_num","second",
+                             "out_frame_index","ears_index","trunk_index","tail_index",
+                             "speaker_look_index","vehicle_look_index",
+                             "speaker_move_index","vehicle_move_index",
+                             "b1_look_index","b2_look_index","b3_look_index","b4_look_index",
+                             "b5_look_index","b6_look_index","b7_look_index","b8_look_index",
+                             "b1_move_index","b2_move_index","b3_move_index","b4_move_index",
+                             "b5_move_index","b6_move_index","b7_move_index","b8_move_index",
+                             "neighbour_index",
+                             "b1_nn_index","b2_nn_index","b3_nn_index","b4_nn_index",
+                             "b5_nn_index","b6_nn_index","b7_nn_index","b8_nn_index",
+                             "social_index",
+                             "b1_social_index","b2_social_index","b3_social_index","b4_social_index",
+                             "b5_social_index","b6_social_index","b7_social_index","b8_social_index",
+                             "b1_present_index","b2_present_index","b3_present_index","b4_present_index",
+                             "b5_present_index","b6_present_index","b7_present_index","b8_present_index",
+                             "unique_index",
+                             "out_frame_name",
+                             "ears_name","trunk_name","tail_name",
+                             "speaker_look_name","vehicle_look_name",
+                             "speaker_move_name","vehicle_move_name",
+                             "b1_look_name","b2_look_name","b3_look_name","b4_look_name",
+                             "b5_look_name","b6_look_name","b7_look_name","b8_look_name",
+                             "b1_move_name","b2_move_name","b3_move_name","b4_move_name",
+                             "b5_move_name","b6_move_name","b7_move_name","b8_move_name",
+                             "neighbour_name",
+                             "b1_nn_name","b2_nn_name","b3_nn_name","b4_nn_name",
+                             "b5_nn_name","b6_nn_name","b7_nn_name","b8_nn_name",
+                             "social_name",
+                             "b1_social_name","b2_social_name","b3_social_name","b4_social_name",
+                             "b5_social_name","b6_social_name","b7_social_name","b8_social_name")
+col_order <- c("subject","bull","pb_num","second",
+               "out_frame_name","out_frame_index",
+               "ears_name","ears_index","trunk_name","trunk_index","tail_name","tail_index",
+               "speaker_look_name","speaker_look_index","vehicle_look_name","vehicle_look_index",
+               "speaker_move_name","speaker_move_index","vehicle_move_name","vehicle_move_index",
+               "b1_look_name","b1_look_index","b2_look_name","b2_look_index",
+               "b3_look_name","b3_look_index","b4_look_name","b4_look_index",
+               "b5_look_name","b5_look_index","b6_look_name","b6_look_index",
+               "b7_look_name","b7_look_index","b8_look_name","b8_look_index",
+               "b1_move_name","b1_move_index","b2_move_name","b2_move_index",
+               "b3_move_name","b3_move_index","b4_move_name","b4_move_index",
+               "b5_move_name","b5_move_index","b6_move_name","b6_move_index",
+               "b7_move_name","b7_move_index","b8_move_name","b8_move_index",
+               "neighbour_name","neighbour_index",
+               "b1_nn_name","b1_nn_index","b2_nn_name","b2_nn_index",
+               "b3_nn_name","b3_nn_index","b4_nn_name","b4_nn_index",
+               "b5_nn_name","b5_nn_index","b6_nn_name","b6_nn_index",
+               "b7_nn_name","b7_nn_index","b8_nn_name","b8_nn_index",
+               "social_name","social_index",
+               "b1_social_name","b1_social_index","b2_social_name","b2_social_index",
+               "b3_social_name","b3_social_index","b4_social_name","b4_social_index",
+               "b5_social_name","b5_social_index","b6_social_name","b6_social_index",
+               "b7_social_name","b7_social_index","b8_social_name","b8_social_index",
+               "b1_present_index","b2_present_index","b3_present_index","b4_present_index",
+               "b5_present_index","b6_present_index","b7_present_index","b8_present_index")
+by_sec_index2 <- by_sec_index2 %>% 
+  select(all_of(col_order))
+
+saveRDS(by_sec_index2, '../data_processed/behaviour_by_second_indexvariables.RDS')
