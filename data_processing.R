@@ -2262,6 +2262,48 @@ rm(column_check, check2, na_cols, in_frame, nn, soc, svs, ele, column_order, i) 
 # save output
 saveRDS(props, '../data_processed/proportions_of_time_per_behaviour.RDS')
 
+# box plot proportions
+props %>% 
+  mutate(stim_type_full = ifelse(stim_type == 'l', 'lion',
+                                 ifelse(stim_type == 'ctd', 'control', 'human'))) %>% 
+  filter(type == 'elephant' & behavioural_category == 'look') %>% 
+  filter(age != 'unkage' & partner_age != 'unkage') %>% 
+  mutate(action = factor(action, levels = c('look at directly','side-on','look directly away')),
+         section = factor(section, levels = c('before','during','after')),
+         stim_type_full = factor(stim_type_full, levels = c('control','lion','human')),
+         age_difference = factor(age_difference, levels = c('partner younger','matched','partner older'))) %>% 
+  ggplot(mapping = aes(x = action, y = propsn,
+                       fill = stim_type_full))+
+  geom_boxplot(notch = F)+
+  facet_grid(section ~ age_difference)+
+  scale_y_continuous(name = 'propsortion of time spent', expand = c(0.01,0.01))+
+  scale_x_discrete(name = 'looking direction relative to other elephants')+
+  scale_fill_viridis_d()+
+  theme(panel.spacing = unit(0.5, 'cm', data = NULL)#, axis.text.x = element_text(angle = 90)
+  )+
+  labs(fill = 'experiment type')
+ggsave('../outputs/looking_boxplots_elephants.png', device = 'png',
+       width = 11.70, height = 8.30)
+
+props %>% 
+  filter(type == 'elephant' & behavioural_category == 'move') %>% 
+  filter(age != 'unkage' & partner_age != 'unkage') %>% 
+  mutate(action = factor(action, levels = c('approach at an angle','approach directly','move away at an angle','move away directly','move directly with')),
+         section = factor(section, levels = c('before','during','after')),
+         stim_type_full = factor(stim_type_full, levels = c('control','lion','human')),
+         age_difference = factor(age_difference, levels = c('partner younger','matched','partner older'))) %>% 
+  ggplot(mapping = aes(x = action, y = propsn,
+                       fill = stim_type_full))+
+  geom_boxplot(notch = F)+
+  facet_grid(section ~ age_difference)+
+  scale_y_continuous(name = 'propsortion of time spent', expand = c(0.01,0.01))+
+  scale_x_discrete(name = 'movement direction relative to other elephants')+
+  scale_fill_viridis_d()+
+  theme(panel.spacing = unit(0.5, 'cm', data = NULL), axis.text.x = element_text(angle = 90))+
+  labs(fill = 'experiment type')
+ggsave('../outputs/moving_boxplots_elephants.png', device = 'png',
+       width = 11.70, height = 8.30)
+
 ###### LATENCY TO CHANGE BEHAVIOUR FROM START OF STIMULUS ######
 in_frame <- read_csv('../data_processed/elephants_time_in_frame.csv') %>% 
   select('subject','section','in_frame_seconds')
