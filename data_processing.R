@@ -1241,8 +1241,11 @@ ggplot(data = look[look$action == 'side-on',],
   theme(legend.position = 'bottom')+
   labs(title = 'side on to other elephants\n(rows = focal age, columns = partner age)')
 
-ggplot(data = look[look$action == 'look directly away',],
-       aes(x = section, y = propn, group = dyad))+
+look %>% 
+  filter(action == 'look directly away') %>% 
+  #filter(age_category != 'unkage') %>% 
+  #filter(partner_age_category != 'unkage') %>% 
+  ggplot(aes(x = section, y = propn, group = dyad))+
   geom_line(linewidth = 0.2, aes(colour = stimulus))+
   geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
   facet_grid(age ~ partner_age)+
@@ -1300,8 +1303,11 @@ ggplot(data = move[move$action == 'move away at an angle',],
   theme(legend.position = 'bottom')+
   labs(title = 'move indirectly away from other elephants\n(rows = focal age, columns = partner age)')
 
-ggplot(data = move[move$action == 'move away directly',],
-       aes(x = section, y = propn, group = dyad))+
+move %>% 
+  filter(action == 'move away directly') %>% 
+  filter(age_category != 'unkage') %>% 
+  filter(partner_age_category != 'unkage') %>% 
+  ggplot(aes(x = section, y = propn, group = dyad))+
   geom_line(linewidth = 0.2, aes(colour = stimulus))+
   geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
   facet_grid(age ~ partner_age)+
@@ -1653,6 +1659,7 @@ props$dyad <- paste0('e',props$pb_num,'_', props$focal,'_', props$dyad_partner)
 # nearest neighbour
 props %>% 
   filter(propn != 'NaN') %>% 
+  filter(!is.na(age_difference)) %>% 
   ggplot(aes(x = section, y = propn, group = dyad))+
   geom_line(linewidth = 0.2, aes(colour = stimulus))+
   geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
@@ -3054,3 +3061,310 @@ by_sec_index2 <- by_sec_index2 %>%
   select(all_of(col_order))
 
 saveRDS(by_sec_index2, '../data_processed/behaviour_by_second_indexvariables.RDS')
+
+### graphs ####
+by_sec <- readRDS('../data_processed/behaviour_by_second_indexvariables.RDS') %>% 
+  mutate(b1_nn_name = ifelse(b1_nn_name == '0', 'not_nearest',
+                             ifelse(b1_nn_name == '1', 'nearest_neighbour', b1_nn_name))) %>% 
+  mutate(b2_nn_name = ifelse(b2_nn_name == '0', 'not_nearest',
+                             ifelse(b2_nn_name == '1', 'nearest_neighbour', b2_nn_name))) %>% 
+  mutate(b3_nn_name = ifelse(b3_nn_name == '0', 'not_nearest',
+                             ifelse(b3_nn_name == '1', 'nearest_neighbour', b3_nn_name))) %>% 
+  mutate(b4_nn_name = ifelse(b4_nn_name == '0', 'not_nearest',
+                             ifelse(b4_nn_name == '1', 'nearest_neighbour', b4_nn_name))) %>% 
+  mutate(b5_nn_name = ifelse(b5_nn_name == '0', 'not_nearest',
+                             ifelse(b5_nn_name == '1', 'nearest_neighbour', b5_nn_name))) %>% 
+  mutate(b6_nn_name = ifelse(b6_nn_name == '0', 'not_nearest',
+                             ifelse(b6_nn_name == '1', 'nearest_neighbour', b6_nn_name))) %>% 
+  mutate(b7_nn_name = ifelse(b7_nn_name == '0', 'not_nearest',
+                             ifelse(b7_nn_name == '1', 'nearest_neighbour', b7_nn_name))) %>% 
+  mutate(b8_nn_name = ifelse(b8_nn_name == '0', 'not_nearest',
+                             ifelse(b8_nn_name == '1', 'nearest_neighbour', b8_nn_name)))
+
+ages <- readRDS('../data_processed/elephants.RDS') %>% 
+  select(subject, bull, age, pb_num) %>% 
+  distinct()
+
+stimuli <- readRDS('../data_processed/stimuli.RDS') %>% 
+  filter(behavior == 'STIMULUS')
+
+b1_e1 <- by_sec %>%
+  filter(subject == 'b1_e1') %>% 
+  select("second","ears_name","trunk_name","tail_name",
+         "speaker_look_name","vehicle_look_name","speaker_move_name","vehicle_move_name",
+         "b1_look_name","b2_look_name","b3_look_name","b4_look_name",
+         "b1_move_name","b2_move_name","b3_move_name","b4_move_name",
+         "neighbour_name","b1_nn_name","b2_nn_name","b3_nn_name","b4_nn_name",
+         "social_name","b1_social_name","b2_social_name","b3_social_name","b4_social_name")
+ages_e1 <- ages %>% 
+  filter(pb_num == 1) %>% 
+  mutate(partner_look = paste0('b',bull),
+         partner_move = paste0('b',bull),
+         partner_age = age)
+stim_e1 <- stimuli %>% 
+  filter(pb_num == 1) %>% 
+  select(time, status) %>% 
+  mutate(second = round(as.numeric(time), 0))
+
+look <- b1_e1 %>% 
+  select("second","b1_look_name","b2_look_name","b3_look_name","b4_look_name") %>% 
+  pivot_longer(cols = c("b1_look_name","b2_look_name","b3_look_name","b4_look_name"),
+               names_to = 'partner_look', values_to = 'direction_look') %>% 
+  filter(direction_look != 'impossible_partner') %>% 
+  separate(partner_look, into = c('partner_look','look_name'), sep = 2) %>% 
+  select(-look_name) %>% 
+  left_join(ages_e1[,c('partner_look','partner_age')], by = 'partner_look') %>% 
+  mutate(direction = ifelse(direction_look == 'look at directly',3,
+                            ifelse(direction_look == 'side-on',2,1)))
+ggplot()+
+  geom_rect(data = stim_e1, aes(xmin = second[which(status == 'START')], xmax = second[which(status == 'STOP')],
+                                ymin = min(look$direction)-0.5, ymax = max(look$direction)+0.5),
+            fill = 'grey')+
+  geom_line(data = look, mapping = aes(x = second, y = direction, colour = partner_look))+
+  coord_cartesian(ylim = c(min(look$direction)-0.1, max(look$direction)+0.1), expand = FALSE)
+
+move <- b1_e1 %>% 
+  select("second","b1_move_name","b2_move_name","b3_move_name","b4_move_name") %>% 
+  pivot_longer(cols = c("b1_move_name","b2_move_name","b3_move_name","b4_move_name"),
+               names_to = 'partner_move', values_to = 'direction_move') %>% 
+  filter(direction_move != 'impossible_partner') %>% 
+  separate(partner_move, into = c('partner_move','move_name'), sep = 2) %>% 
+  select(-move_name) %>% 
+  left_join(ages_e1[,c('partner_move','partner_age')], by = 'partner_move') %>% 
+  mutate(direction = ifelse(direction_move == 'approach directly',5,
+                            ifelse(direction_move == 'approach at an angle',4,
+                                   ifelse(direction_move == 'move directly with',3,
+                                          ifelse(direction_move == 'move away at an angle',2,
+                                                 ifelse(direction_move == 'move away directly',1, NA))))))
+ggplot()+
+  geom_rect(data = stim_e1, aes(xmin = second[which(status == 'START')], xmax = second[which(status == 'STOP')],
+                                ymin = min(move$direction, na.rm = T)-0.5, ymax = max(move$direction, na.rm = T)+0.5),
+            fill = 'grey')+
+  geom_line(data = move, mapping = aes(x = second, y = direction, colour = partner_move))+
+  coord_cartesian(ylim = c(min(move$direction, na.rm = T)-0.1, max(move$direction, na.rm = T)+0.1), expand = FALSE)
+
+
+
+
+
+
+
+
+e3 <- by_sec %>%
+  filter(pb_num == 3) %>% 
+  select("subject","pb_num","second","ears_name","trunk_name","tail_name",
+         "speaker_look_name","vehicle_look_name","speaker_move_name","vehicle_move_name",
+         "b1_look_name","b2_look_name","b3_look_name","b4_look_name",
+         "b5_look_name","b6_look_name","b7_look_name","b8_look_name",
+         "b1_move_name","b2_move_name","b3_move_name","b4_move_name",
+         "b5_move_name","b6_move_name","b7_move_name","b8_move_name",
+         "neighbour_name","b1_nn_name","b2_nn_name","b3_nn_name","b4_nn_name","b5_nn_name","b6_nn_name","b7_nn_name","b8_nn_name",
+         "social_name","b1_social_name","b2_social_name","b3_social_name","b4_social_name","b5_social_name","b6_social_name","b7_social_name","b8_social_name")
+ages_e3 <- ages %>% 
+  filter(pb_num == 3) %>% 
+  mutate(partner_look = paste0('b',bull),
+         partner_move = paste0('b',bull),
+         partner_age = age)
+stim_e3 <- stimuli %>% 
+  filter(pb_num == 3) %>% 
+  select(time, status) %>% 
+  mutate(second = round(as.numeric(time), 0)) %>% 
+  mutate(second_std = second - min(second))
+
+look <- e3 %>% 
+  select("subject","pb_num","second","b1_look_name","b2_look_name","b3_look_name","b4_look_name","b5_look_name","b6_look_name","b7_look_name","b8_look_name") %>% 
+  pivot_longer(cols = c("b1_look_name","b2_look_name","b3_look_name","b4_look_name","b5_look_name","b6_look_name","b7_look_name","b8_look_name"),
+               names_to = 'partner_look', values_to = 'direction_look') %>% 
+  filter(direction_look != 'impossible_partner') %>% 
+  left_join(ages_e3[,c('subject','age')], by = 'subject') %>% 
+  separate(partner_look, into = c('partner_look','look_name'), sep = 2) %>% 
+  select(-look_name) %>% 
+  mutate(pb_num = as.numeric(pb_num)) %>% 
+  left_join(ages_e3[,c('partner_look','pb_num','partner_age')], by = c('partner_look','pb_num')) %>% 
+  mutate(age = ifelse(age == '16-25','21-25',age),
+         partner_age = ifelse(partner_age == '16-25','21-25',partner_age)) %>% 
+  mutate(age_focal = as.integer(as.factor(age)),
+         age_partner = as.integer(as.factor(partner_age))) %>% 
+  mutate(age_difference = ifelse(age_focal == age_partner, 'age matched',
+                                 ifelse(age_focal > age_partner, 'older than partner', 'younger than partner')),
+         direction = ifelse(direction_look == 'look at directly',3,
+                            ifelse(direction_look == 'side-on',2,
+                                   ifelse(direction_look == 'look directly away',1, NA)))) %>% 
+  mutate(second_std = second - min(stim_e3$second)) %>% 
+  separate(subject, into = c('bull', 'exp'), sep = '_', remove = F) %>% 
+  select(-exp) %>% 
+  mutate(bull = paste0(bull, ' (focal)'),
+         partner_look = paste0(partner_look, ' (target)'))
+
+ggplot()+
+  #facet_wrap(. ~ subject)+
+  facet_grid(partner_look ~ bull)+
+  annotate('rect',xmin = stim_e3$second_std[which(stim_e3$status == 'START')],
+           xmax = stim_e3$second_std[which(stim_e3$status == 'STOP')],
+           ymin = min(look$direction, na.rm = T)-0.5,
+           ymax = max(look$direction, na.rm = T)+0.5,
+           fill = 'grey')+
+  geom_line(data = look, mapping = aes(x = second_std, y = direction, 
+                                       colour = age_difference, group = partner_look))+
+  coord_cartesian(ylim = c(min(look$direction, na.rm = T)-0.1, max(look$direction, na.rm = T)+0.1), expand = FALSE)+
+  #theme(legend.position = c(0.92, 0.05),
+  #      legend.justification = c(1, 0))+
+  theme(legend.position = 'bottom')+#,
+  #       axis.text.y = element_blank(),
+  #       axis.ticks.y = element_blank())+
+  # scale_y_continuous(breaks = 1:3, labels = c('away','side','face'))+
+  labs(colour = 'age relative to partner')
+
+e7 <- by_sec %>%
+  filter(pb_num == 7) %>% 
+  select("subject","pb_num","second","ears_name","trunk_name","tail_name",
+         "speaker_look_name","vehicle_look_name","speaker_move_name","vehicle_move_name",
+         "b1_look_name","b2_look_name","b3_look_name","b4_look_name",
+         "b5_look_name","b6_look_name","b7_look_name","b8_look_name",
+         "b1_move_name","b2_move_name","b3_move_name","b4_move_name",
+         "b5_move_name","b6_move_name","b7_move_name","b8_move_name",
+         "neighbour_name","b1_nn_name","b2_nn_name","b3_nn_name","b4_nn_name","b5_nn_name","b6_nn_name","b7_nn_name","b8_nn_name",
+         "social_name","b1_social_name","b2_social_name","b3_social_name","b4_social_name","b5_social_name","b6_social_name","b7_social_name","b8_social_name")
+ages_e7 <- ages %>% 
+  filter(pb_num == 7) %>% 
+  mutate(partner_look = paste0('b',bull),
+         partner_move = paste0('b',bull),
+         partner_age = age)
+stim_e7 <- stimuli %>% 
+  filter(pb_num == 7) %>% 
+  select(time, status) %>% 
+  mutate(second = round(as.numeric(time), 0)) %>% 
+  mutate(second_std = second - min(second))
+
+look <- e7 %>% 
+  select("subject","pb_num","second","b1_look_name","b2_look_name","b3_look_name","b4_look_name","b5_look_name","b6_look_name","b7_look_name","b8_look_name") %>% 
+  pivot_longer(cols = c("b1_look_name","b2_look_name","b3_look_name","b4_look_name","b5_look_name","b6_look_name","b7_look_name","b8_look_name"),
+               names_to = 'partner_look', values_to = 'direction_look') %>% 
+  filter(direction_look != 'impossible_partner') %>% 
+  left_join(ages_e7[,c('subject','age')], by = 'subject') %>% 
+  separate(partner_look, into = c('partner_look','look_name'), sep = 2) %>% 
+  select(-look_name) %>% 
+  mutate(pb_num = as.numeric(pb_num)) %>% 
+  left_join(ages_e7[,c('partner_look','pb_num','partner_age')], by = c('partner_look','pb_num')) %>% 
+  mutate(age = ifelse(age == '16-25','21-25',age),
+         partner_age = ifelse(partner_age == '16-25','21-25',partner_age)) %>% 
+  mutate(age_focal = as.integer(as.factor(age)),
+         age_partner = as.integer(as.factor(partner_age))) %>% 
+  mutate(age_difference = ifelse(age_focal == age_partner, 'age matched',
+                                 ifelse(age_focal > age_partner, 'older than partner', 'younger than partner')),
+         direction = ifelse(direction_look == 'look at directly',3,
+                            ifelse(direction_look == 'side-on',2,
+                                   ifelse(direction_look == 'look directly away',1, NA)))) %>% 
+  mutate(second_std = second - min(stim_e7$second)) %>% 
+  separate(subject, into = c('bull', 'exp'), sep = '_', remove = F) %>% 
+  select(-exp) %>% 
+  mutate(bull = paste0(bull, ' (focal)'),
+         partner_look = paste0(partner_look, ' (target)'))
+
+ggplot()+
+  #facet_wrap(. ~ subject)+
+  facet_grid(partner_look ~ bull)+
+  annotate('rect',xmin = stim_e7$second_std[which(stim_e7$status == 'START')],
+           xmax = stim_e7$second_std[which(stim_e7$status == 'STOP')],
+           ymin = min(look$direction, na.rm = T)-0.5,
+           ymax = max(look$direction, na.rm = T)+0.5,
+           fill = 'grey')+
+  geom_line(data = look, mapping = aes(x = second_std, y = direction, 
+                                       colour = age_difference, group = partner_look))+
+  coord_cartesian(ylim = c(min(look$direction, na.rm = T)-0.1, max(look$direction, na.rm = T)+0.1), expand = FALSE)+
+  #theme(legend.position = c(0.92, 0.05),
+  #      legend.justification = c(1, 0))+
+  theme(legend.position = 'bottom')+#,
+  #       axis.text.y = element_blank(),
+  #       axis.ticks.y = element_blank())+
+  # scale_y_continuous(breaks = 1:3, labels = c('away','side','face'))+
+  labs(colour = 'age relative to partner')
+
+
+
+
+
+
+
+
+
+
+
+
+
+plot <- by_sec %>%
+  select("subject","bull","pb_num","second","ears_name","trunk_name","tail_name",
+         "speaker_look_name","vehicle_look_name","speaker_move_name","vehicle_move_name",
+         "b1_look_name","b2_look_name","b3_look_name","b4_look_name","b5_look_name","b6_look_name","b7_look_name","b8_look_name",
+         "b1_move_name","b2_move_name","b3_move_name","b4_move_name","b5_move_name","b6_move_name","b7_move_name","b8_move_name",
+         "neighbour_name","b1_nn_name","b2_nn_name","b3_nn_name","b4_nn_name","b5_nn_name","b6_nn_name","b7_nn_name","b8_nn_name",
+         "social_name","b1_social_name","b2_social_name","b3_social_name","b4_social_name","b5_social_name","b6_social_name","b7_social_name","b8_social_name",
+         "b1_present_index","b2_present_index","b3_present_index","b4_present_index","b5_present_index","b6_present_index","b7_present_index","b8_present_index")
+ages <- ages %>% 
+  mutate(partner_look = paste0('b',bull),
+         partner_move = paste0('b',bull),
+         partner_age = age)
+stim <- stimuli %>% 
+  select(pb_num, time, status) %>% 
+  mutate(second = round(as.numeric(time), 0))
+
+look <- plot %>% 
+  select("subject","pb_num","bull","second","b1_look_name","b2_look_name","b3_look_name","b4_look_name","b5_look_name","b6_look_name","b7_look_name","b8_look_name") %>% 
+  pivot_longer(cols = c("b1_look_name","b2_look_name","b3_look_name","b4_look_name","b5_look_name","b6_look_name","b7_look_name","b8_look_name"),
+               names_to = 'partner_look', values_to = 'direction_look') %>% 
+  filter(direction_look != 'impossible_partner') %>% 
+  left_join(ages[,c('subject','age')], by = 'subject') %>% 
+  separate(partner_look, into = c('partner_look','look_name'), sep = 2) %>% 
+  select(-look_name) %>% 
+  mutate(pb_num = as.numeric(pb_num)) %>% 
+  left_join(ages[,c('partner_look','pb_num','partner_age')], by = c('partner_look','pb_num')) %>% 
+  mutate(age = ifelse(age == '16-25','21-25',age),
+         partner_age = ifelse(partner_age == '16-25','21-25',partner_age)) %>% 
+  mutate(age_focal = as.integer(as.factor(age)),
+         age_partner = as.integer(as.factor(partner_age))) %>% 
+  mutate(age_difference = ifelse(age_focal == age_partner, 'age_matched',
+                                 ifelse(age_focal > age_partner, 'partner_younger', 'partner_older')),
+         direction = ifelse(direction_look == 'look at directly',3,
+                            ifelse(direction_look == 'side-on',2,
+                                   ifelse(direction_look == 'look directly away',1, NA))))
+ggplot()+
+  # geom_rect(data = stim, aes(xmin = second[which(status == 'START')], xmax = second[which(status == 'STOP')],
+  #                            ymin = min(look$direction)-0.5, ymax = max(look$direction)+0.5),
+  #           fill = 'grey')+
+  geom_line(data = look, mapping = aes(x = second, y = direction, colour = age_difference, group_by = subject))+
+  facet_wrap(. ~ as.numeric(pb_num), scales = 'free_x')+
+  coord_cartesian(ylim = c(min(look$direction)-0.1, max(look$direction)+0.1), expand = FALSE)
+
+
+
+move <- plot %>% 
+  select("second","b1_move_name","b2_move_name","b3_move_name","b4_move_name") %>% 
+  pivot_longer(cols = c("b1_move_name","b2_move_name","b3_move_name","b4_move_name"),
+               names_to = 'partner_move', values_to = 'direction_move') %>% 
+  filter(direction_move != 'impossible_partner') %>% 
+  separate(partner_move, into = c('partner_move','move_name'), sep = 2) %>% 
+  select(-move_name) %>% 
+  left_join(ages_e1[,c('partner_move','partner_age')], by = 'partner_move') %>% 
+  mutate(direction = ifelse(direction_move == 'approach directly',5,
+                            ifelse(direction_move == 'approach at an angle',4,
+                                   ifelse(direction_move == 'move directly with',3,
+                                          ifelse(direction_move == 'move away at an angle',2,
+                                                 ifelse(direction_move == 'move away directly',1, NA))))))
+ggplot()+
+  geom_rect(data = stim_e1, aes(xmin = second[which(status == 'START')], xmax = second[which(status == 'STOP')],
+                                ymin = min(move$direction, na.rm = T)-0.5, ymax = max(move$direction, na.rm = T)+0.5),
+            fill = 'grey')+
+  geom_line(data = move, mapping = aes(x = second, y = direction, colour = partner_move, group = ))+
+  coord_cartesian(ylim = c(min(move$direction, na.rm = T)-0.1, max(move$direction, na.rm = T)+0.1), expand = FALSE)
+
+
+
+
+
+
+
+
+
+
+
+
