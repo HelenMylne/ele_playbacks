@@ -6,6 +6,7 @@
 library(tidyverse)
 #library(cmdstanr) ; set_cmdstan_path('../../packages/.cmdstan/cmdstan-2.31.0/') # library(cmdstanr, lib.loc = '../../packages/')
 library(brms)
+library(LaplacesDemon)
 
 theme_set(theme_classic())
 
@@ -456,41 +457,48 @@ look_no_na <- look_no_na %>%
          #age_diff_num = as.integer(age_diff_num), #as.factor(age_diff_num),
          look_tminus1_num = as.integer(look_tminus1_num)) #as.factor(look_tminus1_num))
 
-get_prior(formula = looking_direction ~ 1 + mo(focal_age) + mo(age_diff_num) + stim_type +  # fixed effects
-            time_since_stim + mo(look_tminus1_num) + mo(partner_age) +                      # controls
+get_prior(formula = looking_direction ~ 1 + mo(focal_age)*mo(partner_age) + stim_type +   # fixed effects
+            time_since_stim + mo(look_tminus1_num) +                                        # controls
             (1|focal_id) + (1|stim_id) + (1|playback_id),                                   # random effects
           data = look_no_na,
           family = cumulative("logit"))
-priors <- c(prior(normal(0,0.25),   class = b,    coef = mofocal_age),
-            prior(dirichlet(2,2,2), class = simo, coef = mofocal_age1),
-            prior(normal(0,0.333),  class = b,    coef = moage_diff_num),
-            prior(dirichlet(2,2),   class = simo, coef = moage_diff_num1),
-            prior(normal(0,0.25),   class = b,    coef = mopartner_age),
-            prior(dirichlet(2,2,2), class = simo, coef = mopartner_age1),
-            prior(normal(0,1),      class = b,    coef = stim_typeh),
-            prior(normal(0,1),      class = b,    coef = stim_typel),
-            prior(normal(0,1),      class = b,    coef = time_since_stim),
-            prior(normal(0,0.333),  class = b,    coef = molook_tminus1_num),
-            prior(dirichlet(2,2),   class = simo, coef = molook_tminus1_num1))
+priors <- c(
+  # focal age
+  prior(normal(0,0.25),   class = b,    coef = mofocal_age),
+  prior(dirichlet(2,2,2), class = simo, coef = mofocal_age1),
+  # partner age
+  prior(normal(0,0.25),   class = b,    coef = mopartner_age),
+  prior(dirichlet(2,2,2), class = simo, coef = mopartner_age1),
+  # age interaction
+  prior(normal(0,0.5), class = b, coef = mofocal_age:mopartner_age),
+  prior(dirichlet(2), class = simo, coef = mofocal_age:mopartner_age1),
+  prior(dirichlet(2), class = simo, coef = mofocal_age:mopartner_age2),
+  # stim type
+  prior(normal(0,1),      class = b,    coef = stim_typeh),
+  prior(normal(0,1),      class = b,    coef = stim_typel),
+  # controls
+  prior(normal(0,1),      class = b,    coef = time_since_stim),
+  prior(normal(0,0.333),  class = b,    coef = molook_tminus1_num),
+  prior(dirichlet(2,2),   class = simo, coef = molook_tminus1_num1))
 
 ## prior predictive check
 num_chains <- 4
 num_iter <- 2000
 direction_look_prior <- brm(
-  formula = looking_direction ~ 1 + mo(focal_age) + mo(age_diff_num) + stim_type + 
-    time_since_stim + mo(look_tminus1_num) + mo(partner_age) +
+  formula = looking_direction ~ 1 + mo(focal_age)*mo(partner_age) + stim_type + 
+    time_since_stim + mo(look_tminus1_num) +
     (1|focal_id) + (1|stim_id) + (1|playback_id),
   data = look_no_na,
   family = cumulative("logit"),
   prior = priors, chains = num_chains, cores = num_chains,
   iter = num_iter, warmup = num_iter/2, seed = 12345,
   sample_prior = 'only')
-pp_check(direction_look_prior)
+pp_check(direction_look_prior) # prior expects 1 and 3 most likely, 2 least likely. data show 1 least likely, 2 middle, 3 most.
 
 ## fit model
 direction_look_fit <- brm(
-  formula = looking_direction ~ 1 + mo(focal_age) + mo(age_diff_num) + stim_type + 
-    time_since_stim + mo(look_tminus1_num) + mo(partner_age) +
+  formula = looking_direction ~ 1 + mo(focal_age)*mo(partner_age) + stim_type + 
+    time_since_stim + mo(look_tminus1_num) + 
     (1|focal_id) + (1|stim_id) + (1|playback_id),
   data = look_no_na,
   family = cumulative("logit"),
@@ -501,12 +509,11 @@ direction_look_fit <- brm(
 summary(direction_look_fit)
 
 # save workspace
-save.image('looking_direction_model_run - dirichlet.RData')
-#load('looking_direction_model_run - dirichlet.RData') ; rm(biologylibs, homedrive, homelibs, homelibsprofile,rlibs,Rversion)
+save.image('looking_direction_model_run - interaction.RData')
+#load('looking_direction_model_run - interaction.RData') ; rm(biologylibs, homedrive, homelibs, homelibsprofile,rlibs,Rversion)
 
 ## check outputs ####
-library(LaplacesDemon)
-#load('looking_direction_model_run - dirichlet.RData') # rm(biologylibs, homedrive, homelibs, homelibsprofile, rlibs, Rversion) ; gc()
+#load('looking_direction_model_run - interaction.RData') # rm(biologylibs, homedrive, homelibs, homelibsprofile, rlibs, Rversion) ; gc()
 summary(direction_look_fit)
 
 ## check Stan code
@@ -543,9 +550,8 @@ names(marg)
 stim_effect <- marg[[1]]
 time_effect <- marg[[2]]
 focal_age_effect <- marg[[3]]
-agediff_effect <- marg[[4]]
+partner_age_effect <- marg[[4]] #agediff_effect <- marg[[4]]
 prevsec_effect <- marg[[5]]
-partner_age_effect <- marg[[6]]
 # marg <- conditional_effects(direction_look_fit, effects = 'focal_age', categorical = TRUE,
 #                             #spaghetti = TRUE,
 #                             method = 'posterior_epred')
@@ -574,17 +580,17 @@ conditional_effects(direction_look_fit, effects = 'focal_age', categorical = TRU
         axis.text = element_text(size = 12),
         legend.title = element_text(size = 12),
         legend.text = element_text(size = 10))
-ggsave(plot = focal_age_plot, filename = '../outputs/looking_marginaleffects_focalage.png', device = 'png',
+ggsave(plot = focal_age_plot, filename = '../outputs/looking_marginaleffects_focalage_interaction.png', device = 'png',
        width = 8.3, height = 5.8)
 
-conditional_effects(direction_look_fit, effects = 'age_diff_num', categorical = TRUE,
+conditional_effects(direction_look_fit, effects = 'partner_age', categorical = TRUE,
                     spaghetti = TRUE,
                     method = 'posterior_epred')
-(agediff_plot <- ggplot(agediff_effect)+
-  #geom_ribbon(aes(x = age_diff_num, ymax = upper__, ymin = lower__, fill = cats__), alpha = 0.4)+
-  geom_line(aes(x = age_diff_num, y = estimate__, colour = cats__), linewidth = 1)+
-  geom_errorbar(aes(x = age_diff_num, ymin = lower__, ymax = upper__, colour = cats__), linewidth = 1, width = 0.2)+
-  geom_point(aes(x = age_diff_num, y = estimate__, colour = cats__),cex = 3)+
+(age_part_plot <- ggplot(partner_age_effect)+
+  geom_ribbon(aes(x = partner_age, ymax = upper__, ymin = lower__, fill = cats__), alpha = 0.4)+
+  geom_line(aes(x = partner_age, y = estimate__, colour = cats__), linewidth = 1)+
+  #geom_errorbar(aes(x = partner_age, ymin = lower__, ymax = upper__, colour = cats__), linewidth = 1, width = 0.2)+
+  #geom_point(aes(x = partner_age, y = estimate__, colour = cats__),cex = 3)+
   ylab('probability')+
   scale_colour_viridis_d(name = 'looking direction:',
                          breaks = c('1','2','3'),
@@ -592,15 +598,17 @@ conditional_effects(direction_look_fit, effects = 'age_diff_num', categorical = 
   scale_fill_viridis_d(name = 'looking direction:',
                        breaks = c('1','2','3'),
                        labels = c('look towards', 'side on', 'look away'))+
-  scale_x_continuous(name = 'difference in age category',
-                     breaks = c(1,2,3),
-                     labels = c('partner younger', 'same age', 'partner older')))+
+  scale_x_continuous(name = 'partner age'#,
+                     #breaks = c(1,2,3),
+                     #labels = c('partner younger', 'same age', 'partner older'))
+                     )+
   theme(legend.position = 'bottom',
         axis.title = element_text(size = 16),
         axis.text = element_text(size = 12),
         legend.title = element_text(size = 12),
         legend.text = element_text(size = 10))
-ggsave(plot = agediff_plot, filename = '../outputs/looking_marginaleffects_agediff.png', device = 'png',
+)
+ggsave(plot = age_part_plot, filename = '../outputs/looking_marginaleffects_agepartner_interaction.png', device = 'png',
        width = 8.3, height = 5.8)
 
 conditional_effects(direction_look_fit, 'stim_type', categorical = TRUE,
@@ -622,15 +630,15 @@ conditional_effects(direction_look_fit, 'stim_type', categorical = TRUE,
         axis.text = element_text(size = 12),
         legend.title = element_text(size = 12),
         legend.text = element_text(size = 10))
-ggsave(plot = stim_plot, filename = '../outputs/looking_marginaleffects_stimtype.png', device = 'png',
+ggsave(plot = stim_plot, filename = '../outputs/looking_marginaleffects_stimtype_interaction.png', device = 'png',
        width = 8.3, height = 5.8)
 
 #conditional_effects(direction_look_fit, 'time_since_stim', categorical = TRUE)
 #conditional_effects(direction_look_fit, 'look_tminus1_num', categorical = TRUE)
 
 library(ggpubr)
-(all_plots <- ggarrange(age_plot, agediff_plot, stim_plot, ncol=3, nrow=1, common.legend = TRUE, legend = "bottom"))
-ggsave(plot = all_plots, filename = '../outputs/looking_marginaleffects.png', device = 'png',
+(all_plots <- ggarrange(focal_age_plot, age_part_plot, stim_plot, ncol=3, nrow=1, common.legend = TRUE, legend = "bottom"))
+ggsave(plot = all_plots, filename = '../outputs/looking_marginaleffects_interaction.png', device = 'png',
        width = (5.8*3), height = 8.3)
 
 ## posterior predictive check
@@ -644,36 +652,36 @@ draws %>%
   facet_wrap(. ~ parameter, scales = 'free_y')+
   theme(legend.position = 'none') # time since stim has ENORMOUS range (main body approx. -5000 to 10000), sd_playback_id poorly mixed
 
-## plot raw
-ggplot(look_no_na, aes(x = focal_age, y = looking_direction,
-                       colour = age_difference))+
-  geom_jitter()+
-  facet_wrap(. ~ stim_type)
-
-look_no_na %>% 
-  filter(stim_type == 'ctd') %>% 
-  ggplot(aes(x = time_since_stim, y = looking_direction,
-             group = focal_id))+
-  geom_vline(aes(xintercept = 0))+
-  geom_point(colour = rgb(0,0,1,0.01))+
-  #geom_line()+
-  facet_grid(focal_age ~ factor(age_difference, levels = c('partner younger','matched','partner older')))
-look_no_na %>% 
-  filter(stim_type == 'h') %>% 
-  ggplot(aes(x = time_since_stim, y = looking_direction,
-             group = focal_id))+
-  geom_vline(aes(xintercept = 0))+
-  geom_point(colour = rgb(0,0,1,0.01))+
-  #geom_line()+
-  facet_grid(focal_age ~ factor(age_difference, levels = c('partner younger','matched','partner older')))
-look_no_na %>% 
-  filter(stim_type == 'l') %>% 
-  ggplot(aes(x = time_since_stim, y = looking_direction,
-             group = focal_id))+
-  geom_vline(aes(xintercept = 0))+
-  geom_point(colour = rgb(0,0,1,0.01))+
-  #geom_line()+
-  facet_grid(focal_age ~ factor(age_difference, levels = c('partner younger','matched','partner older')))
+# ## plot raw
+# ggplot(look_no_na, aes(x = focal_age, y = looking_direction,
+#                        colour = age_difference))+
+#   geom_jitter(alpha = 0.1)+
+#   facet_wrap(. ~ stim_type)
+# 
+# look_no_na %>% 
+#   filter(stim_type == 'ctd') %>% 
+#   ggplot(aes(x = time_since_stim, y = looking_direction,
+#              group = focal_id))+
+#   geom_vline(aes(xintercept = 0))+
+#   geom_point(colour = rgb(0,0,1,0.01))+
+#   #geom_line()+
+#   facet_grid(focal_age ~ factor(age_difference, levels = c('partner younger','matched','partner older')))
+# look_no_na %>% 
+#   filter(stim_type == 'h') %>% 
+#   ggplot(aes(x = time_since_stim, y = looking_direction,
+#              group = focal_id))+
+#   geom_vline(aes(xintercept = 0))+
+#   geom_point(colour = rgb(0,0,1,0.01))+
+#   #geom_line()+
+#   facet_grid(focal_age ~ factor(age_difference, levels = c('partner younger','matched','partner older')))
+# look_no_na %>% 
+#   filter(stim_type == 'l') %>% 
+#   ggplot(aes(x = time_since_stim, y = looking_direction,
+#              group = focal_id))+
+#   geom_vline(aes(xintercept = 0))+
+#   geom_point(colour = rgb(0,0,1,0.01))+
+#   #geom_line()+
+#   facet_grid(focal_age ~ factor(age_difference, levels = c('partner younger','matched','partner older')))
 
 ## predict from model ####
 rm(list = ls()[! ls() %in% c('direction_look_fit','look_no_na')]) ; gc()
@@ -681,7 +689,7 @@ subjects <- sample(unique(look_no_na$focal_id), 5, replace = F)
 stimuli <- sample(unique(look_no_na$stim_id), 5, replace = F)
 pbs <- sample(unique(look_no_na$playback_id), 5, replace = F)
 predict_data <- data.frame(focal_age = rep(1, 3*26*3*length(subjects)*length(stimuli)*length(pbs)),
-                           age_diff_num = rep(1, 3*26*3*length(subjects)*length(stimuli)*length(pbs)),
+                           partner_age = rep(1, 3*26*3*length(subjects)*length(stimuli)*length(pbs)),
                            stim_type = rep(c('ctd','h','l'),
                                            each = 26*3*length(subjects)*length(stimuli)*length(pbs)),
                            time_since_stim = rep(rep(seq(from = -200, to = 300, by = 20),
@@ -699,21 +707,22 @@ predict_data <- data.frame(focal_age = rep(1, 3*26*3*length(subjects)*length(sti
                            playback_id = rep(pbs, 3*26*3*length(subjects)*length(stimuli)))
 pred <- posterior_predict(object = direction_look_fit,
                           newdata = predict_data)
-age_types <- c('age1_diff1','age1_diff2','age1_diff3',
-               'age2_diff1','age2_diff2','age2_diff3',
-               'age3_diff1','age3_diff2','age3_diff3',
-               'age4_diff1','age4_diff2','age4_diff3')
-pred_all <- array(data = NA, dim = c(nrow(pred), ncol(pred), 12),
+age_types <- c('foc1_part1','foc1_part2','foc1_part3','foc1_part4',
+               'foc2_part1','foc2_part2','foc2_part3','foc2_part4',
+               'foc3_part1','foc3_part2','foc3_part3','foc3_part4',
+               'foc4_part1','foc4_part2','foc4_part3','foc4_part4')
+pred_all <- array(data = NA, dim = c(nrow(pred), ncol(pred), length(age_types)),
                   dimnames = list(rownames(pred), colnames(pred),
                                   age_types))
 pred_all[,,1] <- pred
-save.image('looking_direction_dirichlet_predictions.RData')
+save.image('looking_direction_interaction_predictions.RData')
 for(i in 2:length(age_types)){
-  predict_data$focal_age <- ifelse(i < 4, 1,
-                                   ifelse(i < 7, 2,
-                                          ifelse(i < 10, 3 , 4)))
-  predict_data$age_diff_num <- ifelse(i %in% c(1,4,7,10), 1,
-                                      ifelse(i %in% c(2,5,8,11), 2, 3))
+  predict_data$focal_age <- ifelse(i <= 4, 1,
+                                   ifelse(i <= 8, 2,
+                                          ifelse(i <= 12, 3 , 4)))
+  predict_data$partner_age <- ifelse(i %in% c(1,5,9,13), 1,
+                                      ifelse(i %in% c(2,6,10,14), 2, 
+                                             ifelse(i %in% c(3,7,11,15), 3, 4)))
   # predict_data$focal_age <- ifelse(i < 5, 1,
   #                                  ifelse(i < 9, 2, 3))
   # predict_data$age_diff_num <- ifelse(i %in% c(1,5,9), 1,
@@ -722,10 +731,10 @@ for(i in 2:length(age_types)){
   pred <- posterior_predict(object = direction_look_fit,
                             newdata = predict_data)
   pred_all[,,i] <- pred
-  save.image('looking_direction_dirichlet_predictions.RData')
+  save.image('looking_direction_interaction_predictions.RData')
 }
 
-load('looking_direction_dirichlet_predictions.RData')
+load('looking_direction_interaction_predictions.RData')
 predict_data$num <- row_number(predict_data)
 predictions <- pred_all[,,age_types[1]] %>% 
   as.data.frame()
@@ -748,137 +757,159 @@ for(i in 2:length(age_types)){
     left_join(predict_data[,3:ncol(predict_data)], by = 'num')
   predictions <- rbind(predictions, pred)
 }
-save.image('looking_direction_dirichlet_predictions.RData')
+save.image('looking_direction_interaction_predictions.RData')
 
 age_types <- data.frame(age_type = age_types) %>% 
-  separate(age_type, into = c('age','age_diff_num'), remove = F, sep = '_diff') %>% 
-  mutate(focal_age = ifelse(age == 'age1', 1,
-                            ifelse(age == 'age2', 2,
-                                   ifelse(age == 'age3', 3, 4))),
-         age_diff_num = as.numeric(age_diff_num)) %>% 
-  select(age_type, focal_age, age_diff_num)
+  separate(age_type, into = c('focal_age','partner_age'), remove = F, sep = '_part') %>% 
+  mutate(focal_age = ifelse(focal_age == 'foc1', 1,
+                            ifelse(focal_age == 'foc2', 2,
+                                   ifelse(focal_age == 'foc3', 3, 4))),
+         partner_age = as.numeric(partner_age)) %>% 
+  select(age_type, focal_age, partner_age)
 
 rm(pred, pbs, stimuli, subjects, i) ; gc()
 predictions <- left_join(predictions, age_types, by = 'age_type')
 rm(age_types) ; gc()
-save.image('looking_direction_dirichlet_predictions.RData')
+save.image('looking_direction_interaction_predictions.RData')
 
 ## plot outputs ####
-load('looking_direction_dirichlet_predictions.RData')
-ggplot(predictions, aes(x = time_since_stim, y = prediction))+
+# load('looking_direction_interaction_predictions.RData') # UNCOMMENT HERE TO END FOR LOOP LATER, JUST WANT TO MAKE SURE YOU DON'T RUN THAT BIT AGAIN!
+# age_labels <- c('10-15 years','16-20 years','21-25 years','26-35 years')
+# names(age_labels) <- c(1,2,3,4)
+# 
+# predictions <- predictions %>%
+#   mutate(stimulus = ifelse(stim_type == 'ctd','dove (control)',
+#                            ifelse(stim_type == 'l', 'lion', 'human')),
+#          prediction_adjusted = ifelse(stim_type == 'ctd', prediction - 0.1,
+#                                       ifelse(stim_type == 'h', prediction + 0.1, prediction)))
+# predict_mean <- predictions %>%
+#   select(-num,-age_type,-prediction, -prediction_adjusted, -focal_id, -stim_id, -playback_id) %>%
+#   distinct() %>%
+#   mutate(prediction_mu = NA)
+# for(i in 1:nrow(predict_mean)){
+#   predict_mean$prediction_mu[i] <- mean(predictions$prediction[which(predictions$stim_type == predict_mean$stim_type[i] &
+#                                                                        predictions$time_since_stim == predict_mean$time_since_stim[i] &
+#                                                                        predictions$look_tminus1_num == predict_mean$look_tminus1_num[i] &
+#                                                                        predictions$focal_age == predict_mean$focal_age[i] &
+#                                                                        predictions$partner_age == predict_mean$partner_age[i])])
+# }
+load('looking_direction_interaction_predictions.RData')
+ggplot(predict_mean, aes(x = time_since_stim,                          # no effect of time in any graph
+                         y = prediction_mu,                            # all around 2, mean is never close to 1 or 3
+                         colour = stimulus,                            # most likely to look away for dove, then human, then lion (most likely to look at for lion, then human, then dove)
+                         shape = as.factor(look_tminus1_num)))+        # most likely to look away when previously looking away, most likely to look at when previously looking at
   geom_line()+
   geom_point()+
-  facet_wrap(.~stim_type)
+  facet_grid(partner_age ~ focal_age,                                  # partner = rows, focal = columns
+             labeller = labeller(focal_age = age_labels,               # no effect of focal age on looking direction
+                                 partner_age = age_labels))+           # increasingly likely to look away from other individuals as they age
+  scale_x_continuous(name = 'time since stimulus started (s)')+
+  scale_y_continuous(name = 'looking direction',
+                     breaks = c(1,2,3), labels = c('look at','side on','look away'),
+                     expand = c(0,0), limits = c(0.9,3.1))
+ggsave(plot = last_plot(), filename = '../outputs/looking_predictions_interaction.png', device = 'png', width = 8.27, height = 5.83)
 
 ## plot raw data
-look_no_na %>% 
-  filter(stim_type == 'ctd') %>% 
-  ggplot(aes(x = time_since_stim, y = looking_direction,
-             group = focal_id))+
-  geom_vline(aes(xintercept = 0))+
-  geom_point(colour = rgb(0,0,1,0.01))+
-  #geom_line()+
-  facet_grid(focal_age ~ factor(age_difference, levels = c('partner younger','matched','partner older')))
-
-look_no_na %>% 
-  filter(stim_type == 'h') %>% 
-  ggplot(aes(x = time_since_stim, y = looking_direction,
-             group = focal_id))+
-  geom_vline(aes(xintercept = 0))+
-  geom_point(colour = rgb(0,0,1,0.01))+
-  #geom_line()+
-  facet_grid(focal_age ~ factor(age_difference, levels = c('partner younger','matched','partner older')))
-
-look_no_na %>% 
-  filter(stim_type == 'l') %>% 
-  ggplot(aes(x = time_since_stim, y = looking_direction,
-             group = focal_id))+
-  geom_vline(aes(xintercept = 0))+
-  geom_point(colour = rgb(0,0,1,0.01))+
-  #geom_line()+
-  facet_grid(focal_age ~ factor(age_difference, levels = c('partner younger','matched','partner older')))
+# look_no_na %>% 
+#   filter(stim_type == 'ctd') %>% 
+#   ggplot(aes(x = time_since_stim, y = looking_direction,
+#              group = focal_id))+
+#   geom_vline(aes(xintercept = 0))+
+#   geom_point(colour = rgb(0,0,1,0.01))+
+#   #geom_line()+
+#   facet_grid(focal_age ~ factor(age_difference, levels = c('partner younger','matched','partner older')))
+# 
+# look_no_na %>% 
+#   filter(stim_type == 'h') %>% 
+#   ggplot(aes(x = time_since_stim, y = looking_direction,
+#              group = focal_id))+
+#   geom_vline(aes(xintercept = 0))+
+#   geom_point(colour = rgb(0,0,1,0.01))+
+#   #geom_line()+
+#   facet_grid(focal_age ~ factor(age_difference, levels = c('partner younger','matched','partner older')))
+# 
+# look_no_na %>% 
+#   filter(stim_type == 'l') %>% 
+#   ggplot(aes(x = time_since_stim, y = looking_direction,
+#              group = focal_id))+
+#   geom_vline(aes(xintercept = 0))+
+#   geom_point(colour = rgb(0,0,1,0.01))+
+#   #geom_line()+
+#   facet_grid(focal_age ~ factor(age_difference, levels = c('partner younger','matched','partner older')))
 
 ## plot predictions
 summary(direction_look_fit)
 # Family: cumulative 
 # Links: mu = logit; disc = identity 
-# Formula: looking_direction ~ 1 + mo(focal_age) + mo(age_diff_num) + stim_type + time_since_stim + mo(look_tminus1_num) + (1 | focal_id) + (1 | stim_id) + (1 | playback_id) 
+# Formula: looking_direction ~ 1 + mo(focal_age) + mo(partner_age) + stim_type + time_since_stim + mo(look_tminus1_num) + (1 | focal_id) + (1 | stim_id) + (1 | playback_id) 
 # Data: look_no_na (Number of observations: 171820) 
-# Draws: 4 chains, each with iter = 2000; warmup = 1000; thin = 1;
-# total post-warmup draws = 4000
+# Draws: 4 chains, each with iter = 2000; warmup = 1000; thin = 1; total post-warmup draws = 4000
 # 
 # Group-Level Effects: 
-#   ~focal_id (Number of levels: 176) 
+# ~focal_id (Number of levels: 176) 
 #               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sd(Intercept)     1.16      0.07     1.03     1.31 1.00      739     1753
+# sd(Intercept)     1.17      0.07     1.04     1.31 1.00      843     1441
 # 
 # ~playback_id (Number of levels: 48) 
 #               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sd(Intercept)     0.30      0.18     0.01     0.66 1.03      103      763
+# sd(Intercept)     0.26      0.17     0.01     0.65 1.01      191      459
 # 
 # ~stim_id (Number of levels: 30) 
 #               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sd(Intercept)     0.19      0.14     0.01     0.50 1.02      362     1019
+# sd(Intercept)     0.18      0.13     0.01     0.48 1.01      524     1201
 # 
 # Population-Level Effects: 
 #                    Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# Intercept[1]          -1.06      0.27    -1.57    -0.50 1.00     1595     2125
-# Intercept[2]           1.39      0.27     0.88     1.94 1.00     1598     2129
-# stim_typeh            -0.23      0.27    -0.77     0.31 1.00     1939     2524
-# stim_typel            -0.42      0.27    -0.94     0.12 1.00     1419     2101
-# time_since_stim        0.00      0.00    -0.00     0.00 1.00     4052     3382
-# mofocal_age            0.16      0.10    -0.03     0.36 1.00     1329     2050
-# moage_diff_num         0.25      0.01     0.23     0.27 1.00     5693     3046
-# molook_tminus1_num     0.60      0.01     0.59     0.62 1.00     6678     2955
+# Intercept[1]          -1.25      0.26    -1.77    -0.71 1.00     1376     1918
+# Intercept[2]           1.20      0.26     0.68     1.74 1.00     1378     1844
+# stim_typeh            -0.22      0.27    -0.77     0.30 1.00     1630     2373
+# stim_typel            -0.42      0.26    -0.93     0.10 1.00     1479     2052
+# time_since_stim        0.00      0.00    -0.00     0.00 1.00     3934     3124
+# mofocal_age            0.00      0.11    -0.20     0.21 1.00     1200     1638
+# mopartner_age          0.27      0.01     0.25     0.29 1.00     6206     2783
+# molook_tminus1_num     0.61      0.01     0.60     0.63 1.00     5622     2441
 # 
 # Simplex Parameters: 
 #                        Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# mofocal_age1[1]            0.33      0.17     0.06     0.68 1.00     5208     3140
-# mofocal_age1[2]            0.32      0.16     0.06     0.67 1.00     4590     3384
-# mofocal_age1[3]            0.35      0.17     0.07     0.73 1.00     4632     3302
-# moage_diff_num1[1]         0.72      0.03     0.66     0.77 1.00     7827     2761
-# moage_diff_num1[2]         0.28      0.03     0.23     0.34 1.00     7827     2761
-# molook_tminus1_num1[1]     0.46      0.01     0.44     0.48 1.00     6562     3121
-# molook_tminus1_num1[2]     0.54      0.01     0.52     0.56 1.00     6562     3121
+# mofocal_age1[1]            0.35      0.18     0.06     0.73 1.00     6146     2964
+# mofocal_age1[2]            0.31      0.17     0.05     0.69 1.00     5656     2885
+# mofocal_age1[3]            0.33      0.18     0.05     0.71 1.00     5503     2757
+# mopartner_age1[1]          0.32      0.02     0.27     0.36 1.00     6868     3220
+# mopartner_age1[2]          0.01      0.01     0.00     0.02 1.00     4669     2236
+# mopartner_age1[3]          0.68      0.02     0.63     0.72 1.00     6565     3012
+# molook_tminus1_num1[1]     0.46      0.01     0.45     0.48 1.00     6128     2514
+# molook_tminus1_num1[2]     0.54      0.01     0.52     0.55 1.00     6128     2514
 # 
 # Family Specific Parameters: 
 #      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # disc     1.00      0.00     1.00     1.00   NA       NA       NA
-# 
-# Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS
-# and Tail_ESS are effective sample size measures, and Rhat is the potential
-# scale reduction factor on split chains (at convergence, Rhat = 1).
-# Warning message:
-#   There were 20 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
+
+# Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS and Tail_ESS are effective sample size measures, and Rhat is the potential scale reduction factor on split chains (at convergence, Rhat = 1).
+# Warning message: There were 45 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See http://mc-stan.org/misc/warnings.html
 
 ## want to extract an estimated probability of each value at every time point, split across the different types
 ## take predictions from model and mean across random effects? so mean+/-stdev prediction for seconds = -120, age = 10-15, age_diff = 1, stim = ctd  -- pretty sure this would be the equivalent of treating it like a continuous variable again which is definitely not right, but right now I have no other ideas!! I think I probably need to extract it directly from the model draws for each parameter, but I don't think I know how to do that...
 
-age_labels <- c('10-15 years','16-20 years','21-25 years','26-35 years')
-names(age_labels) <- c(1,2,3,4)
 ggplot()+
   annotate('rect', xmin = 0, xmax = 30, ymin = 0.9, ymax = 3.1, fill = 'grey90')+
   geom_point(data = look_no_na,
              mapping = aes(x = time_since_stim, y = looking_direction),
              alpha = 0.01, shape = 19)+
-  # geom_violin(data = look_no_na,
-  #             mapping = aes(y = time_since_stim, x = as.factor(looking_direction)))+
-  # coord_flip()+
-  facet_wrap(. ~ focal_age,
-             labeller = labeller(focal_age = age_labels))+
+  facet_grid(partner_age ~ focal_age,
+             labeller = labeller(focal_age = age_labels, partner_age = age_labels))+
   scale_y_continuous(name = 'looking direction',
                      breaks = c(1,2,3), labels = c('look at','side on','look away'),
                      expand = c(0,0))+
   scale_x_continuous(name = 'time since stimulus (s)')
 
-predict_means <- predictions %>% 
-  select(focal_age, age_diff_num, stim_type, time_since_stim, look_tminus1_num) %>% 
+predict_means <- predictions[1:4680,] %>% 
+  select(focal_age, partner_age, stim_type, time_since_stim, look_tminus1_num) %>% 
   distinct() %>% 
   mutate(mean_pred = NA, stdv_pred = NA)
 for(i in 1:nrow(predict_means)){
   x <- predictions$prediction[predictions$focal_age == predict_means$focal_age[i] &
                                 predictions$stim_type == predict_means$stim_type[i] &
-                                predictions$age_diff_num == predict_means$age_diff_num[i] &
+                                predictions$partner_age == predict_means$partner_age[i] &
                                 predictions$time_since_stim == predict_means$time_since_stim[i] &
                                 predictions$look_tminus1_num == predict_means$look_tminus1_num[i]]
   predict_means$mean_pred[i] <- mean(x)
@@ -887,7 +918,7 @@ for(i in 1:nrow(predict_means)){
 predict_means$lwr <- predict_means$mean_pred - predict_means$stdv_pred
 predict_means$upr <- predict_means$mean_pred + predict_means$stdv_pred
 
-save.image('looking_direction_dirichlet_predictions.RData')
+save.image('looking_direction_interaction_predictions.RData')
 
 age_labels <- c('partner younger','age matched','partner older')
 names(age_labels) <- c(1,2,3)
