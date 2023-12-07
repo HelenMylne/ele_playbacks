@@ -338,7 +338,6 @@ subjects <- sample(unique(nn_no_na$focal_id), 5, replace = F)
 stimuli <- sample(unique(nn_no_na$stim_id), 5, replace = F)
 pbs <- sample(unique(nn_no_na$playback_id), 5, replace = F)
 predict_data <- data.frame(f_age_num = rep(1, 3*26*3*length(subjects)*length(stimuli)*length(pbs)),
-                           p_age_num = rep(1, 3*26*3*length(subjects)*length(stimuli)*length(pbs)),
                            stim_type = rep(c('ctd','h','l'),
                                            each = 26*3*length(subjects)*length(stimuli)*length(pbs)),
                            time_since_stim = rep(rep(seq(from = -200, to = 300, by = 20),
@@ -356,27 +355,14 @@ predict_data <- data.frame(f_age_num = rep(1, 3*26*3*length(subjects)*length(sti
                            playback_id = rep(pbs, 3*26*3*length(subjects)*length(stimuli)))
 pred <- posterior_predict(object = nn_fit,
                           newdata = predict_data)
-age_types <- c('foc1_part1','foc1_part2','foc1_part3','foc1_part4',
-               'foc2_part1','foc2_part2','foc2_part3','foc2_part4',
-               'foc3_part1','foc3_part2','foc3_part3','foc3_part4',
-               'foc4_part1','foc4_part2','foc4_part3','foc4_part4')
+age_types <- 1:4
 pred_all <- array(data = NA, dim = c(nrow(pred), ncol(pred), length(age_types)),
                   dimnames = list(rownames(pred), colnames(pred),
                                   age_types))
 pred_all[,,1] <- pred
 save.image('nearest_neighbour/neighbour_model_predictions.RData')
 for(i in 2:length(age_types)){
-  predict_data$f_age_num <- ifelse(i <= 4, 1,
-                                   ifelse(i <= 8, 2,
-                                          ifelse(i <= 12, 3 , 4)))
-  predict_data$p_age_num <- ifelse(i %in% c(1,5,9,13), 1,
-                                     ifelse(i %in% c(2,6,10,14), 2, 
-                                            ifelse(i %in% c(3,7,11,15), 3, 4)))
-  # predict_data$focal_age <- ifelse(i < 5, 1,
-  #                                  ifelse(i < 9, 2, 3))
-  # predict_data$age_diff_num <- ifelse(i %in% c(1,5,9), 1,
-  #                                     ifelse(i %in% c(2,6,10), 2,
-  #                                            ifelse(i %in% c(3,7,11), 3, 4)))
+  predict_data$f_age_num <- age_types[i]
   pred <- posterior_predict(object = nn_fit,
                             newdata = predict_data)
   pred_all[,,i] <- pred
@@ -391,7 +377,7 @@ predictions <- predictions[1:100,] %>%
   pivot_longer(everything(), names_to = 'Vnum', values_to = 'prediction') %>% 
   separate(Vnum, into = c('v','num'), sep = 1) %>% 
   select(-v) %>% 
-  mutate(age_type = age_types[1],
+  mutate(focal_age = age_types[1],
          num = as.numeric(num)) %>% 
   left_join(predict_data[,3:ncol(predict_data)], by = 'num')
 for(i in 2:length(age_types)){
@@ -401,24 +387,11 @@ for(i in 2:length(age_types)){
     pivot_longer(everything(), names_to = 'Vnum', values_to = 'prediction') %>% 
     separate(Vnum, into = c('v','num'), sep = 1) %>% 
     select(-v) %>% 
-    mutate(age_type = age_types[i],
+    mutate(focal_age = age_types[i],
            num = as.numeric(num)) %>% 
     left_join(predict_data[,3:ncol(predict_data)], by = 'num')
   predictions <- rbind(predictions, pred)
 }
-save.image('nearest_neighbour/neighbour_model_predictions.RData')
-
-age_types <- data.frame(age_type = age_types) %>% 
-  separate(age_type, into = c('focal_age','partner_age'),
-           remove = F, sep = '_part') %>% 
-  mutate(focal_age = ifelse(focal_age == 'foc1', 1,
-                            ifelse(focal_age == 'foc2', 2,
-                                   ifelse(focal_age == 'foc3', 3, 4))),
-         partner_age = as.numeric(partner_age))
-
-rm(pred, pbs, stimuli, subjects, i) ; gc()
-predictions <- left_join(predictions, age_types, by = 'age_type')
-rm(age_types) ; gc()
 save.image('nearest_neighbour/neighbour_model_predictions.RData')
 
 ## plot outputs ####
@@ -447,61 +420,94 @@ nn_no_na %>%
 summary(nn_fit)
 # Family: cumulative 
 # Links: mu = logit; disc = identity 
-# Formula: age_diff_num ~ 1 + mo(f_age_num) * mo(p_age_num) + stim_type + time_since_stim + mo(nn_tminus1_num) + (1 | focal_id) + (1 | stim_id) + (1 | playback_id) 
-# Data: nn_no_na (Number of observations: 40120) 
-# Draws: 4 chains, each with iter = 2000; warmup = 1000; thin = 1;
-# total post-warmup draws = 4000
+# Formula: age_diff_num ~ 1 + mo(f_age_num) + stim_type + time_since_stim + mo(nn_tminus1_num) + (1 | focal_id) + (1 | stim_id) + (1 | playback_id) 
+# Data: nn_no_na (Number of observations: 40010) 
+# Draws: 4 chains, each with iter = 2000; warmup = 1000; thin = 1; total post-warmup draws = 4000
 # 
 # Group-Level Effects: 
 #   ~focal_id (Number of levels: 140) 
 #               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sd(Intercept)    21.13      2.33    17.17    25.97 1.02      351      471
+# sd(Intercept)     6.13      0.63     5.02     7.43 1.01      869     1762
 # 
 # ~playback_id (Number of levels: 33) 
 #               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sd(Intercept)     1.75      1.36     0.08     5.13 1.02      532      608
+# sd(Intercept)     0.77      0.53     0.03     1.98 1.05       95      362
 # 
 # ~stim_id (Number of levels: 23) 
 #               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sd(Intercept)     1.82      1.48     0.08     5.75 1.02      237       65
+# sd(Intercept)     0.68      0.51     0.02     1.98 1.03      240      175
 # 
 # Population-Level Effects: 
-#                         Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# Intercept[1]               11.81      2.55     6.52    16.68 1.01      339      673
-# Intercept[2]               35.39      3.10    29.61    41.69 1.01      403     1075
-# stim_typeh                  0.26      0.99    -1.71     2.12 1.01      564      517
-# stim_typel                 -0.26      0.95    -2.12     1.55 1.00     3005     3107
-# time_since_stim            -0.01      0.00    -0.01    -0.00 1.00     4550     3277
-# mof_age_num                -0.35      0.26    -0.85     0.17 1.00     4806     2784
-# mop_age_num                 1.78      0.17     1.43     2.11 1.00     1941     2988
-# monn_tminus1_num            1.55      0.22     1.13     1.98 1.00     1581     2843
-# mof_age_num:mop_age_num     4.60      0.26     4.10     5.11 1.01      334       81
+#                  Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# Intercept[1]         2.61      0.94     0.62     4.45 1.03      202       93
+# Intercept[2]        12.44      0.95    10.45    14.30 1.03      211       91
+# stim_typeh           0.23      0.83    -1.38     1.87 1.00     1102     1868
+# stim_typel           0.05      0.80    -1.50     1.56 1.00      837     2109
+# time_since_stim     -0.00      0.00    -0.00     0.00 1.00     2766     2858
+# mof_age_num         -0.76      0.25    -1.23    -0.26 1.01      789     1833
+# monn_tminus1_num     7.98      0.09     7.80     8.17 1.00     2569     2267
 # 
 # Simplex Parameters: 
-#                             Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# mof_age_num1[1]                 0.29      0.17     0.04     0.69 1.00     1579     2640
-# mof_age_num1[2]                 0.39      0.20     0.07     0.78 1.00      887     2276
-# mof_age_num1[3]                 0.31      0.17     0.05     0.71 1.00     4973     2781
-# mop_age_num1[1]                 0.91      0.04     0.81     0.97 1.00     1027     2571
-# mop_age_num1[2]                 0.05      0.03     0.01     0.13 1.01      590      732
-# mop_age_num1[3]                 0.05      0.03     0.01     0.12 1.01     4793     2503
-# monn_tminus1_num1[1]            0.13      0.08     0.02     0.32 1.00     6017     2901
-# monn_tminus1_num1[2]            0.87      0.08     0.68     0.98 1.00     6017     2901
-# mof_age_num:mop_age_num1[1]     0.96      0.02     0.92     0.99 1.00     1218     2472
-# mof_age_num:mop_age_num1[2]     0.02      0.02     0.00     0.06 1.00     3760     2859
-# mof_age_num:mop_age_num1[3]     0.02      0.01     0.00     0.05 1.01      650      325
-# mof_age_num:mop_age_num2[1]     0.03      0.02     0.00     0.08 1.01      323       70
-# mof_age_num:mop_age_num2[2]     0.62      0.03     0.55     0.68 1.01     1408     2381
-# mof_age_num:mop_age_num2[3]     0.35      0.03     0.29     0.41 1.00     1927     3096
+#                      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# mof_age_num1[1]          0.19      0.13     0.02     0.52 1.00     1237     1532
+# mof_age_num1[2]          0.59      0.18     0.19     0.88 1.01      757     1552
+# mof_age_num1[3]          0.22      0.14     0.03     0.55 1.01     2176     1679
+# monn_tminus1_num1[1]     0.51      0.01     0.49     0.52 1.00     4415     2918
+# monn_tminus1_num1[2]     0.49      0.01     0.48     0.51 1.00     4415     2918
 # 
 # Family Specific Parameters: 
 #      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # disc     1.00      0.00     1.00     1.00   NA       NA       NA
 # 
 # Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS and Tail_ESS are effective sample size measures, and Rhat is the potential scale reduction factor on split chains (at convergence, Rhat = 1).
-# Warning message: There were 222 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
+# Warning message: There were 369 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
 
-## want to extract an estimated probability of each value at every time point, split across the different types
+fixed <- summary(nn_fit)$fixed
+focal_id <- summary(nn_fit)$random$focal_id %>% 
+  as.data.frame()
+pb_id <- summary(nn_fit)$random$playback_id %>% 
+  as.data.frame()
+stim_id <- summary(nn_fit)$random$stim_id %>% 
+  as.data.frame()
+mo <- summary(nn_fit)$mo %>% 
+  as.data.frame()
+coef <- rbind(fixed, mo, focal_id, pb_id, stim_id) %>% 
+  janitor::clean_names()
+rm(fixed, mo, focal_id, pb_id, stim_id)
+coef$coef <- rownames(coef)
+
+# With a 1 unit increase in focal age (i.e., changing from one level to the next of the categorical predictor), the predicted odds of observing Y = 3 versus Y = 1 or 2 change by a factor of exp(beta) which, for diagram, is exp(-0.758) = 0.469
+coef_exp <- coef %>% 
+  mutate(estimate = exp(estimate),
+         est_error = exp(est_error),
+         l_95_percent_ci = exp(l_95_percent_ci),
+         u_95_percent_ci = exp(u_95_percent_ci),
+         rhat = round(rhat, 2),
+         bulk_ess = round(bulk_ess),
+         tail_ess = round(tail_ess)) %>% 
+  rename(lwr = l_95_percent_ci,
+         upr = u_95_percent_ci) %>% 
+  relocate(coef)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## want to extract an estimated probability of each value at every time point, split across the different types ############
 ## take predictions from model and mean across random effects? so mean+/-stdev prediction for seconds = -120, age = 10-15, age_diff = 1, stim = ctd  -- pretty sure this would be the equivalent of treating it like a continuous variable again which is definitely not right, but right now I have no other ideas!! I think I probably need to extract it directly from the model draws for each parameter, but I don't think I know how to do that...
 
 age_labels <- c('10-15 years','16-20 years','21-25 years','26-35 years')
@@ -556,10 +562,10 @@ predict_means <- predict_means %>%
                                                  '36+')))))
 ggplot()+
   annotate('rect', xmin = 0, xmax = 30, ymin = 0.9, ymax = 3.1, fill = 'grey90')+
-  geom_ribbon(data = predict_means,
-              mapping = aes(x = time_since_stim, ymax = upr, ymin = lwr,
-                            fill = f_age_cat, linetype = p_age_cat),
-              alpha = 0.2)+
+  # geom_ribbon(data = predict_means,
+  #             mapping = aes(x = time_since_stim, ymax = upr, ymin = lwr,
+  #                           fill = f_age_cat),
+  #             alpha = 0.2)+
   geom_point(data = nn_no_na,
              mapping = aes(x = time_since_stim, y = age_diff_num,
                            colour = f_age_cat),
@@ -569,8 +575,7 @@ ggplot()+
                                  stim_type = stim_labels))+
   geom_line(data = predict_means,
             mapping = aes(x = time_since_stim, y = mean_pred,
-                          colour = f_age_cat,
-                          linetype = p_age_cat))+
+                          colour = f_age_cat))+
   scale_y_continuous(name = 'age of nearest neighbour relative to focal',
                      breaks = c(1,2,3), labels = c('younger','matched','older'),
                      expand = c(0,0))+
@@ -578,56 +583,80 @@ ggplot()+
   scale_colour_viridis_d()+
   scale_fill_viridis_d()+
   labs(colour = 'focal age category',
-       linetype = 'neighbour age category',
        fill = 'focal age category')
 ggsave(plot = last_plot(),
-       filename = '../outputs/nn_predictions_withribbon.png', device = 'png',
+       filename = '../outputs/nn_predictions_noribbon.png', device = 'png',
        width = 8.3, height = 5.8)
 
 f_age_labels <- c('focal: 10-15','focal: 16-20','focal: 21-25','focal: 26-35')
 names(f_age_labels) <- c(1,2,3,4)
-p_age_labels <- c('partner: 10-15','partner: 16-20','partner: 21-25','partner: 26-35')
-names(p_age_labels) <- c(1,2,3,4)
-# predict_means <- predict_means %>% 
-#   mutate(f_age_cat = ifelse(focal_age == 1, '10-15',
-#                             ifelse(focal_age == 2, '16-20',
-#                                    ifelse(focal_age == 3, '21-25',
-#                                           ifelse(focal_age == 4, '26-35',
-#                                                  '36+')))),
-#          p_age_cat = ifelse(partner_age == 1, '10-15',
-#                             ifelse(partner_age == 2, '16-20',
-#                                    ifelse(partner_age == 3, '21-25',
-#                                           ifelse(partner_age == 4, '26-35',
-#                                                  '36+')))))
 ggplot()+
   annotate('rect', xmin = 0, xmax = 30, ymin = 0.9, ymax = 3.1, fill = 'grey90')+
   # geom_ribbon(data = predict_means,
   #             mapping = aes(x = time_since_stim, ymax = upr, ymin = lwr,
-  #                           fill = f_age_cat, linetype = p_age_cat),
+  #                           fill = f_age_cat),
   #             alpha = 0.2)+
   geom_point(data = nn_no_na,
              mapping = aes(x = time_since_stim, y = age_diff_num,
-                           colour = stim_type, shape = nn_tminus1),
+                           colour = as.factor(nn_tminus1_num)),
              alpha = 0.1)+
-  facet_grid(f_age_cat ~ p_age_cat,
-             labeller = labeller(f_age_cat = f_age_labels,
-                                 p_age_cat = p_age_labels))+
+  facet_grid(f_age_num ~ stim_type,
+             labeller = labeller(f_age_num = f_age_labels,
+                                 stim_type = stim_labels))+
   geom_line(data = predict_means,
             mapping = aes(x = time_since_stim, y = mean_pred,
-                          colour = stim_type,
-                          linetype = nn_tminus1))+
+                          colour = as.factor(nn_tminus1_num),
+                          linetype = ))+
   scale_y_continuous(name = 'age of nearest neighbour relative to focal',
                      breaks = c(1,2,3), labels = c('younger','matched','older'),
                      expand = c(0,0))+
   scale_x_continuous(name = 'time since stimulus (s)')+
   scale_colour_viridis_d()+
   scale_fill_viridis_d()+
-  labs(colour = 'focal age category',
-       linetype = 'neighbour age category',
+  labs(colour = 'neighbour age at t-1',
        fill = 'focal age category')
 ggsave(plot = last_plot(),
        filename = '../outputs/nn_predictions_withribbon.png', device = 'png',
        width = 8.3, height = 5.8)
 
 save.image('nearest_neighbour/neighbour_model_predictions.RData')
+
+##### 
+pred_prop <- predictions %>% 
+  group_by(focal_age, time_since_stim, nn_tminus1_num, prediction) %>% 
+  count() %>% 
+  rename(num_pred = n) %>% 
+  ungroup()
+pred_prop2 <- predictions %>% 
+  mutate(fixed = paste0(focal_age, time_since_stim, nn_tminus1_num)) %>% 
+  group_by(fixed) %>% 
+  count() %>% 
+  rename(total = n)
+pred_prop <- pred_prop %>% 
+  mutate(fixed = paste0(focal_age, time_since_stim, nn_tminus1_num)) %>% 
+  left_join(pred_prop2, by = 'fixed') %>% 
+  mutate(prop = num_pred / total) %>% 
+  select(-fixed)
+rm(pred_prop2) ; gc()
+
+prevsec_labels <- c('neighbour younger at t-1',
+                    'neighbour same age at t-1',
+                    'neighbour older at t-1')
+names(prevsec_labels) <- 1:3
+pred_prop %>% 
+  filter(time_since_stim %in% c(-200, -100, -20, 0, 20, 40, 100, 200, 300)) %>% 
+  mutate(pred_label = ifelse(prediction == 1, 'neighbour younger',
+                             ifelse(prediction == 2, 'age matched',
+                                    ifelse(prediction == 3, 'neighbour older',NA)))) %>% 
+  mutate(pred_label = factor(pred_label,
+                             levels = c('neighbour younger',
+                                        'age matched',
+                                        'neighbour older'))) %>% 
+  ggplot(aes(x = focal_age, y = prop, fill = as.factor(pred_label)))+
+  geom_col()+
+  facet_grid(nn_tminus1_num ~ as.factor(time_since_stim),
+             labeller = labeller(nn_tminus1_num = prevsec_labels))+
+  scale_fill_viridis_d()+
+  labs(fill = 'predicted age of neighbour relative to focal:')+
+  theme(legend.position = 'bottom')
 
