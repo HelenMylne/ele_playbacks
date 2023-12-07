@@ -128,8 +128,9 @@ nn_no_na <- nn_no_na %>%
                                         ifelse(nn_tminus1 == 'partner older', 3, NA)))) %>% 
   mutate(nn_tminus1_num = as.integer(nn_tminus1_num))
 
-get_prior(formula = age_diff_num ~ 1 + mo(f_age_num) + stim_type +   # fixed effects -- no longer contains partner age, otherwise it's essentially abs(x-z) ~ x*z rather than y ~ x*z
-            time_since_stim + mo(nn_tminus1_num) +                                   # controls
+get_prior(formula = age_diff_num ~ 1 + mo(f_age_num) +       # age fixed effect
+            stim_type * time_since_stim +                    # fixed with interaction
+            mo(nn_tminus1_num) +                             # controls
             (1|focal_id) + (1|stim_id) + (1|playback_id),                            # random effects
           data = nn_no_na,
           family = cumulative("logit"))
@@ -140,8 +141,12 @@ priors <- c(
   # stimulus type
   prior(normal(0,1),      class = b,    coef = stim_typeh),
   prior(normal(0,1),      class = b,    coef = stim_typel),
-  # controls
+  # time since stimulus
   prior(normal(0,1),      class = b,    coef = time_since_stim),
+  # interaction
+  prior(normal(0,1),      class = b,    coef = stim_typeh:time_since_stim),
+  prior(normal(0,1),      class = b,    coef = stim_typel:time_since_stim),
+  # control: nearest neighbour in previous second
   prior(normal(0,0.333),  class = b,    coef = monn_tminus1_num),
   prior(dirichlet(2),     class = simo, coef = monn_tminus1_num1))
 
@@ -149,8 +154,9 @@ priors <- c(
 num_chains <- 4
 num_iter <- 2000
 nn_prior <- brm(
-  formula = age_diff_num ~ 1 + mo(f_age_num) + stim_type + 
-    time_since_stim + mo(nn_tminus1_num) +
+  formula = age_diff_num ~ 1 + mo(f_age_num) + 
+    stim_type * time_since_stim + 
+    mo(nn_tminus1_num) +
     (1|focal_id) + (1|stim_id) + (1|playback_id),
   data = nn_no_na,
   family = cumulative("logit"),
@@ -161,8 +167,7 @@ pp_check(nn_prior) # huge variation in prior, but fairly on both sides so good
 
 ## fit model
 nn_fit <- brm(
-  formula = age_diff_num ~ 1 + mo(f_age_num) + stim_type + 
-    time_since_stim + mo(nn_tminus1_num) + 
+  formula = age_diff_num ~ 1 + mo(f_age_num) + stim_type * time_since_stim + mo(nn_tminus1_num) + 
     (1|focal_id) + (1|stim_id) + (1|playback_id),
   data = nn_no_na,
   family = cumulative("logit"),
@@ -173,20 +178,15 @@ nn_fit <- brm(
 summary(nn_fit)
 
 # save workspace
-save.image('nearest_neighbour/neighbour_model_run.RData')
-#load('nearest_neighbour/nearest_neighbour/neighbour_model_run.RData') ; rm(biologylibs, homedrive, homelibs, homelibsprofile,rlibs,Rversion)
+save.image('nearest_neighbour/neighbour_model_run_interaction.RData')
+#load('nearest_neighbour/nearest_neighbour/neighbour_model_run_interaction.RData') ; rm(biologylibs, homedrive, homelibs, homelibsprofile,rlibs,Rversion)
 
 ## check outputs ####
 library(LaplacesDemon)
-#load('nearest_neighbour/nearest_neighbour/neighbour_model_run.RData') # rm(biologylibs, homedrive, homelibs, homelibsprofile, rlibs, Rversion) ; gc()
+#load('nearest_neighbour/neighbour_model_run_interaction.RData') # rm(biologylibs, homedrive, homelibs, homelibsprofile, rlibs, Rversion) ; gc()
 
 ## check Stan code
 nn_fit$model
-
-## calculate log cumulative odds
-prop <- table(nn_no_na$age_diff_num) / nrow(nn_no_na)
-cum_prop <- cumsum(prop)
-log_cum_odds <- logit(cum_prop)
 
 ## extract posterior distribution
 draws <- as_draws_df(nn_fit) %>% 
@@ -295,7 +295,7 @@ draws %>%
                           "simo_mof_age_num:mop_age_num1[3]","simo_mof_age_num:mop_age_num2[1]",
                           "simo_mof_age_num:mop_age_num2[2]","simo_mof_age_num:mop_age_num2[3]",
                           "sd_focal_id__Intercept","sd_playback_id__Intercept","sd_stim_id__Intercept"
-                          )) %>% 
+  )) %>% 
   ggplot(aes(x = iteration, y = draw, colour = as.factor(chain)))+
   geom_line()+
   facet_wrap(. ~ parameter, scales = 'free_y')+
@@ -308,7 +308,7 @@ stim_labels <- c('dove (control)','human','lion')
 names(stim_labels) <- c('ctd','h','l')
 
 ggplot(nn_no_na, aes(x = f_age_num, y = age_diff_num,
-                       colour = as.factor(nn_tminus1_num)))+
+                     colour = as.factor(nn_tminus1_num)))+
   geom_jitter(alpha = 0.1)+
   facet_wrap(. ~ stim_type,
              labeller = labeller(stim_type = stim_labels))+
@@ -321,7 +321,7 @@ nn_no_na %>%
   ggplot(aes(x = time_since_stim, y = age_diff_num))+
   geom_vline(aes(xintercept = 0))+
   geom_point(aes(colour = as.factor(f_age_num)#rgb(0,0,1,0.01)
-                 ), alpha = 0.01)+
+  ), alpha = 0.01)+
   facet_grid(f_age_num ~ stim_type,
              labeller = labeller(f_age_num = age_labels,
                                  stim_type = stim_labels))+
@@ -333,6 +333,9 @@ nn_no_na %>%
   scale_x_continuous(name = 'time since stimulus started (s)') # no particular effect of time since stimulus -- all seem pretty similar before and after. possible differences between stimuli: youngest are more likely to age match during control but be near older during lion/human (but that is also the case beforethe stimulus); 21-25 more likely to age match during lion than other 2; oldest switch from being near younger to age matching during lion stimuli; oldest do not age match for human stimuli; 16-20 more likely to be near youngest after lion and human than before
 
 ## predict from model ####
+#load('nearest_neighbour/neighbour_model_run_interaction.RData') # rm(biologylibs, homedrive, homelibs, homelibsprofile, rlibs, Rversion) ; gc()
+
+## check Stan code
 rm(list = ls()[! ls() %in% c('nn_fit','nn_no_na')]) ; gc()
 subjects <- sample(unique(nn_no_na$focal_id), 5, replace = F)
 stimuli <- sample(unique(nn_no_na$stim_id), 5, replace = F)
@@ -344,8 +347,8 @@ predict_data <- data.frame(f_age_num = rep(1, 3*26*3*length(subjects)*length(sti
                                                      each = 3*length(subjects)*length(stimuli)*length(pbs)),
                                                  3),
                            nn_tminus1_num = rep(rep(1:3,
-                                                      each = length(subjects)*length(stimuli)*length(pbs)),
-                                                  3*26),
+                                                    each = length(subjects)*length(stimuli)*length(pbs)),
+                                                3*26),
                            focal_id = rep(rep(subjects,
                                               each = length(stimuli)*length(pbs)),
                                           3*26*3),
@@ -360,16 +363,16 @@ pred_all <- array(data = NA, dim = c(nrow(pred), ncol(pred), length(age_types)),
                   dimnames = list(rownames(pred), colnames(pred),
                                   age_types))
 pred_all[,,1] <- pred
-save.image('nearest_neighbour/neighbour_model_predictions.RData')
+save.image('nearest_neighbour/neighbour_model_predictions_interaction.RData')
 for(i in 2:length(age_types)){
   predict_data$f_age_num <- age_types[i]
   pred <- posterior_predict(object = nn_fit,
                             newdata = predict_data)
   pred_all[,,i] <- pred
-  save.image('nearest_neighbour/neighbour_model_predictions.RData')
+  save.image('nearest_neighbour/neighbour_model_predictions_interaction.RData.RData')
 }
 
-load('nearest_neighbour/neighbour_model_predictions.RData')
+load('nearest_neighbour/neighbour_model_predictions_interaction.RData.RData')
 predict_data$num <- row_number(predict_data)
 predictions <- pred_all[,,age_types[1]] %>% 
   as.data.frame()
@@ -392,10 +395,21 @@ for(i in 2:length(age_types)){
     left_join(predict_data[,3:ncol(predict_data)], by = 'num')
   predictions <- rbind(predictions, pred)
 }
-save.image('nearest_neighbour/neighbour_model_predictions.RData')
+save.image('nearest_neighbour/neighbour_model_predictions_interaction.RData.RData')
+
+## compare to log cumulative odds of data ####
+## raw log cumulative odds
+prop_data <- table(nn_no_na$age_diff_num) / nrow(nn_no_na)
+cum_prop_data <- cumsum(prop)
+log_cum_odds_data <- logit(cum_prop)
+
+## predicted log cumulative odds
+prop_pred <- table(nn_no_na$age_diff_num) / nrow(nn_no_na)
+cum_prop_pred <- cumsum(prop)
+log_cum_odds_pred <- logit(cum_prop)
 
 ## plot outputs ####
-load('nearest_neighbour/neighbour_model_predictions.RData')
+load('nearest_neighbour/neighbour_model_predictions_interaction.RData')
 ggplot(predictions, aes(x = time_since_stim, y = prediction))+
   geom_line()+
   geom_point()+
@@ -417,7 +431,7 @@ nn_no_na %>%
              labeller = labeller(stim_type = stimuli))
 
 ## plot predictions
-summary(nn_fit)
+summary(nn_fit) # CAN I SEE THE CUTPOINTS OUTPUT FROM THE MODEL LIKE THIS?? WHAT VALUES ON THE CUMULATIVE LOG ODDS SCALE MAKE IT TRANSITION TO PREDICTING A 2 INSTEAD OF A 1 OR 3 INSTEAD OF 2??
 # Family: cumulative 
 # Links: mu = logit; disc = identity 
 # Formula: age_diff_num ~ 1 + mo(f_age_num) + stim_type + time_since_stim + mo(nn_tminus1_num) + (1 | focal_id) + (1 | stim_id) + (1 | playback_id) 
@@ -489,7 +503,7 @@ coef_exp <- coef %>%
          upr = u_95_percent_ci) %>% 
   relocate(coef)
 
-
+## NEED TO DOUBLE CHECK TO SEE WHETHER ENGINE IS SUBTRACTING OR ADDING THE SLOPE VALUE: ON LOG ODDS SCALE, A NEGATIVE CHANGE INDUCES AN INCREASE IN THE OBSERVED CATEGORY VALUE, SO NORMALLY SUBTRACT THE SLOPE NOT ADD.
 
 
 
@@ -543,7 +557,7 @@ for(i in 1:nrow(predict_means)){
 predict_means$lwr <- predict_means$mean_pred - predict_means$stdv_pred
 predict_means$upr <- predict_means$mean_pred + predict_means$stdv_pred
 
-save.image('nearest_neighbour/neighbour_model_predictions.RData')
+save.image('nearest_neighbour/neighbour_model_predictions_interaction.RData.RData')
 
 age_labels <- c('younger at t-1','matched at t-1','older at t-1')
 names(age_labels) <- c(1,2,3)
@@ -619,7 +633,7 @@ ggsave(plot = last_plot(),
        filename = '../outputs/nn_predictions_withribbon.png', device = 'png',
        width = 8.3, height = 5.8)
 
-save.image('nearest_neighbour/neighbour_model_predictions.RData')
+save.image('nearest_neighbour/neighbour_model_predictions_interaction.RData.RData')
 
 ##### 
 pred_prop <- predictions %>% 
