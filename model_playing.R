@@ -512,6 +512,12 @@ summary(direction_look_fit)
 save.image('looking_direction_model_run - interaction.RData')
 #load('looking_direction_model_run - interaction.RData') ; rm(biologylibs, homedrive, homelibs, homelibsprofile,rlibs,Rversion)
 
+## notify model is done!!
+library(audio, lib.loc = '../../packages')
+fname = "../../dove_sound.wav"
+sfx <- load.wave(fname)
+play(sfx)
+
 ## check outputs ####
 #load('looking_direction_model_run - interaction.RData') # rm(biologylibs, homedrive, homelibs, homelibsprofile, rlibs, Rversion) ; gc()
 summary(direction_look_fit)
@@ -543,8 +549,13 @@ hist(b_int1$draw) ; hist(b_int2$draw) ; hist(b_int1$invlogit_draw) ; hist(b_int2
 par(mfrow = c(1,1))
 
 ## extract marginal effects
-marg <- conditional_effects(direction_look_fit, categorical = TRUE,
-                            #spaghetti = TRUE,
+marg <- conditional_effects(direction_look_fit,
+                            categorical = TRUE,
+                            #conditions = data.frame(time_since_stim = 0,
+                            #                        look_tminus1_num = 1,
+                            #                        stim_type = 'ctd',
+                            #                        focal_age = 1,
+                            #                        partner_age = 1),
                             method = 'posterior_epred')
 names(marg)
 stim_effect <- marg[[1]]
@@ -552,18 +563,10 @@ time_effect <- marg[[2]]
 focal_age_effect <- marg[[3]]
 partner_age_effect <- marg[[4]] #agediff_effect <- marg[[4]]
 prevsec_effect <- marg[[5]]
-# marg <- conditional_effects(direction_look_fit, effects = 'focal_age', categorical = TRUE,
-#                             #spaghetti = TRUE,
-#                             method = 'posterior_epred')
-# names(marg)
-# age_effect <- marg[[1]]
-
 
 ## plot marginal effects
 conditional_effects(direction_look_fit, effects = 'focal_age', categorical = TRUE,
                     spaghetti = TRUE,
-                    #conditions = c('age_diff_num','stim_type'),
-                    #int_conditions = list(focal_age = c(1:4), age_diff_num = c(1:3), stim_type = c('ctd','l','h'),
                     method = 'posterior_epred')
 (focal_age_plot <- ggplot(focal_age_effect)+
   geom_ribbon(aes(x = focal_age, ymax = upper__, ymin = lower__, fill = cats__), alpha = 0.4)+
@@ -574,12 +577,12 @@ conditional_effects(direction_look_fit, effects = 'focal_age', categorical = TRU
                          labels = c('look towards', 'side on', 'look away'))+
   scale_fill_viridis_d(name = 'looking direction:',
                        breaks = c('1','2','3'),
-                       labels = c('look towards', 'side on', 'look away')))+
+                       labels = c('look towards', 'side on', 'look away'))+
   theme(legend.position = 'bottom',
         axis.title = element_text(size = 16),
         axis.text = element_text(size = 12),
         legend.title = element_text(size = 12),
-        legend.text = element_text(size = 10))
+        legend.text = element_text(size = 10)))
 ggsave(plot = focal_age_plot, filename = '../outputs/looking_marginaleffects_focalage_interaction.png', device = 'png',
        width = 8.3, height = 5.8)
 
@@ -624,12 +627,12 @@ conditional_effects(direction_look_fit, 'stim_type', categorical = TRUE,
                        breaks = c('1','2','3'),
                        labels = c('look towards', 'side on', 'look away'))+
   scale_x_discrete(name = 'stimulus type', breaks = c('ctd','l','h'),
-                   labels = c('dove (control)', 'lion', 'human'), limits = c('ctd','l','h')))+
+                   labels = c('dove (control)', 'lion', 'human'), limits = c('ctd','l','h'))+
   theme(legend.position = 'bottom',
         axis.title = element_text(size = 16),
         axis.text = element_text(size = 12),
         legend.title = element_text(size = 12),
-        legend.text = element_text(size = 10))
+        legend.text = element_text(size = 10)))
 ggsave(plot = stim_plot, filename = '../outputs/looking_marginaleffects_stimtype_interaction.png', device = 'png',
        width = 8.3, height = 5.8)
 
@@ -642,7 +645,7 @@ ggsave(plot = all_plots, filename = '../outputs/looking_marginaleffects_interact
        width = (5.8*3), height = 8.3)
 
 ## posterior predictive check
-pp_check(direction_look_fit, ndraws = 100)
+pp_check(direction_look_fit, ndraws = 100) # really good fit
 
 ## plot traces
 draws %>% 
@@ -650,7 +653,7 @@ draws %>%
   ggplot(aes(x = iteration, y = draw, colour = as.factor(chain)))+
   geom_line()+
   facet_wrap(. ~ parameter, scales = 'free_y')+
-  theme(legend.position = 'none') # time since stim has ENORMOUS range (main body approx. -5000 to 10000), sd_playback_id poorly mixed
+  theme(legend.position = 'none') # mixing doesn't look brilliant, esp. for bsp_mofocal_age, but only horrendous one is playback ID
 
 # ## plot raw
 # ggplot(look_no_na, aes(x = focal_age, y = looking_direction,
@@ -773,27 +776,27 @@ rm(age_types) ; gc()
 save.image('looking_direction_interaction_predictions.RData')
 
 ## plot outputs ####
-# load('looking_direction_interaction_predictions.RData') # UNCOMMENT HERE TO END FOR LOOP LATER, JUST WANT TO MAKE SURE YOU DON'T RUN THAT BIT AGAIN!
-# age_labels <- c('10-15 years','16-20 years','21-25 years','26-35 years')
-# names(age_labels) <- c(1,2,3,4)
-# 
-# predictions <- predictions %>%
-#   mutate(stimulus = ifelse(stim_type == 'ctd','dove (control)',
-#                            ifelse(stim_type == 'l', 'lion', 'human')),
-#          prediction_adjusted = ifelse(stim_type == 'ctd', prediction - 0.1,
-#                                       ifelse(stim_type == 'h', prediction + 0.1, prediction)))
-# predict_mean <- predictions %>%
-#   select(-num,-age_type,-prediction, -prediction_adjusted, -focal_id, -stim_id, -playback_id) %>%
-#   distinct() %>%
-#   mutate(prediction_mu = NA)
-# for(i in 1:nrow(predict_mean)){
-#   predict_mean$prediction_mu[i] <- mean(predictions$prediction[which(predictions$stim_type == predict_mean$stim_type[i] &
-#                                                                        predictions$time_since_stim == predict_mean$time_since_stim[i] &
-#                                                                        predictions$look_tminus1_num == predict_mean$look_tminus1_num[i] &
-#                                                                        predictions$focal_age == predict_mean$focal_age[i] &
-#                                                                        predictions$partner_age == predict_mean$partner_age[i])])
-# }
 load('looking_direction_interaction_predictions.RData')
+age_labels <- c('10-15 years','16-20 years','21-25 years','26-35 years')
+names(age_labels) <- c(1,2,3,4)
+
+predictions <- predictions %>%
+  mutate(stimulus = ifelse(stim_type == 'ctd','dove (control)',
+                           ifelse(stim_type == 'l', 'lion', 'human')),
+         prediction_adjusted = ifelse(stim_type == 'ctd', prediction - 0.1,
+                                      ifelse(stim_type == 'h', prediction + 0.1, prediction)))
+predict_mean <- predictions %>%
+  select(-num,-age_type,-prediction, -prediction_adjusted, -focal_id, -stim_id, -playback_id) %>%
+  distinct() %>%
+  mutate(prediction_mu = NA)
+for(i in 1:nrow(predict_mean)){
+  predict_mean$prediction_mu[i] <- mean(predictions$prediction[which(predictions$stim_type == predict_mean$stim_type[i] &
+                                                                       predictions$time_since_stim == predict_mean$time_since_stim[i] &
+                                                                       predictions$look_tminus1_num == predict_mean$look_tminus1_num[i] &
+                                                                       predictions$focal_age == predict_mean$focal_age[i] &
+                                                                       predictions$partner_age == predict_mean$partner_age[i])])
+}
+save.image('looking_direction_interaction_predictions.RData')
 ggplot(predict_mean, aes(x = time_since_stim,                          # no effect of time in any graph
                          y = prediction_mu,                            # all around 2, mean is never close to 1 or 3
                          colour = stimulus,                            # most likely to look away for dove, then human, then lion (most likely to look at for lion, then human, then dove)
