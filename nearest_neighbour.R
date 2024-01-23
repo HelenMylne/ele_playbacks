@@ -6,6 +6,8 @@
 library(tidyverse)
 #library(cmdstanr) ; set_cmdstan_path('../../packages/.cmdstan/cmdstan-2.31.0/') # library(cmdstanr, lib.loc = '../../packages/')
 library(brms)
+library(LaplacesDemon)
+library(ggpubr)
 
 theme_set(theme_classic())
 
@@ -91,14 +93,14 @@ nn <- nn_all %>%
   mutate(nn_tminus1 = NA)
 
 # create variable for nearest neighbour at time t-1
-playbacks <- unique(nn$pb_num)
-for(i in 1:length(playbacks)){
-  pb <- nn %>% filter(pb_num == playbacks[i])
-  nn <- nn %>% anti_join(pb)
-  for(j in 2:nrow(pb)){
-    pb$nn_tminus1[j] <- pb$age_diff_cat[j-1]
+subjects <- unique(nn$f_subject)
+for(i in 1:length(subjects)){
+  focal <- nn %>% filter(f_subject == subjects[i])
+  nn <- nn %>% anti_join(focal, by = 'f_subject')
+  for(j in 2:nrow(focal)){
+    focal$nn_tminus1[j] <- focal$age_diff_cat[j-1]
   }
-  nn <- rbind(nn, pb)
+  nn <- rbind(nn, focal)
 }
 rm(check, x, i, multiple_starts) ; gc()
 
@@ -166,25 +168,21 @@ pp_check(nn_prior) # huge variation in prior, but fairly on both sides so good
 nn_fit <- brm(
   formula = age_diff_num ~ 1 + mo(f_age_num) + stim_type +     # fixed effects
     s(after_stim) + mo(nn_tminus1_num) +                       # controls
-    (1|focal_id) + (1|stim_id) + (1|playback_id),              # random effects
+    (1|stim_id) + (1|stim_id:playback_id) + (1|stim_id:playback_id:focal_id),  # nested random effects
   data = nn_no_na,
   family = cumulative("logit"),
   prior = priors, chains = num_chains, cores = num_chains,
   iter = num_iter, warmup = num_iter/2, seed = 12345)
-
-# inspect model
-summary(nn_fit)
-
-# save workspace
-save.image('nearest_neighbour/neighbour_model_run_time_spline.RData')
-#load('nearest_neighbour/nearest_neighbour/neighbour_model_run_time_spline.RData') ; rm(biologylibs, homedrive, homelibs, homelibsprofile,rlibs,Rversion)
+save.image('nearest_neighbour/neighbour_model_run_timespline_nested.RData')
 
 #### check outputs ####
-library(LaplacesDemon)
-#load('nearest_neighbour/neighbour_model_run_time_spline.RData') # rm(biologylibs, homedrive, homelibs, homelibsprofile, rlibs, Rversion) ; gc()
+# load('nearest_neighbour/neighbour_model_run_timespline_nested.RData') # rm(biologylibs, homedrive, homelibs, homelibsprofile, rlibs, Rversion) ; gc()
 
 ## check Stan code
 nn_fit$model
+
+## check model fit
+summary(nn_fit)
 
 ## extract posterior distribution
 draws <- as_draws_df(nn_fit) %>% 
@@ -217,19 +215,21 @@ prevsec_effect <- marg[[4]]
 #                     #conditions = c('stim_type'),
 #                     method = 'posterior_epred')
 (focal_age_plot <- ggplot(f_age_effect)+
-    geom_ribbon(aes(x = f_age_num, ymax = upper__, ymin = lower__, fill = cats__), alpha = 0.4)+
-    geom_line(aes(x = f_age_num, y = estimate__, colour = cats__), linewidth = 1)+
-    xlab(label = 'focal age') + ylab('probability')+
-    scale_colour_viridis_d(name = 'age difference:',
-                           breaks = c('1','2','3'),
-                           labels = c('partner younger',
-                                      'age matched',
-                                      'partner older'))+
-    scale_fill_viridis_d(name = 'age difference:',
-                         breaks = c('1','2','3'),
-                         labels = c('partner younger',
-                                    'age matched',
-                                    'partner older')))+
+   geom_errorbar(aes(x = f_age_num, ymax = upper__, ymin = lower__, colour = cats__), linewidth = 1, width = 0.2)+
+   #geom_ribbon(aes(x = f_age_num, ymax = upper__, ymin = lower__, fill = cats__), alpha = 0.4)+
+   geom_point(aes(x = f_age_num, y = estimate__, colour = cats__), cex = 3)+
+   #geom_line(aes(x = f_age_num, y = estimate__, colour = cats__), linewidth = 1)+
+   xlab(label = 'focal age') + ylab('probability')+
+   scale_colour_viridis_d(name = 'age difference:',
+                          breaks = c('1','2','3'),
+                          labels = c('partner younger',
+                                     'age matched',
+                                     'partner older'))+
+   scale_fill_viridis_d(name = 'age difference:',
+                        breaks = c('1','2','3'),
+                        labels = c('partner younger',
+                                   'age matched',
+                                   'partner older')))+
   theme(legend.position = 'bottom',
         axis.title = element_text(size = 16),
         axis.text = element_text(size = 12),
@@ -262,7 +262,6 @@ ggsave(plot = focal_age_plot, filename = '../outputs/nn_marginaleffects_focalage
 ggsave(plot = stim_plot, filename = '../outputs/nn_marginaleffects_stimtype.png', device = 'png',
        width = 8.3, height = 5.8)
 
-library(ggpubr)
 (all_plots <- ggarrange(focal_age_plot, stim_plot, ncol=2, nrow=1, common.legend = TRUE, legend = "bottom"))
 ggsave(plot = all_plots, filename = '../outputs/nn_marginaleffects.png', device = 'png',
        width = (5.8*2), height = 8.3)
@@ -352,8 +351,8 @@ time6 <- draws_cut %>% filter(parameter == 's_safter_stim_1[6]')
 time7 <- draws_cut %>% filter(parameter == 's_safter_stim_1[7]')
 time8 <- draws_cut %>% filter(parameter == 's_safter_stim_1[8]')
 par(mfrow = c(5,2))
-plot(density(timeb$draw), main = 'time intercept') ; abline(v = 0, lty = 2)
-plot(density(times$draw), main = 'time spline 0') ; abline(v = 0, lty = 2)
+plot(density(timeb$draw), main = 'time slope') ; abline(v = 0, lty = 2)
+plot(density(times$draw), main = 'time intercept') ; abline(v = 0, lty = 2)
 plot(density(time1$draw), main = 'time spline 1') ; abline(v = 0, lty = 2)
 plot(density(time2$draw), main = 'time spline 2') ; abline(v = 0, lty = 2)
 plot(density(time3$draw), main = 'time spline 3') ; abline(v = 0, lty = 2)
@@ -395,30 +394,662 @@ nn_no_na %>%
                                 'older'))+
   scale_x_continuous(name = 'time since stimulus started (s)') # no particular effect of time since stimulus -- all seem pretty similar before and after. possible differences between stimuli: youngest are more likely to age match during control but be near older during lion/human (but that is also the case beforethe stimulus); 21-25 more likely to age match during lion than other 2; oldest switch from being near younger to age matching during lion stimuli; oldest do not age match for human stimuli; 16-20 more likely to be near youngest after lion and human than before
 
-#### predict from model ####
+## plot raw data -- this looks a lot more exciting at first glance than it is: basically just shows that far and away the strongest effect is neighbour age at second t-1
+stimuli <- c('dove (control)','lion','human')
+names(stimuli) <- c('ctd','l','h')
+nn_no_na %>% 
+  mutate(stim_type = factor(stim_type, levels = c('ctd','l','h'))) %>% 
+  ggplot(aes(x = after_stim, y = age_diff_num,
+             colour = stim_type, shape = nn_tminus1))+
+  geom_vline(aes(xintercept = 0))+
+  geom_point(alpha = 0.1)+ # colour = rgb(0,0,1,0.01)
+  facet_grid(stim_type ~ factor(nn_tminus1,
+                                levels = c('partner younger',
+                                           'matched',
+                                           'partner older')),
+             labeller = labeller(stim_type = stimuli))
+
+#### predict from model -- raw data ####
 #load('nearest_neighbour/neighbour_model_run_time_spline.RData') # rm(biologylibs, homedrive, homelibs, homelibsprofile, rlibs, Rversion) ; gc()
+rm(list = ls()[! ls() %in% c('nn_fit','nn_no_na')]) ; gc()
+
+## predict from raw data
+nn_no_na$unique_data_combo <- 1:nrow(nn_no_na)
+pred_mtx <- posterior_predict(object = nn_fit, newdata = nn_no_na)
+colnames(pred_mtx) <- nn_no_na$unique_data_combo
+save.image('nearest_neighbour/neighbour_model_predictions_time_spline.RData')
+
+# load('nearest_neighbour/neighbour_model_predictions_time_spline.RData')
+predictions <- pred_mtx[c(1:100,1001:1100,2001:2100,3001:3100),] %>% 
+  as.data.frame() %>% 
+  pivot_longer(everything(), names_to = 'unique_data_combo', values_to = 'prediction') %>% 
+  mutate(unique_data_combo = as.integer(unique_data_combo)) %>% 
+  left_join(nn_no_na, by = 'unique_data_combo')
+save.image('nearest_neighbour/neighbour_model_predictions_time_spline.RData')
+
+#### compare to log cumulative odds of data -- raw data ####
+## raw log cumulative odds
+prop_data <- table(nn_no_na$age_diff_num) / nrow(nn_no_na)
+cum_prop_data <- cumsum(prop_data)
+log_cum_odds_data <- logit(cum_prop_data)
+
+## predicted log cumulative odds
+prop_pred <- table(predictions$prediction) / nrow(predictions)
+cum_prop_pred <- cumsum(prop_pred)
+log_cum_odds_pred <- logit(cum_prop_pred)
+
+## compare
+prop_data ; prop_pred
+cum_prop_data ; cum_prop_pred
+log_cum_odds_data ; log_cum_odds_pred
+
+## clean up 
+rm(cum_prop_data, cum_prop_pred, log_cum_odds_data, log_cum_odds_pred, prop_data, prop_pred) ; gc()
+
+#### plot predictions -- raw data ####
+## take predictions from model. Determine from predictions the probability of each output depending on each set of input = 0 seconds + 10-15 years + ctd stimulus + younger partner at previous time step.
+head(predictions)
+
+## remove individual variation
+pred_prop <- predictions %>% 
+  select(-num,-focal_id,-stim_id,-playback_id) %>% 
+  distinct()
+
+## create proportional data frame
+nn_no_na <- nn_no_na %>% 
+  mutate(count_pred_young = NA, count_pred_match = NA, count_pred_older = NA,
+         count_total = NA,
+         prop_young = NA, prop_match = NA, prop_older = NA)
+for(i in 1:nrow(nn_no_na)){
+  x <- predictions %>%
+    filter(unique_data_combo == nn_no_na$unique_data_combo[i])
+  nn_no_na$count_pred_young[i] <- length(which(x$prediction == 1))
+  nn_no_na$count_pred_match[i] <- length(which(x$prediction == 2))
+  nn_no_na$count_pred_older[i] <- length(which(x$prediction == 3))
+  nn_no_na$count_total[i] <- nrow(x)
+  if(i %% 100 == 0){ rm(x) ; gc() ; print(i) }
+}
+nn_no_na$prop_young <- nn_no_na$count_pred_young / nn_no_na$count_total
+nn_no_na$prop_match <- nn_no_na$count_pred_match / nn_no_na$count_total
+nn_no_na$prop_older <- nn_no_na$count_pred_older / nn_no_na$count_total
+rm(x, i) ; gc()
+save.image('nearest_neighbour/neighbour_model_predictions_time_spline.RData')
+
+## plot proportions, one plot per stim type
+prevsec_labels <- c('neighbour younger at t-1',
+                    'neighbour same age at t-1',
+                    'neighbour older at t-1')
+names(prevsec_labels) <- 1:3
+pred_prop_plot <- nn_no_na %>% 
+  mutate(after_stim = round(after_stim, 2)) %>% 
+  pivot_longer(cols = c(count_pred_young, count_pred_match, count_pred_older),
+               names_to = 'count_prediction_type', values_to = 'prediction_count') %>% 
+  pivot_longer(cols = c(prop_young, prop_match, prop_older),
+               names_to = 'prop_prediction_type', values_to = 'prediction_propn') %>% 
+  separate(col = 'count_prediction_type',
+           into = c('count','pred_type'), sep = '_pred_') %>% 
+  separate(col = 'prop_prediction_type',
+           into = c('prop','pred_type_prop'), sep = '_') %>% 
+  filter(pred_type == pred_type_prop) %>% 
+  dplyr::select(-prop, -count, -pred_type_prop) %>% 
+  mutate(pred_label = ifelse(pred_type == 'young', 'neighbour younger',
+                             ifelse(pred_type == 'match', 'age matched',
+                                    ifelse(pred_type == 'older', 'neighbour older',NA)))) %>% 
+  mutate(pred_label = factor(pred_label,
+                             levels = c('neighbour younger',
+                                        'age matched',
+                                        'neighbour older')))
+pred_plot_sum <- pred_prop_plot %>% 
+  select(f_age_num,stim_type,after_stim,nn_tminus1_num,
+         pred_type,prediction_count,prediction_propn,pred_label) %>% 
+  #group_by(f_age_cat, nn_tminus1_num, after_stim, stim_type) %>% 
+  #mutate()
+  distinct()
+
+(ctd_plot <- pred_plot_sum %>% 
+  filter(stim_type == 'ctd',
+         after_stim %in% sort(unique(pred_plot_sum$after_stim))[round(seq(1,length(unique(pred_plot_sum$after_stim)), length.out = 8),0)]) %>% 
+  ggplot()+
+  geom_boxplot(aes(x = as.factor(f_age_num), y = prediction_propn,
+                 fill = as.factor(pred_label)))+
+  facet_grid(nn_tminus1_num ~ after_stim,
+             labeller = labeller(nn_tminus1_num = prevsec_labels))+
+  scale_fill_viridis_d()+
+  labs(fill = 'predicted age of neighbour relative to focal:',
+       x = 'age category of focal elephant',
+       y = 'proportion of predictions',
+       title = 'cape turtle dove (control)')+
+  theme(legend.position = 'bottom'))
+lion_plot <- pred_prop_plot %>% 
+  filter(stim_type == 'l') %>% 
+  ggplot(aes(x = f_age_num, y = prediction_propn, fill = as.factor(pred_label)))+
+  geom_col()+
+  facet_grid(nn_tminus1_num ~ as.factor(after_stim),
+             labeller = labeller(nn_tminus1_num = prevsec_labels))+
+  scale_fill_viridis_d()+
+  labs(fill = 'predicted age of neighbour relative to focal:',
+       x = 'age category of focal elephant',
+       y = 'proportion of predictions',
+       title = 'lion')+
+  theme(legend.position = 'bottom')
+human_plot <- pred_prop_plot %>% 
+  filter(stim_type == 'h') %>% 
+  ggplot(aes(x = f_age_num, y = prediction_propn, fill = as.factor(pred_label)))+
+  geom_col()+
+  facet_grid(nn_tminus1_num ~ as.factor(after_stim),
+             labeller = labeller(nn_tminus1_num = prevsec_labels))+
+  scale_fill_viridis_d()+
+  labs(fill = 'predicted age of neighbour relative to focal:',
+       x = 'age category of focal elephant',
+       y = 'proportion of predictions',
+       title = 'human')+
+  theme(legend.position = 'bottom')
+(all_plots <- ggarrange(ctd_plot, lion_plot, human_plot, ncol=3, nrow=1, common.legend = TRUE, legend = "bottom"))
+ggsave(plot = all_plots, filename = '../outputs/nn_posteriorpredictions_stimtype.png', device = 'png',
+       width = (5.8*3), height = 8.3)
+
+## plot proportions, one plot per action in previous second
+stim_labels <- c('dove (control)', 'lion', 'human')
+names(stim_labels) <- c('ctd','l','h')
+(plot1 <- pred_prop_plot %>% 
+    filter(nn_tminus1_num == 1) %>% 
+    ggplot(aes(x = focal_age, y = proportion, fill = as.factor(pred_label)))+
+    geom_col()+
+    facet_grid(stim_type ~ as.factor(after_stim),
+               labeller = labeller(stim_type = stim_labels))+
+    scale_fill_viridis_d()+
+    labs(fill = 'predicted age of neighbour relative to focal:',
+         x = 'age category of focal elephant',
+         y = 'proportion of predictions',
+         title = 'neighbour younger in previous second')+
+    theme(legend.position = 'bottom'))
+(plot2 <- pred_prop_plot %>% 
+    filter(nn_tminus1_num == 2) %>% 
+    ggplot(aes(x = focal_age, y = proportion, fill = as.factor(pred_label)))+
+    geom_col()+
+    facet_grid(stim_type ~ as.factor(after_stim),
+               labeller = labeller(stim_type = stim_labels))+
+    scale_fill_viridis_d()+
+    labs(fill = 'predicted age of neighbour relative to focal:',
+         x = 'age category of focal elephant',
+         y = 'proportion of predictions',
+         title = 'neighbour same age in previous second')+
+    theme(legend.position = 'bottom'))
+(plot3 <- pred_prop_plot %>% 
+    filter(nn_tminus1_num == 3) %>% 
+    ggplot(aes(x = focal_age, y = proportion, fill = as.factor(pred_label)))+
+    geom_col()+
+    facet_grid(stim_type ~ as.factor(after_stim),
+               labeller = labeller(stim_type = stim_labels))+
+    scale_fill_viridis_d()+
+    labs(fill = 'predicted age of neighbour relative to focal:',
+         x = 'age category of focal elephant',
+         y = 'proportion of predictions',
+         title = 'neighbour older in previous second')+
+    theme(legend.position = 'bottom'))
+(all_plots <- ggarrange(plot1, plot2, plot3, ncol=3, nrow=1, common.legend = TRUE, legend = "bottom"))
+ggsave(plot = all_plots, filename = '../outputs/nn_posteriorpredictions_prevsec.png', device = 'png',
+       width = (5.8*3), height = 8.3)
+save.image('nearest_neighbour/neighbour_model_predictions_time_spline.RData')
+
+## calculate max and min probability at each time
+age_labels <- c('10-15 years','16-20 years','21-25 years','26-35 years')
+names(age_labels) <- c(1,2,3,4)
+
+(plot1 <- pred_prop %>% 
+    filter(nn_tminus1_num == 1) %>% 
+    mutate(predict_label = ifelse(prediction == 1, 'younger',
+                                  ifelse(prediction == 2, 'age matched',
+                                         'older'))) %>% 
+    mutate(predict_label = factor(predict_label,
+                                  levels = c('younger','age matched','older'))) %>% 
+    ggplot(aes(x = after_stim, y = proportion,
+               #lty = as.factor(nn_tminus1_num),
+               colour = as.factor(predict_label)))+
+    geom_line(linewidth = 1)+
+    facet_grid(focal_age ~ stim_type,
+               labeller = labeller(focal_age = age_labels,
+                                   stim_type = stim_labels))+
+    scale_colour_viridis_d()+
+    labs(colour = 'neighbour age:',
+         x = 'minutes since stimulus started',
+         y = 'predicted probability of neighbour age',
+         title = 'nearest neighbour younger in previous second')+
+    scale_y_continuous(limits = c(0,1))+
+    theme_bw())
+(plot2 <- pred_prop %>% 
+    filter(nn_tminus1_num == 2) %>% 
+    mutate(predict_label = ifelse(prediction == 1, 'younger',
+                                  ifelse(prediction == 2, 'age matched',
+                                         'older'))) %>% 
+    mutate(predict_label = factor(predict_label,
+                                  levels = c('younger','age matched','older'))) %>% 
+    ggplot(aes(x = after_stim, y = proportion,
+               #lty = as.factor(nn_tminus1_num),
+               colour = as.factor(predict_label)))+
+    geom_line(linewidth = 1)+
+    facet_grid(focal_age ~ stim_type,
+               labeller = labeller(focal_age = age_labels,
+                                   stim_type = stim_labels))+
+    scale_colour_viridis_d()+
+    labs(colour = 'neighbour age:',
+         x = 'minutes since stimulus started',
+         y = 'predicted probability of neighbour age',
+         title = 'nearest neighbour age matched in previous second')+
+    scale_y_continuous(limits = c(0,1))+
+    theme_bw() )
+(plot3 <- pred_prop %>% 
+    filter(nn_tminus1_num == 3) %>% 
+    mutate(predict_label = ifelse(prediction == 1, 'younger',
+                                  ifelse(prediction == 2, 'age matched',
+                                         'older'))) %>% 
+    mutate(predict_label = factor(predict_label,
+                                  levels = c('younger','age matched','older'))) %>% 
+    ggplot(aes(x = after_stim, y = proportion,
+               #lty = as.factor(nn_tminus1_num),
+               colour = as.factor(predict_label)))+
+    geom_line(linewidth = 1)+
+    facet_grid(focal_age ~ stim_type,
+               labeller = labeller(focal_age = age_labels,
+                                   stim_type = stim_labels))+
+    scale_colour_viridis_d()+
+    labs(colour = 'neighbour age:',
+         x = 'minutes since stimulus started',
+         y = 'predicted probability of neighbour age',
+         title = 'nearest neighbour older in previous second')+
+    scale_y_continuous(limits = c(0,1))+
+    theme_bw() )
+(all_plots <- ggarrange(plot1, plot2, plot3, ncol=3, nrow=1, common.legend = TRUE, legend = "bottom"))
+ggsave(plot = all_plots, filename = '../outputs/nn_posteriorpredictions_prevsec_line.png', device = 'png',
+       width = (5.8*3), height = 8.3)
+save.image('nearest_neighbour/neighbour_model_predictions_time_spline.RData')
+
+#### graph contrasts from predictions -- raw data ####
+#CALCULATE POSTERIOR CONTRASTS FROM PREDICTIONS
+# load('nearest_neighbour/neighbour_model_predictions_time_spline.RData')
+rm(all_plots, ctd_plot, human_plot, lion_plot, plot1, plot2, plot3, pred_prop_plot, pred, after_stims, age_labels, ages, i, j, predcns, prevsec_labels, prevsecs, stim_labels, stims)
+
+## stim type
+predictions %>% 
+  mutate(stimulus = ifelse(stim_type == 'ctd', 'dove (control)',
+                           ifelse(stim_type == 'h','human','lion')),
+         prediction = ifelse(prediction == 1, 'younger',
+                             ifelse(prediction == 2, 'same age', 'older'))) %>% 
+  mutate(stimulus = factor(stimulus, levels = c('dove (control)', 'lion','human')),
+         prediction = factor(prediction, levels = c('younger','same age','older'))) %>% 
+  ggplot()+
+  geom_bar(aes(x = prediction, fill = stimulus),
+           position = 'dodge')+
+  scale_y_continuous(expand = c(0,0))+
+  scale_fill_viridis_d()
+
+lion <- pred_prop %>% filter(stim_type == 'l')
+human <- pred_prop %>% filter(stim_type == 'h')
+pred_stim <- pred_prop %>% 
+  filter(stim_type == 'ctd') %>% 
+  rename(count_ctd = count_predictions,
+         prop_ctd = proportion) %>% 
+  select(focal_age, after_stim, nn_tminus1_num, prediction, count_ctd, prop_ctd) %>% 
+  left_join(lion[,c('focal_age','after_stim','nn_tminus1_num','prediction','count_predictions','proportion')],
+            by = c('focal_age','after_stim','nn_tminus1_num','prediction')) %>% 
+  rename(count_lion = count_predictions,
+         prop_lion = proportion) %>% 
+  left_join(human[,c('focal_age','after_stim','nn_tminus1_num','prediction','count_predictions','proportion')],
+            by = c('focal_age','after_stim','nn_tminus1_num','prediction')) %>% 
+  rename(count_human = count_predictions,
+         prop_human = proportion) %>% 
+  mutate(ctd_lion = prop_ctd - prop_lion,
+         ctd_human = prop_ctd - prop_human,
+         lion_human = prop_lion - prop_human)
+pred_stim %>% 
+  select(focal_age, after_stim, nn_tminus1_num, prediction, ctd_lion, ctd_human, lion_human) %>% 
+  pivot_longer(cols = c('ctd_lion', 'ctd_human', 'lion_human'),
+               names_to = 'contrast', values_to = 'value') %>% 
+  ggplot()+
+  geom_density(aes(x = value, colour = contrast), linewidth = 1)+
+  scale_colour_viridis_d()+
+  labs(colour = 'stimulus pair',
+       x = 'difference between stimuli')+
+  geom_vline(xintercept = 0, linetype = 2)
+
+## focal age
+predictions %>% 
+  mutate(prediction = ifelse(prediction == 1, 'younger',
+                             ifelse(prediction == 2, 'same age', 'older'))) %>% 
+  mutate(prediction = factor(prediction, levels = c('younger','same age','older'))) %>% 
+  ggplot()+
+  geom_bar(aes(x = prediction, fill = as.factor(focal_age)),
+           position = 'dodge')+
+  scale_y_continuous(expand = c(0,0))+
+  scale_fill_viridis_d()
+
+age2 <- pred_prop %>% filter(focal_age == 2)
+age3 <- pred_prop %>% filter(focal_age == 3)
+age4 <- pred_prop %>% filter(focal_age == 4)
+pred_age <- pred_prop %>% 
+  filter(focal_age == 1) %>% 
+  rename(count_1 = count_predictions,
+         prop_1 = proportion) %>% 
+  select(stim_type, after_stim, nn_tminus1_num, prediction, count_1, prop_1) %>% 
+  left_join(age2[,c('stim_type','after_stim','nn_tminus1_num','prediction','count_predictions','proportion')],
+            by = c('stim_type','after_stim','nn_tminus1_num','prediction')) %>% 
+  rename(count_2 = count_predictions,
+         prop_2 = proportion) %>% 
+  left_join(age3[,c('stim_type','after_stim','nn_tminus1_num','prediction','count_predictions','proportion')],
+            by = c('stim_type','after_stim','nn_tminus1_num','prediction')) %>% 
+  rename(count_3 = count_predictions,
+         prop_3 = proportion) %>% 
+  left_join(age4[,c('stim_type','after_stim','nn_tminus1_num','prediction','count_predictions','proportion')],
+            by = c('stim_type','after_stim','nn_tminus1_num','prediction')) %>% 
+  rename(count_4 = count_predictions,
+         prop_4 = proportion) %>% 
+  mutate(age1_2 = prop_1 - prop_2,
+         age1_3 = prop_1 - prop_3,
+         age1_4 = prop_1 - prop_4,
+         age2_3 = prop_2 - prop_3,
+         age2_4 = prop_2 - prop_4,
+         age3_4 = prop_3 - prop_4)
+pred_age %>% 
+  select(stim_type, after_stim, nn_tminus1_num, prediction,
+         age1_2,age1_3,age1_4,age2_3,age2_4,age3_4) %>% 
+  pivot_longer(cols = c('age1_2', 'age1_3', 'age1_4','age2_3','age2_4','age3_4'),
+               names_to = 'contrast', values_to = 'value') %>% 
+  ggplot()+
+  geom_density(aes(x = value, colour = contrast), linewidth = 1)+
+  scale_colour_viridis_d()+
+  labs(colour = 'age pair',
+       x = 'difference between ages')+
+  geom_vline(xintercept = 0, linetype = 2)+
+  scale_x_continuous(limits = c(-0.3,0.3))
+
+## neighbour in previous second
+predictions %>% 
+  mutate(previous = ifelse(nn_tminus1_num == 1, 'younger',
+                           ifelse(nn_tminus1_num == 2, 'same age', 'older')),
+         prediction = ifelse(prediction == 1, 'younger',
+                             ifelse(prediction == 2, 'same age', 'older'))) %>% 
+  mutate(previous = factor(previous, levels = c('younger','same age','older')),
+         prediction = factor(prediction, levels = c('younger','same age','older'))) %>% 
+  ggplot()+
+  geom_bar(aes(x = prediction, fill = as.factor(previous)),
+           position = 'dodge')+
+  scale_y_continuous(expand = c(0,0))+
+  labs(colour = 'previous second')+
+  scale_fill_viridis_d()
+
+prevsec2 <- pred_prop %>% filter(nn_tminus1_num == 2)
+prevsec3 <- pred_prop %>% filter(nn_tminus1_num == 3)
+pred_prev <- pred_prop %>% 
+  filter(nn_tminus1_num == 1) %>% 
+  rename(count_1 = count_predictions,
+         prop_1 = proportion) %>% 
+  select(focal_age, after_stim, stim_type, prediction, count_1, prop_1) %>% 
+  left_join(prevsec2[,c('focal_age','after_stim','stim_type','prediction','count_predictions','proportion')],
+            by = c('focal_age','after_stim','stim_type','prediction')) %>% 
+  rename(count_2 = count_predictions,
+         prop_2 = proportion) %>% 
+  left_join(prevsec3[,c('focal_age','after_stim','stim_type','prediction','count_predictions','proportion')],
+            by = c('focal_age','after_stim','stim_type','prediction')) %>% 
+  rename(count_3 = count_predictions,
+         prop_3 = proportion) %>% 
+  mutate(nn1_2 = prop_1 - prop_2,
+         nn1_3 = prop_1 - prop_3,
+         nn2_3 = prop_2 - prop_3)
+pred_prev %>% 
+  select(stim_type, after_stim, focal_age, prediction,
+         nn1_2,nn1_3,nn2_3) %>% 
+  pivot_longer(cols = c('nn1_2', 'nn1_3', 'nn2_3'),
+               names_to = 'contrast', values_to = 'value') %>% 
+  mutate(contrast = ifelse(contrast == 'nn1_2', 'younger vs same',
+                           ifelse(contrast == 'nn1_3', 'younger vs older',
+                                  'same vs older'))) %>% 
+  ggplot()+
+  geom_density(aes(x = value, colour = contrast), linewidth = 1)+
+  scale_colour_viridis_d()+
+  labs(colour = 't-1 pair',
+       x = 'difference between neighbours at previous second')+
+  geom_vline(xintercept = 0, linetype = 2)+
+  scale_x_continuous(limits = c(-2,2))
+
+## time since stimulus
+times <- unique(predictions$after_stim)
+predictions %>%
+  filter(after_stim %in% times[c(1,5,10,15,20)]) %>% 
+  mutate(prediction = ifelse(prediction == 1, 'younger',
+                             ifelse(prediction == 2, 'same age', 'older'))) %>% 
+  mutate(prediction = factor(prediction, levels = c('younger','same age','older'))) %>% 
+  ggplot()+
+  geom_bar(aes(x = prediction, fill = as.factor(round(after_stim,2))),
+           position = 'dodge')+
+  scale_y_continuous(expand = c(0,0))+
+  labs(fill = 'mins since stim')+
+  scale_fill_viridis_d()
+
+time1 <- pred_prop %>% filter(after_stim == times[5])
+time2 <- pred_prop %>% filter(after_stim == times[10])
+time3 <- pred_prop %>% filter(after_stim == times[15])
+time4 <- pred_prop %>% filter(after_stim == times[20])
+pred_time <- pred_prop %>% 
+  filter(after_stim == times[1]) %>% 
+  rename(count_0 = count_predictions,
+         prop_0 = proportion) %>% 
+  select(focal_age, nn_tminus1_num, stim_type, prediction, count_0, prop_0) %>% 
+  left_join(time1[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
+            by = c('focal_age','nn_tminus1_num','stim_type','prediction')) %>% 
+  rename(count_1 = count_predictions,
+         prop_1 = proportion) %>% 
+  left_join(time2[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
+            by = c('focal_age','nn_tminus1_num','stim_type','prediction')) %>% 
+  rename(count_2 = count_predictions,
+         prop_2 = proportion) %>% 
+  left_join(time3[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
+            by = c('focal_age','nn_tminus1_num','stim_type','prediction')) %>% 
+  rename(count_3 = count_predictions,
+         prop_3 = proportion) %>% 
+  left_join(time4[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
+            by = c('focal_age','nn_tminus1_num','stim_type','prediction')) %>% 
+  rename(count_4 = count_predictions,
+         prop_4 = proportion) %>% 
+  mutate(t0_1 = prop_0 - prop_1,
+         t1_2 = prop_1 - prop_2,
+         t2_3 = prop_2 - prop_3,
+         t3_4 = prop_3 - prop_4)
+pred_time %>% 
+  select(stim_type, nn_tminus1_num, focal_age, prediction,
+         t0_1,t1_2,t2_3,t3_4) %>% 
+  pivot_longer(cols = c('t0_1', 't1_2', 't2_3','t3_4'),
+               names_to = 'contrast', values_to = 'value') %>% 
+  mutate(contrast = ifelse(contrast == 't0_1', '1m - 0m',
+                           ifelse(contrast == 't1_2', '2m - 1m',
+                                  ifelse(contrast == 't2_3', '3m - 2m',
+                                         '4m - 3m')))) %>% 
+  ggplot()+
+  geom_density(aes(x = value, colour = contrast), linewidth = 1)+
+  scale_colour_viridis_d()+
+  labs(colour = 'minutes',
+       x = 'difference between neighbours at previous second')+
+  geom_vline(xintercept = 0, linetype = 2)
+
+#### extract coefficients from predictions -- raw data ####
+rm(age2, age3, age4, check, coef, coef_exp, human, lion, prevsec2, prevsec3, time1, time2, time3, time4) ; gc()
+
+## stim
+summary(pred_stim$ctd_lion)
+rethinking::HPDI(pred_stim$ctd_lion, prob = 0.95)
+summary(pred_stim$ctd_human)
+rethinking::HPDI(pred_stim$ctd_human, prob = 0.95)
+summary(pred_stim$lion_human)
+rethinking::HPDI(pred_stim$lion_human, prob = 0.95)
+
+## age
+summary(pred_age$age1_2)
+rethinking::HPDI(pred_age$age1_2, prob = 0.95)
+summary(pred_age$age1_3)
+rethinking::HPDI(pred_age$age1_3, prob = 0.95)
+summary(pred_age$age1_4)
+rethinking::HPDI(pred_age$age1_4, prob = 0.95)
+summary(pred_age$age2_3)
+rethinking::HPDI(pred_age$age2_3, prob = 0.95)
+summary(pred_age$age2_4)
+rethinking::HPDI(pred_age$age2_4, prob = 0.95)
+summary(pred_age$age3_4)
+rethinking::HPDI(pred_age$age3_4, prob = 0.95)
+
+## previous second
+summary(pred_prev$nn1_2)
+rethinking::HPDI(pred_prev$nn1_2, prob = 0.95)
+summary(pred_prev$nn1_3)
+rethinking::HPDI(pred_prev$nn1_3, prob = 0.95)
+summary(pred_prev$nn2_3)
+rethinking::HPDI(pred_prev$nn2_3, prob = 0.95)
+
+## time minutes
+pred_time$t01_diff_per_min <- pred_time$t0_1 / (times[5] - times[1])
+pred_time$t12_diff_per_min <- pred_time$t1_2 / (times[10] - times[5])
+pred_time$t23_diff_per_min <- pred_time$t2_3 / (times[15] - times[10])
+pred_time$t34_diff_per_min <- pred_time$t3_4 / (times[20] - times[15])
+
+pred_time$mean_diff <- rowSums(pred_time[(ncol(pred_time)-4):ncol(pred_time)]) / 4
+summary(pred_time$mean_diff)
+rethinking::HPDI(pred_time$mean_diff, prob = 0.95)
+
+ggplot(pred_time)+
+  geom_density(aes(x = mean_diff, colour = stim_type),
+               linewidth = 1)+
+  scale_colour_viridis_d()+
+  geom_vline(xintercept = 0, linetype = 2)+
+  labs(x = 'effect of time', colour = 'stimulus type')
+
+#### graph all predictions together -- raw data -- ADD HPDI TO THESE LINES ####
+age_labels <- c('10-15 years','16-20 years','21-25 years','26-35 years')
+names(age_labels) <- c(1,2,3,4)
+prevsec_labels <- c('t-1: neighbour younger','t-1: neighbour same age','t-1: neighbour older')
+names(prevsec_labels) <- c(1,2,3)
+
+pred_prop %>% 
+  mutate(age_cat = ifelse(focal_age == 1,
+                          '10-15 years',
+                          ifelse(focal_age == 2,
+                                 '16-20 years',
+                                 ifelse(focal_age == 3,
+                                        '21-25 years','26-35 years'))),
+         stimulus = ifelse(stim_type == 'ctd',
+                           'dove (control)',
+                           ifelse(stim_type == 'l',
+                                  'lion', 'human'))) %>% 
+  mutate(stimulus = factor(stimulus,
+                           levels = c('dove (control)',
+                                      'lion', 'human'))) %>% 
+  ggplot()+
+  geom_line(aes(y = proportion, x = after_stim,
+                colour = stimulus, group = prediction))+
+  facet_grid(nn_tminus1_num ~ age_cat,
+             labeller = labeller(nn_tminus1_num = prevsec_labels))+
+  scale_colour_viridis_d()+
+  labs(x = 'minutes since stimulus')+
+  theme_bw()
+
+predict_labels <- c('predict: neighbour younger','predict: neighbour same age','predict: neighbour older')
+names(predict_labels) <- c(1,2,3)
+
+pred_prop_plot <- pred_prop %>% 
+  mutate(age_cat = ifelse(focal_age == 1,
+                          '10-15 years',
+                          ifelse(focal_age == 2,
+                                 '16-20 years',
+                                 ifelse(focal_age == 3,
+                                        '21-25 years','26-35 years'))),
+         stimulus = ifelse(stim_type == 'ctd',
+                           'dove (control)',
+                           ifelse(stim_type == 'l',
+                                  'lion', 'human')),
+         prev_sec = ifelse(nn_tminus1_num == 1,
+                           'younger    ',
+                           ifelse(nn_tminus1_num == 2,
+                                  'same age    ', 'older'))) %>% 
+  mutate(stimulus = factor(stimulus,
+                           levels = c('dove (control)',
+                                      'lion', 'human')),
+         prev_sec = factor(prev_sec,
+                           levels = c('younger    ',
+                                      'same age    ', 'older')))
+(dove <- pred_prop_plot %>% 
+    filter(stimulus == 'dove (control)') %>% 
+    ggplot()+
+    geom_line(aes(y = proportion, x = after_stim,
+                  colour = prev_sec),
+              linewidth = 1)+
+    facet_grid(prediction ~ age_cat,
+               labeller = labeller(prediction = predict_labels))+
+    scale_colour_viridis_d()+
+    scale_y_continuous(limits = c(0,1), expand = c(0,0))+
+    labs(x = 'minutes since stimulus',
+         title = 'dove (control)',
+         colour = 'neighbour age in previous second')+
+    theme_bw()+
+    theme(legend.position = 'bottom',
+          panel.spacing.y = unit(0.6, 'cm')) )
+(lion <- pred_prop_plot %>% 
+    filter(stimulus == 'lion') %>% 
+    ggplot()+
+    geom_line(aes(y = proportion, x = after_stim,
+                  colour = prev_sec),
+              linewidth = 1)+
+    facet_grid(prediction ~ age_cat,
+               labeller = labeller(prediction = predict_labels))+
+    scale_colour_viridis_d()+
+    scale_y_continuous(limits = c(0,1), expand = c(0,0))+
+    labs(x = 'minutes since stimulus',
+         title = 'lion',
+         colour = 'neighbour age in previous second')+
+    theme_bw()+
+    theme(legend.position = 'bottom',
+          panel.spacing.y = unit(0.6, 'cm')) )
+(human <- pred_prop_plot %>% 
+    filter(stimulus == 'human') %>% 
+    ggplot()+
+    geom_line(aes(y = proportion, x = after_stim,
+                  colour = prev_sec),
+              linewidth = 1)+
+    facet_grid(prediction ~ age_cat,
+               labeller = labeller(prediction = predict_labels))+
+    scale_colour_viridis_d()+
+    scale_y_continuous(limits = c(0,1), expand = c(0,0))+
+    labs(x = 'minutes since stimulus',
+         title = 'human',
+         colour = 'neighbour age in previous second')+
+    theme_bw()+
+    theme(legend.position = 'bottom',
+          panel.spacing.y = unit(0.6, 'cm')) )
+(all_plots <- ggarrange(dove, lion, human, ncol=3, nrow=1, common.legend = TRUE, legend = "bottom"))
+ggsave(plot = all_plots, filename = '../outputs/nn_marginaleffects.png', device = 'png',
+       width = (5.8*2), height = 8.3)
+
+########################
+#### predict from model -- counterfactual ####
+#load('nearest_neighbour/neighbour_model_run_timespline.RData') # rm(biologylibs, homedrive, homelibs, homelibsprofile, rlibs, Rversion) ; gc()
 
 ## check Stan code
 rm(list = ls()[! ls() %in% c('nn_fit','nn_no_na')]) ; gc()
 subjects <- sample(unique(nn_no_na$focal_id), 5, replace = F)
 stimuli <- sample(unique(nn_no_na$stim_id), 5, replace = F)
 pbs <- sample(unique(nn_no_na$playback_id), 5, replace = F)
-predict_data <- data.frame(f_age_num = rep(1, 3*16*3*length(subjects)*length(stimuli)*length(pbs)),
+predict_data <- data.frame(f_age_num = rep(1, 3*31*3*length(subjects)*length(stimuli)*length(pbs)),
                            stim_type = rep(c('ctd','h','l'),
-                                           each = 16*3*length(subjects)*length(stimuli)*length(pbs)),
-                           after_stim = rep(rep(seq(from = 0, to = 300, by = 20),
-                                                     each = 3*length(subjects)*length(stimuli)*length(pbs)),
-                                                 3),
+                                           each = 31*3*length(subjects)*length(stimuli)*length(pbs)),
+                           after_stim = rep(rep(seq(from = 0, to = 3, length.out = 31),
+                                                each = 3*length(subjects)*length(stimuli)*length(pbs)),
+                                            3),
                            nn_tminus1_num = rep(rep(1:3,
                                                     each = length(subjects)*length(stimuli)*length(pbs)),
-                                                3*16),
+                                                3*31),
                            focal_id = rep(rep(subjects,
                                               each = length(stimuli)*length(pbs)),
-                                          3*16*3),
+                                          3*31*3),
                            stim_id = rep(rep(stimuli,
                                              each = length(pbs)),
-                                         3*16*3*length(subjects)),
-                           playback_id = rep(pbs, 3*16*3*length(subjects)*length(stimuli)))
+                                         3*31*3*length(subjects)),
+                           playback_id = rep(pbs, 3*31*3*length(subjects)*length(stimuli)))
 pred <- posterior_predict(object = nn_fit,
                           newdata = predict_data)
 age_types <- 1:4
@@ -460,7 +1091,7 @@ for(i in 2:length(age_types)){
 }
 save.image('nearest_neighbour/neighbour_model_predictions_time_spline.RData')
 
-#### compare to log cumulative odds of data ####
+#### compare to log cumulative odds of data -- counterfactual ####
 ## raw log cumulative odds
 prop_data <- table(nn_no_na$age_diff_num) / nrow(nn_no_na)
 cum_prop_data <- cumsum(prop_data)
@@ -472,131 +1103,14 @@ cum_prop_pred <- cumsum(prop_pred)
 log_cum_odds_pred <- logit(cum_prop_pred)
 
 ## compare
-prop_data ; prop_pred                   # are quite different, but there are a lot more time=0 points in the data than in the predictions
+prop_data ; prop_pred
 cum_prop_data ; cum_prop_pred
 log_cum_odds_data ; log_cum_odds_pred
 
-#### plot outputs ####
-load('nearest_neighbour/neighbour_model_predictions_time_spline.RData')
-ggplot(predictions, aes(x = after_stim, y = prediction))+
-  geom_line()+
-  geom_point()+
-  facet_wrap(. ~ stim_type)
+## clean up 
+rm(pred, predict_data, pred_all, cum_prop_data, cum_prop_pred, i, log_cum_odds_data, log_cum_odds_pred, pbs, prop_data, prop_pred, stimuli, subjects) ; gc()
 
-## plot raw data -- this looks a lot more exciting at first glance than it is: basically just shows that far and away the strongest effect is neighbour age at second t-1
-stimuli <- c('dove (control)','lion','human')
-names(stimuli) <- c('ctd','l','h')
-nn_no_na %>% 
-  mutate(stim_type = factor(stim_type, levels = c('ctd','l','h'))) %>% 
-  ggplot(aes(x = after_stim, y = age_diff_num,
-             colour = stim_type, shape = nn_tminus1))+
-  geom_vline(aes(xintercept = 0))+
-  geom_point(alpha = 0.1)+ # colour = rgb(0,0,1,0.01)
-  facet_grid(stim_type ~ factor(nn_tminus1,
-                                levels = c('partner younger',
-                                           'matched',
-                                           'partner older')),
-             labeller = labeller(stim_type = stimuli))
-
-## plot predictions
-summary(nn_fit) # CAN I SEE THE CUTPOINTS OUTPUT FROM THE MODEL LIKE THIS?? WHAT VALUES ON THE CUMULATIVE LOG ODDS SCALE MAKE IT TRANSITION TO PREDICTING A 2 INSTEAD OF A 1 OR 3 INSTEAD OF 2??
-# Family: cumulative 
-# Links: mu = logit; disc = identity 
-# Formula: age_diff_num ~ 1 + mo(f_age_num) + stim_type + s(after_stim) + mo(nn_tminus1_num) + (1 | focal_id) + (1 | stim_id) + (1 | playback_id) 
-# Data: nn_no_na (Number of observations: 40010) 
-# Draws: 4 chains, each with iter = 2000; warmup = 1000; thin = 1;
-# total post-warmup draws = 4000
-# 
-# Smooth Terms: 
-#                    Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sds(safter_stim_1)     0.57      0.53     0.02     1.95 1.01      682     2194
-# 
-# Group-Level Effects: 
-#   ~focal_id (Number of levels: 140) 
-#               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sd(Intercept)     6.19      0.66     4.97     7.46 1.02      217     1398
-# 
-#   ~playback_id (Number of levels: 33) 
-#               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sd(Intercept)     0.86      0.71     0.03     2.85 1.05       67       14
-# 
-#   ~stim_id (Number of levels: 23) 
-#               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sd(Intercept)     0.70      0.52     0.03     1.94 1.01      334      632
-# 
-# Population-Level Effects: 
-#                  Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# Intercept[1]         2.78      0.88     1.02     4.47 1.01      620     1615
-# Intercept[2]        12.61      0.89    10.82    14.34 1.01      716     1679
-# stim_typeh           0.26      0.80    -1.37     1.77 1.02     1348     2135
-# stim_typel          -0.01      0.81    -1.55     1.56 1.01      445     2153
-# safter_stim_1       -0.28      0.76    -1.57     1.36 1.01      687     3193
-# mof_age_num         -0.75      0.25    -1.23    -0.23 1.01     1001     1263
-# monn_tminus1_num     7.98      0.09     7.80     8.16 1.01     3183     2322
-# 
-# Simplex Parameters: 
-#                      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# mof_age_num1[1]          0.20      0.14     0.03     0.52 1.01      374     2712
-# mof_age_num1[2]          0.59      0.18     0.18     0.88 1.02     1518     2643
-# mof_age_num1[3]          0.21      0.15     0.03     0.57 1.03      126     2466
-# monn_tminus1_num1[1]     0.51      0.01     0.49     0.53 1.01      410     2636
-# monn_tminus1_num1[2]     0.49      0.01     0.47     0.51 1.01      410     2636
-# 
-# Family Specific Parameters: 
-#      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# disc     1.00      0.00     1.00     1.00   NA       NA       NA
-# 
-# Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS and Tail_ESS are effective sample size measures, and Rhat is the potential scale reduction factor on split chains (at convergence, Rhat = 1).
-# Warning messages:
-# 1: Parts of the model have not converged (some Rhats are > 1.05). Be careful when analysing the results! We recommend running more iterations and/or setting stronger priors. 
-# 2: There were 371 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
-
-fixed <- summary(nn_fit)$fixed
-focal_id <- summary(nn_fit)$random$focal_id %>% 
-  as.data.frame()
-pb_id <- summary(nn_fit)$random$playback_id %>% 
-  as.data.frame()
-stim_id <- summary(nn_fit)$random$stim_id %>% 
-  as.data.frame()
-mo <- summary(nn_fit)$mo %>% 
-  as.data.frame()
-coef <- rbind(fixed, mo, focal_id, pb_id, stim_id) %>% 
-  janitor::clean_names()
-rm(fixed, mo, focal_id, pb_id, stim_id)
-coef$coef <- rownames(coef)
-
-# With a 1 unit increase in focal age (i.e., changing from one level to the next of the categorical predictor), the predicted odds of observing Y = 3 versus Y = 1 or 2 change by a factor of exp(beta) which, for diagram, is exp(-0.758) = 0.469
-coef_exp <- coef %>% 
-  mutate(estimate = exp(estimate),
-         est_error = exp(est_error),
-         l_95_percent_ci = exp(l_95_percent_ci),
-         u_95_percent_ci = exp(u_95_percent_ci),
-         rhat = round(rhat, 2),
-         bulk_ess = round(bulk_ess),
-         tail_ess = round(tail_ess)) %>% 
-  rename(lwr = l_95_percent_ci,
-         upr = u_95_percent_ci) %>% 
-  relocate(coef)
-
-## NEED TO DOUBLE CHECK TO SEE WHETHER ENGINE IS SUBTRACTING OR ADDING THE SLOPE VALUE: ON LOG ODDS SCALE, A NEGATIVE CHANGE INDUCES AN INCREASE IN THE OBSERVED CATEGORY VALUE, SO NORMALLY SUBTRACT THE SLOPE NOT ADD.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#### plot predictions ####
+#### plot predictions -- counterfactual ####
 ## take predictions from model. Determine from predictions the probability of each output depending on each set of input = 0 seconds + 10-15 years + ctd stimulus + younger partner at previous time step.
 head(predictions)
 
@@ -642,7 +1156,8 @@ prevsec_labels <- c('neighbour younger at t-1',
                     'neighbour older at t-1')
 names(prevsec_labels) <- 1:3
 pred_prop_plot <- pred_prop %>% 
-  filter(after_stim %in% c(0, 10, 20, 40, 80, 100, 150, 200, 300)) %>% 
+  filter(after_stim %in% seq(0,3,length.out = 31)[c(1,6,11,16,21,26,31)]) %>% 
+  #mutate(after_stim = round(after_stim, 2)) %>% 
   mutate(pred_label = ifelse(prediction == 1, 'neighbour younger',
                              ifelse(prediction == 2, 'age matched',
                                     ifelse(prediction == 3, 'neighbour older',NA)))) %>% 
@@ -659,7 +1174,8 @@ ctd_plot <- pred_prop_plot %>%
   scale_fill_viridis_d()+
   labs(fill = 'predicted age of neighbour relative to focal:',
        x = 'age category of focal elephant',
-       y = 'proportion of predictions')+
+       y = 'proportion of predictions',
+       title = 'cape turtle dove (control)')+
   theme(legend.position = 'bottom')
 lion_plot <- pred_prop_plot %>% 
   filter(stim_type == 'l') %>% 
@@ -670,7 +1186,8 @@ lion_plot <- pred_prop_plot %>%
   scale_fill_viridis_d()+
   labs(fill = 'predicted age of neighbour relative to focal:',
        x = 'age category of focal elephant',
-       y = 'proportion of predictions')+
+       y = 'proportion of predictions',
+       title = 'lion')+
   theme(legend.position = 'bottom')
 human_plot <- pred_prop_plot %>% 
   filter(stim_type == 'h') %>% 
@@ -681,7 +1198,8 @@ human_plot <- pred_prop_plot %>%
   scale_fill_viridis_d()+
   labs(fill = 'predicted age of neighbour relative to focal:',
        x = 'age category of focal elephant',
-       y = 'proportion of predictions')+
+       y = 'proportion of predictions',
+       title = 'human')+
   theme(legend.position = 'bottom')
 (all_plots <- ggarrange(ctd_plot, lion_plot, human_plot, ncol=3, nrow=1, common.legend = TRUE, legend = "bottom"))
 ggsave(plot = all_plots, filename = '../outputs/nn_posteriorpredictions_stimtype.png', device = 'png',
@@ -699,7 +1217,8 @@ names(stim_labels) <- c('ctd','l','h')
   scale_fill_viridis_d()+
   labs(fill = 'predicted age of neighbour relative to focal:',
        x = 'age category of focal elephant',
-       y = 'proportion of predictions')+
+       y = 'proportion of predictions',
+       title = 'neighbour younger in previous second')+
   theme(legend.position = 'bottom'))
 (plot2 <- pred_prop_plot %>% 
     filter(nn_tminus1_num == 2) %>% 
@@ -710,7 +1229,8 @@ names(stim_labels) <- c('ctd','l','h')
     scale_fill_viridis_d()+
     labs(fill = 'predicted age of neighbour relative to focal:',
          x = 'age category of focal elephant',
-         y = 'proportion of predictions')+
+         y = 'proportion of predictions',
+         title = 'neighbour same age in previous second')+
     theme(legend.position = 'bottom'))
 (plot3 <- pred_prop_plot %>% 
     filter(nn_tminus1_num == 3) %>% 
@@ -721,9 +1241,10 @@ names(stim_labels) <- c('ctd','l','h')
     scale_fill_viridis_d()+
     labs(fill = 'predicted age of neighbour relative to focal:',
          x = 'age category of focal elephant',
-         y = 'proportion of predictions')+
+         y = 'proportion of predictions',
+         title = 'neighbour older in previous second')+
     theme(legend.position = 'bottom'))
-all_plots <- ggarrange(plot1, plot2, plot3, ncol=3, nrow=1, common.legend = TRUE, legend = "bottom")
+(all_plots <- ggarrange(plot1, plot2, plot3, ncol=3, nrow=1, common.legend = TRUE, legend = "bottom"))
 ggsave(plot = all_plots, filename = '../outputs/nn_posteriorpredictions_prevsec.png', device = 'png',
        width = (5.8*3), height = 8.3)
 save.image('nearest_neighbour/neighbour_model_predictions_time_spline.RData')
@@ -748,10 +1269,11 @@ names(age_labels) <- c(1,2,3,4)
                                  stim_type = stim_labels))+
   scale_colour_viridis_d()+
   labs(colour = 'neighbour age:',
-       x = 'seconds since stimulus started',
+       x = 'minutes since stimulus started',
        y = 'predicted probability of neighbour age',
        title = 'nearest neighbour younger in previous second')+
-  scale_y_continuous(limits = c(0,1)) )
+  scale_y_continuous(limits = c(0,1))+
+    theme_bw())
 (plot2 <- pred_prop %>% 
     filter(nn_tminus1_num == 2) %>% 
     mutate(predict_label = ifelse(prediction == 1, 'younger',
@@ -768,10 +1290,11 @@ names(age_labels) <- c(1,2,3,4)
                                    stim_type = stim_labels))+
     scale_colour_viridis_d()+
     labs(colour = 'neighbour age:',
-         x = 'seconds since stimulus started',
+         x = 'minutes since stimulus started',
          y = 'predicted probability of neighbour age',
          title = 'nearest neighbour age matched in previous second')+
-    scale_y_continuous(limits = c(0,1)) )
+    scale_y_continuous(limits = c(0,1))+
+    theme_bw() )
 (plot3 <- pred_prop %>% 
     filter(nn_tminus1_num == 3) %>% 
     mutate(predict_label = ifelse(prediction == 1, 'younger',
@@ -788,31 +1311,37 @@ names(age_labels) <- c(1,2,3,4)
                                    stim_type = stim_labels))+
     scale_colour_viridis_d()+
     labs(colour = 'neighbour age:',
-         x = 'seconds since stimulus started',
+         x = 'minutes since stimulus started',
          y = 'predicted probability of neighbour age',
          title = 'nearest neighbour older in previous second')+
-    scale_y_continuous(limits = c(0,1)) )
-all_plots <- ggarrange(plot1, plot2, plot3, ncol=3, nrow=1, common.legend = TRUE, legend = "bottom")
+    scale_y_continuous(limits = c(0,1))+
+    theme_bw() )
+(all_plots <- ggarrange(plot1, plot2, plot3, ncol=3, nrow=1, common.legend = TRUE, legend = "bottom"))
 ggsave(plot = all_plots, filename = '../outputs/nn_posteriorpredictions_prevsec_line.png', device = 'png',
        width = (5.8*3), height = 8.3)
 save.image('nearest_neighbour/neighbour_model_predictions_time_spline.RData')
 
-#### extract outputs from predictions ####
+#### graph contrasts from predictions -- counterfactual ####
 #CALCULATE POSTERIOR CONTRASTS FROM PREDICTIONS
-# load('nearest_neighbour/neighbour_model_predictions_time_spline.RData') ; rm(all_plots, ctd_plot, human_plot, lion_plot, plot1, plot2, plot3, pred_prop_plot, pred, after_stims, age_labels, ages, i, j, predcns, prevsec_labels, prevsecs, stim_labels, stims)
+# load('nearest_neighbour/neighbour_model_predictions_time_spline.RData')
+rm(all_plots, ctd_plot, human_plot, lion_plot, plot1, plot2, plot3, pred_prop_plot, pred, after_stims, age_labels, ages, i, j, predcns, prevsec_labels, prevsecs, stim_labels, stims)
 
 ## stim type
-ctd <- predictions %>% filter(stim_type == 'ctd')
-lion <- predictions %>% filter(stim_type == 'l')
-human <- predictions %>% filter(stim_type == 'h')
-par(mfrow = c(3,1))
-barplot(table(ctd$prediction), main = 'dove')
-barplot(table(lion$prediction), main = 'lion')
-barplot(table(human$prediction), main = 'human')
+predictions %>% 
+  mutate(stimulus = ifelse(stim_type == 'ctd', 'dove (control)',
+                           ifelse(stim_type == 'h','human','lion')),
+         prediction = ifelse(prediction == 1, 'younger',
+                             ifelse(prediction == 2, 'same age', 'older'))) %>% 
+  mutate(stimulus = factor(stimulus, levels = c('dove (control)', 'lion','human')),
+         prediction = factor(prediction, levels = c('younger','same age','older'))) %>% 
+  ggplot()+
+  geom_bar(aes(x = prediction, fill = stimulus),
+           position = 'dodge')+
+  scale_y_continuous(expand = c(0,0))+
+  scale_fill_viridis_d()
 
 lion <- pred_prop %>% filter(stim_type == 'l')
 human <- pred_prop %>% filter(stim_type == 'h')
-
 pred_stim <- pred_prop %>% 
   filter(stim_type == 'ctd') %>% 
   rename(count_ctd = count_predictions,
@@ -829,27 +1358,32 @@ pred_stim <- pred_prop %>%
   mutate(ctd_lion = prop_ctd - prop_lion,
          ctd_human = prop_ctd - prop_human,
          lion_human = prop_lion - prop_human)
-
-plot(density(pred_stim$ctd_lion), main = 'dove - lion') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$ctd_human), main = 'dove - human') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$lion_human), main = 'lion - human') ; abline(v = 0, lty = 2)
+pred_stim %>% 
+  select(focal_age, after_stim, nn_tminus1_num, prediction, ctd_lion, ctd_human, lion_human) %>% 
+  pivot_longer(cols = c('ctd_lion', 'ctd_human', 'lion_human'),
+               names_to = 'contrast', values_to = 'value') %>% 
+  ggplot()+
+  geom_density(aes(x = value, colour = contrast), linewidth = 1)+
+  scale_colour_viridis_d()+
+  labs(colour = 'stimulus pair',
+       x = 'difference between stimuli')+
+  geom_vline(xintercept = 0, linetype = 2)
 
 ## focal age
-age1 <- predictions %>% filter(focal_age == 1)
-age2 <- predictions %>% filter(focal_age == 2)
-age3 <- predictions %>% filter(focal_age == 3)
-age4 <- predictions %>% filter(focal_age == 4)
-par(mfrow = c(2,2))
-barplot(table(age1$prediction), main = 'age1')
-barplot(table(age2$prediction), main = 'age2')
-barplot(table(age3$prediction), main = 'age3')
-barplot(table(age4$prediction), main = 'age4')
+predictions %>% 
+  mutate(prediction = ifelse(prediction == 1, 'younger',
+                             ifelse(prediction == 2, 'same age', 'older'))) %>% 
+  mutate(prediction = factor(prediction, levels = c('younger','same age','older'))) %>% 
+  ggplot()+
+  geom_bar(aes(x = prediction, fill = as.factor(focal_age)),
+           position = 'dodge')+
+  scale_y_continuous(expand = c(0,0))+
+  scale_fill_viridis_d()
 
 age2 <- pred_prop %>% filter(focal_age == 2)
 age3 <- pred_prop %>% filter(focal_age == 3)
 age4 <- pred_prop %>% filter(focal_age == 4)
-
-pred_stim <- pred_prop %>% 
+pred_age <- pred_prop %>% 
   filter(focal_age == 1) %>% 
   rename(count_1 = count_predictions,
          prop_1 = proportion) %>% 
@@ -872,28 +1406,37 @@ pred_stim <- pred_prop %>%
          age2_3 = prop_2 - prop_3,
          age2_4 = prop_2 - prop_4,
          age3_4 = prop_3 - prop_4)
-
-par(mfrow = c(3,2))
-plot(density(pred_stim$age1_2), main = 'age 1 - age 2') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$age1_3), main = 'age 1 - age 3') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$age1_4), main = 'age 1 - age 4') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$age2_3), main = 'age 2 - age 3') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$age2_4), main = 'age 2 - age 4') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$age3_4), main = 'age 3 - age 4') ; abline(v = 0, lty = 2)
+pred_age %>% 
+  select(stim_type, after_stim, nn_tminus1_num, prediction,
+         age1_2,age1_3,age1_4,age2_3,age2_4,age3_4) %>% 
+  pivot_longer(cols = c('age1_2', 'age1_3', 'age1_4','age2_3','age2_4','age3_4'),
+               names_to = 'contrast', values_to = 'value') %>% 
+  ggplot()+
+  geom_density(aes(x = value, colour = contrast), linewidth = 1)+
+  scale_colour_viridis_d()+
+  labs(colour = 'age pair',
+       x = 'difference between ages')+
+  geom_vline(xintercept = 0, linetype = 2)+
+  scale_x_continuous(limits = c(-0.3,0.3))
 
 ## neighbour in previous second
-prevsec1 <- predictions %>% filter(nn_tminus1_num == 1)
-prevsec2 <- predictions %>% filter(nn_tminus1_num == 2)
-prevsec3 <- predictions %>% filter(nn_tminus1_num == 3)
-par(mfrow = c(3,1))
-barplot(table(prevsec1$prediction), main = 't-1=1')
-barplot(table(prevsec2$prediction), main = 't-1=2')
-barplot(table(prevsec3$prediction), main = 't-1=3')
+predictions %>% 
+  mutate(previous = ifelse(nn_tminus1_num == 1, 'younger',
+                           ifelse(nn_tminus1_num == 2, 'same age', 'older')),
+         prediction = ifelse(prediction == 1, 'younger',
+                             ifelse(prediction == 2, 'same age', 'older'))) %>% 
+  mutate(previous = factor(previous, levels = c('younger','same age','older')),
+         prediction = factor(prediction, levels = c('younger','same age','older'))) %>% 
+  ggplot()+
+  geom_bar(aes(x = prediction, fill = as.factor(previous)),
+           position = 'dodge')+
+  scale_y_continuous(expand = c(0,0))+
+  labs(colour = 'previous second')+
+  scale_fill_viridis_d()
 
 prevsec2 <- pred_prop %>% filter(nn_tminus1_num == 2)
 prevsec3 <- pred_prop %>% filter(nn_tminus1_num == 3)
-
-pred_stim <- pred_prop %>% 
+pred_prev <- pred_prop %>% 
   filter(nn_tminus1_num == 1) %>% 
   rename(count_1 = count_predictions,
          prop_1 = proportion) %>% 
@@ -909,155 +1452,316 @@ pred_stim <- pred_prop %>%
   mutate(nn1_2 = prop_1 - prop_2,
          nn1_3 = prop_1 - prop_3,
          nn2_3 = prop_2 - prop_3)
-
-plot(density(pred_stim$nn1_2), main = '(t-1=1) - (t-1=2)') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$nn1_3), main = '(t-1=1) - (t-1=3)') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$nn2_3), main = '(t-1=2) - (t-1=3)') ; abline(v = 0, lty = 2)
+pred_prev %>% 
+  select(stim_type, after_stim, focal_age, prediction,
+         nn1_2,nn1_3,nn2_3) %>% 
+  pivot_longer(cols = c('nn1_2', 'nn1_3', 'nn2_3'),
+               names_to = 'contrast', values_to = 'value') %>% 
+  mutate(contrast = ifelse(contrast == 'nn1_2', 'younger vs same',
+                           ifelse(contrast == 'nn1_3', 'younger vs older',
+                                  'same vs older'))) %>% 
+  ggplot()+
+  geom_density(aes(x = value, colour = contrast), linewidth = 1)+
+  scale_colour_viridis_d()+
+  labs(colour = 't-1 pair',
+       x = 'difference between neighbours at previous second')+
+  geom_vline(xintercept = 0, linetype = 2)+
+  scale_x_continuous(limits = c(-2,2))
 
 ## time since stimulus
-time0 <- predictions %>% filter(after_stim == 0)
-time20 <- predictions %>% filter(after_stim == 20)
-time40 <- predictions %>% filter(after_stim == 40)
-time60 <- predictions %>% filter(after_stim == 60)
-time80 <- predictions %>% filter(after_stim == 80)
-time100 <- predictions %>% filter(after_stim == 100)
-time120 <- predictions %>% filter(after_stim == 120)
-time140 <- predictions %>% filter(after_stim == 140)
-time160 <- predictions %>% filter(after_stim == 160)
-time180 <- predictions %>% filter(after_stim == 180)
-time200 <- predictions %>% filter(after_stim == 200)
-time220 <- predictions %>% filter(after_stim == 220)
-time240 <- predictions %>% filter(after_stim == 240)
-time260 <- predictions %>% filter(after_stim == 260)
-time280 <- predictions %>% filter(after_stim == 280)
-time300 <- predictions %>% filter(after_stim == 300)
-par(mfrow = c(4,4))
-barplot(table(time0$prediction), main = 't=0')
-barplot(table(time20$prediction), main = 't=20')
-barplot(table(time40$prediction), main = 't=40')
-barplot(table(time60$prediction), main = 't=60')
-barplot(table(time80$prediction), main = 't=80')
-barplot(table(time100$prediction), main = 't=100')
-barplot(table(time120$prediction), main = 't=120')
-barplot(table(time140$prediction), main = 't=140')
-barplot(table(time160$prediction), main = 't=160')
-barplot(table(time180$prediction), main = 't=180')
-barplot(table(time200$prediction), main = 't=200')
-barplot(table(time220$prediction), main = 't=220')
-barplot(table(time240$prediction), main = 't=240')
-barplot(table(time260$prediction), main = 't=260')
-barplot(table(time280$prediction), main = 't=280')
-barplot(table(time300$prediction), main = 't=300')
+times <- unique(predictions$after_stim)
+predictions %>%
+  filter(after_stim %in% times[c(1,5,10,15,20)]) %>% 
+  mutate(prediction = ifelse(prediction == 1, 'younger',
+                             ifelse(prediction == 2, 'same age', 'older'))) %>% 
+  mutate(prediction = factor(prediction, levels = c('younger','same age','older'))) %>% 
+  ggplot()+
+  geom_bar(aes(x = prediction, fill = as.factor(round(after_stim,2))),
+           position = 'dodge')+
+  scale_y_continuous(expand = c(0,0))+
+  labs(fill = 'mins since stim')+
+  scale_fill_viridis_d()
 
-time20 <- pred_prop %>% filter(after_stim == 20)
-time40 <- pred_prop %>% filter(after_stim == 40)
-time60 <- pred_prop %>% filter(after_stim == 60)
-time80 <- pred_prop %>% filter(after_stim == 80)
-time100 <- pred_prop %>% filter(after_stim == 100)
-time120 <- pred_prop %>% filter(after_stim == 120)
-time140 <- pred_prop %>% filter(after_stim == 140)
-time160 <- pred_prop %>% filter(after_stim == 160)
-time180 <- pred_prop %>% filter(after_stim == 180)
-time200 <- pred_prop %>% filter(after_stim == 200)
-time220 <- pred_prop %>% filter(after_stim == 220)
-time240 <- pred_prop %>% filter(after_stim == 240)
-time260 <- pred_prop %>% filter(after_stim == 260)
-time280 <- pred_prop %>% filter(after_stim == 280)
-time300 <- pred_prop %>% filter(after_stim == 300)
-
-pred_stim <- pred_prop %>% 
-  filter(after_stim == 0) %>% 
+time1 <- pred_prop %>% filter(after_stim == times[5])
+time2 <- pred_prop %>% filter(after_stim == times[10])
+time3 <- pred_prop %>% filter(after_stim == times[15])
+time4 <- pred_prop %>% filter(after_stim == times[20])
+pred_time <- pred_prop %>% 
+  filter(after_stim == times[1]) %>% 
   rename(count_0 = count_predictions,
          prop_0 = proportion) %>% 
   select(focal_age, nn_tminus1_num, stim_type, prediction, count_0, prop_0) %>% 
-  left_join(time20[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
+  left_join(time1[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
             by = c('focal_age','nn_tminus1_num','stim_type','prediction')) %>% 
   rename(count_1 = count_predictions,
          prop_1 = proportion) %>% 
-  left_join(time40[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
+  left_join(time2[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
             by = c('focal_age','nn_tminus1_num','stim_type','prediction')) %>% 
   rename(count_2 = count_predictions,
          prop_2 = proportion) %>% 
-  left_join(time60[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
+  left_join(time3[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
             by = c('focal_age','nn_tminus1_num','stim_type','prediction')) %>% 
   rename(count_3 = count_predictions,
          prop_3 = proportion) %>% 
-  left_join(time80[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
+  left_join(time4[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
             by = c('focal_age','nn_tminus1_num','stim_type','prediction')) %>% 
   rename(count_4 = count_predictions,
          prop_4 = proportion) %>% 
-  left_join(time100[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
-            by = c('focal_age','nn_tminus1_num','stim_type','prediction')) %>% 
-  rename(count_5 = count_predictions,
-         prop_5 = proportion) %>% 
-  left_join(time120[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
-            by = c('focal_age','nn_tminus1_num','stim_type','prediction')) %>% 
-  rename(count_6 = count_predictions,
-         prop_6 = proportion) %>% 
-  left_join(time140[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
-            by = c('focal_age','nn_tminus1_num','stim_type','prediction')) %>% 
-  rename(count_7 = count_predictions,
-         prop_7 = proportion) %>% 
-  left_join(time160[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
-            by = c('focal_age','nn_tminus1_num','stim_type','prediction')) %>% 
-  rename(count_8 = count_predictions,
-         prop_8 = proportion) %>% 
-  left_join(time180[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
-            by = c('focal_age','nn_tminus1_num','stim_type','prediction')) %>% 
-  rename(count_9 = count_predictions,
-         prop_9 = proportion) %>% 
-  left_join(time200[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
-            by = c('focal_age','nn_tminus1_num','stim_type','prediction')) %>% 
-  rename(count_10 = count_predictions,
-         prop_10 = proportion) %>% 
-  left_join(time220[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
-            by = c('focal_age','nn_tminus1_num','stim_type','prediction')) %>% 
-  rename(count_11 = count_predictions,
-         prop_11 = proportion) %>% 
-  left_join(time240[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
-            by = c('focal_age','nn_tminus1_num','stim_type','prediction')) %>% 
-  rename(count_12 = count_predictions,
-         prop_12 = proportion) %>% 
-  left_join(time260[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
-            by = c('focal_age','nn_tminus1_num','stim_type','prediction')) %>% 
-  rename(count_13 = count_predictions,
-         prop_13 = proportion) %>% 
-  left_join(time280[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
-            by = c('focal_age','nn_tminus1_num','stim_type','prediction')) %>% 
-  rename(count_14 = count_predictions,
-         prop_14 = proportion) %>% 
-  left_join(time300[,c('focal_age','nn_tminus1_num','stim_type','prediction','count_predictions','proportion')],
-            by = c('focal_age','nn_tminus1_num','stim_type','prediction')) %>% 
-  rename(count_15 = count_predictions,
-         prop_15 = proportion) %>% 
   mutate(t0_1 = prop_0 - prop_1,
          t1_2 = prop_1 - prop_2,
          t2_3 = prop_2 - prop_3,
-         t3_4 = prop_3 - prop_4,
-         t4_5 = prop_4 - prop_5,
-         t5_6 = prop_5 - prop_6,
-         t6_7 = prop_6 - prop_7,
-         t7_8 = prop_7 - prop_8,
-         t8_9 = prop_8 - prop_9,
-         t9_10 = prop_9 - prop_10,
-         t10_11 = prop_10 - prop_11,
-         t11_12 = prop_11 - prop_12,
-         t12_13 = prop_12 - prop_13,
-         t13_14 = prop_13 - prop_14,
-         t14_15 = prop_14 - prop_15)
+         t3_4 = prop_3 - prop_4)
+pred_time %>% 
+  select(stim_type, nn_tminus1_num, focal_age, prediction,
+         t0_1,t1_2,t2_3,t3_4) %>% 
+  pivot_longer(cols = c('t0_1', 't1_2', 't2_3','t3_4'),
+               names_to = 'contrast', values_to = 'value') %>% 
+  mutate(contrast = ifelse(contrast == 't0_1', '1m - 0m',
+                           ifelse(contrast == 't1_2', '2m - 1m',
+                                  ifelse(contrast == 't2_3', '3m - 2m',
+                                         '4m - 3m')))) %>% 
+  ggplot()+
+  geom_density(aes(x = value, colour = contrast), linewidth = 1)+
+  scale_colour_viridis_d()+
+  labs(colour = 'minutes',
+       x = 'difference between neighbours at previous second')+
+  geom_vline(xintercept = 0, linetype = 2)
 
-plot(density(pred_stim$t0_1), main = '(t=0) - (t=1)') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$t1_2), main = '(t=0) - (t=1)') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$t2_3), main = '(t=0) - (t=1)') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$t3_4), main = '(t=0) - (t=1)') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$t4_5), main = '(t=0) - (t=1)') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$t5_6), main = '(t=0) - (t=1)') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$t6_7), main = '(t=0) - (t=1)') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$t7_8), main = '(t=0) - (t=1)') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$t8_9), main = '(t=0) - (t=1)') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$t9_10), main = '(t=0) - (t=1)') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$t10_11), main = '(t=0) - (t=1)') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$t11_12), main = '(t=0) - (t=1)') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$t12_13), main = '(t=0) - (t=1)') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$t13_14), main = '(t=0) - (t=1)') ; abline(v = 0, lty = 2)
-plot(density(pred_stim$t14_15), main = '(t=0) - (t=1)') ; abline(v = 0, lty = 2)
+#### extract coefficients from predictions -- counterfactual ####
+rm(age2, age3, age4, check, coef, coef_exp, human, lion, prevsec2, prevsec3, time1, time2, time3, time4) ; gc()
+
+## stim
+summary(pred_stim$ctd_lion)
+rethinking::HPDI(pred_stim$ctd_lion, prob = 0.95)
+summary(pred_stim$ctd_human)
+rethinking::HPDI(pred_stim$ctd_human, prob = 0.95)
+summary(pred_stim$lion_human)
+rethinking::HPDI(pred_stim$lion_human, prob = 0.95)
+
+## age
+summary(pred_age$age1_2)
+rethinking::HPDI(pred_age$age1_2, prob = 0.95)
+summary(pred_age$age1_3)
+rethinking::HPDI(pred_age$age1_3, prob = 0.95)
+summary(pred_age$age1_4)
+rethinking::HPDI(pred_age$age1_4, prob = 0.95)
+summary(pred_age$age2_3)
+rethinking::HPDI(pred_age$age2_3, prob = 0.95)
+summary(pred_age$age2_4)
+rethinking::HPDI(pred_age$age2_4, prob = 0.95)
+summary(pred_age$age3_4)
+rethinking::HPDI(pred_age$age3_4, prob = 0.95)
+
+## previous second
+summary(pred_prev$nn1_2)
+rethinking::HPDI(pred_prev$nn1_2, prob = 0.95)
+summary(pred_prev$nn1_3)
+rethinking::HPDI(pred_prev$nn1_3, prob = 0.95)
+summary(pred_prev$nn2_3)
+rethinking::HPDI(pred_prev$nn2_3, prob = 0.95)
+
+## time minutes
+pred_time$t01_diff_per_min <- pred_time$t0_1 / (times[5] - times[1])
+pred_time$t12_diff_per_min <- pred_time$t1_2 / (times[10] - times[5])
+pred_time$t23_diff_per_min <- pred_time$t2_3 / (times[15] - times[10])
+pred_time$t34_diff_per_min <- pred_time$t3_4 / (times[20] - times[15])
+
+pred_time$mean_diff <- rowSums(pred_time[(ncol(pred_time)-4):ncol(pred_time)]) / 4
+summary(pred_time$mean_diff)
+rethinking::HPDI(pred_time$mean_diff, prob = 0.95)
+
+ggplot(pred_time)+
+  geom_density(aes(x = mean_diff, colour = stim_type),
+               linewidth = 1)+
+  scale_colour_viridis_d()+
+  geom_vline(xintercept = 0, linetype = 2)+
+  labs(x = 'effect of time', colour = 'stimulus type')
+
+#### graph all predictions together -- counterfactual -- ADD HPDI TO THESE LINES ####
+age_labels <- c('10-15 years','16-20 years','21-25 years','26-35 years')
+names(age_labels) <- c(1,2,3,4)
+prevsec_labels <- c('t-1: neighbour younger','t-1: neighbour same age','t-1: neighbour older')
+names(prevsec_labels) <- c(1,2,3)
+
+pred_prop %>% 
+  mutate(age_cat = ifelse(focal_age == 1,
+                          '10-15 years',
+                          ifelse(focal_age == 2,
+                                 '16-20 years',
+                                 ifelse(focal_age == 3,
+                                        '21-25 years','26-35 years'))),
+         stimulus = ifelse(stim_type == 'ctd',
+                           'dove (control)',
+                           ifelse(stim_type == 'l',
+                                  'lion', 'human'))) %>% 
+  mutate(stimulus = factor(stimulus,
+                           levels = c('dove (control)',
+                                      'lion', 'human'))) %>% 
+  ggplot()+
+  geom_line(aes(y = proportion, x = after_stim,
+                colour = stimulus, group = prediction))+
+  facet_grid(nn_tminus1_num ~ age_cat,
+             labeller = labeller(nn_tminus1_num = prevsec_labels))+
+  scale_colour_viridis_d()+
+  labs(x = 'minutes since stimulus')+
+  theme_bw()
+
+predict_labels <- c('predict: neighbour younger','predict: neighbour same age','predict: neighbour older')
+names(predict_labels) <- c(1,2,3)
+
+pred_prop_plot <- pred_prop %>% 
+  mutate(age_cat = ifelse(focal_age == 1,
+                          '10-15 years',
+                          ifelse(focal_age == 2,
+                                 '16-20 years',
+                                 ifelse(focal_age == 3,
+                                        '21-25 years','26-35 years'))),
+         stimulus = ifelse(stim_type == 'ctd',
+                           'dove (control)',
+                           ifelse(stim_type == 'l',
+                                  'lion', 'human')),
+         prev_sec = ifelse(nn_tminus1_num == 1,
+                           'younger    ',
+                           ifelse(nn_tminus1_num == 2,
+                                  'same age    ', 'older'))) %>% 
+  mutate(stimulus = factor(stimulus,
+                           levels = c('dove (control)',
+                                      'lion', 'human')),
+         prev_sec = factor(prev_sec,
+                           levels = c('younger    ',
+                                      'same age    ', 'older')))
+(dove <- pred_prop_plot %>% 
+    filter(stimulus == 'dove (control)') %>% 
+    ggplot()+
+    geom_line(aes(y = proportion, x = after_stim,
+                  colour = prev_sec),
+              linewidth = 1)+
+    facet_grid(prediction ~ age_cat,
+               labeller = labeller(prediction = predict_labels))+
+    scale_colour_viridis_d()+
+    scale_y_continuous(limits = c(0,1), expand = c(0,0))+
+    labs(x = 'minutes since stimulus',
+         title = 'dove (control)',
+         colour = 'neighbour age in previous second')+
+    theme_bw()+
+    theme(legend.position = 'bottom',
+          panel.spacing.y = unit(0.6, 'cm')) )
+(lion <- pred_prop_plot %>% 
+    filter(stimulus == 'lion') %>% 
+    ggplot()+
+    geom_line(aes(y = proportion, x = after_stim,
+                  colour = prev_sec),
+              linewidth = 1)+
+    facet_grid(prediction ~ age_cat,
+               labeller = labeller(prediction = predict_labels))+
+    scale_colour_viridis_d()+
+    scale_y_continuous(limits = c(0,1), expand = c(0,0))+
+    labs(x = 'minutes since stimulus',
+         title = 'lion',
+         colour = 'neighbour age in previous second')+
+    theme_bw()+
+    theme(legend.position = 'bottom',
+          panel.spacing.y = unit(0.6, 'cm')) )
+(human <- pred_prop_plot %>% 
+    filter(stimulus == 'human') %>% 
+    ggplot()+
+    geom_line(aes(y = proportion, x = after_stim,
+                  colour = prev_sec),
+              linewidth = 1)+
+    facet_grid(prediction ~ age_cat,
+               labeller = labeller(prediction = predict_labels))+
+    scale_colour_viridis_d()+
+    scale_y_continuous(limits = c(0,1), expand = c(0,0))+
+    labs(x = 'minutes since stimulus',
+         title = 'human',
+         colour = 'neighbour age in previous second')+
+    theme_bw()+
+    theme(legend.position = 'bottom',
+          panel.spacing.y = unit(0.6, 'cm')) )
+(all_plots <- ggarrange(dove, lion, human, ncol=3, nrow=1, common.legend = TRUE, legend = "bottom"))
+ggsave(plot = all_plots, filename = '../outputs/nn_marginaleffects.png', device = 'png',
+       width = (5.8*2), height = 8.3)
+
+#
+#### extract coefficients not from predictions ####
+load('nearest_neighbour/neighbour_model_predictions_time_spline.RData')
+summary(nn_fit) # CAN I SEE THE CUTPOINTS OUTPUT FROM THE MODEL LIKE THIS?? WHAT VALUES ON THE CUMULATIVE LOG ODDS SCALE MAKE IT TRANSITION TO PREDICTING A 2 INSTEAD OF A 1 OR 3 INSTEAD OF 2??
+# Family: cumulative 
+# Links: mu = logit; disc = identity 
+# Formula: age_diff_num ~ 1 + mo(f_age_num) + stim_type + s(after_stim) + mo(nn_tminus1_num) + (1 | focal_id) + (1 | stim_id) + (1 | playback_id) 
+# Data: nn_no_na (Number of observations: 40010) 
+# Draws: 4 chains, each with iter = 2000; warmup = 1000; thin = 1;
+# total post-warmup draws = 4000
+# 
+# Smooth Terms: 
+#                    Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# sds(safter_stim_1)     0.50      0.51     0.01     1.82 1.00     1896     2015
+# 
+# Group-Level Effects: 
+#   ~focal_id (Number of levels: 140) 
+#               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# sd(Intercept)     6.17      0.66     4.99     7.58 1.00      796     1558
+# 
+#   ~playback_id (Number of levels: 33) 
+#               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# sd(Intercept)     0.79      0.57     0.03     2.10 1.01      302      422
+# 
+#   ~stim_id (Number of levels: 23) 
+#               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# sd(Intercept)     0.74      0.56     0.03     2.02 1.01      391      287
+# 
+# Population-Level Effects: 
+#                  Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# Intercept[1]         2.71      0.90     0.94     4.52 1.00      856     1663 -- cutpoint 1??
+# Intercept[2]        12.54      0.92    10.70    14.35 1.00      871     1680 -- cutpoint 2??
+# stim_typeh           0.26      0.81    -1.34     1.86 1.01     1223     2449
+# stim_typel           0.04      0.77    -1.51     1.54 1.00     1392     2136
+# safter_stim_1       -0.30      0.74    -1.65     1.32 1.00     3699     2828
+# mof_age_num         -0.74      0.26    -1.23    -0.20 1.00     1001     1656
+# monn_tminus1_num     7.98      0.10     7.79     8.17 1.00     3677     2429
+# 
+# Simplex Parameters: 
+#                      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# mof_age_num1[1]          0.20      0.13     0.02     0.52 1.00     1981     1724
+# mof_age_num1[2]          0.58      0.19     0.17     0.88 1.01     1216     2174
+# mof_age_num1[3]          0.22      0.14     0.03     0.55 1.00     2265     2061
+# monn_tminus1_num1[1]     0.51      0.01     0.49     0.52 1.00     3818     2343
+# monn_tminus1_num1[2]     0.49      0.01     0.48     0.51 1.00     3818     2343
+# 
+# Family Specific Parameters: 
+#      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# disc     1.00      0.00     1.00     1.00   NA       NA       NA
+# 
+# Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS and Tail_ESS are effective sample size measures, and Rhat is the potential scale reduction factor on split chains (at convergence, Rhat = 1).
+# Warning message: There were 199 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
+
+fixed <- summary(nn_fit)$fixed
+focal_id <- summary(nn_fit)$random$focal_id %>% 
+  as.data.frame()
+pb_id <- summary(nn_fit)$random$playback_id %>% 
+  as.data.frame()
+stim_id <- summary(nn_fit)$random$stim_id %>% 
+  as.data.frame()
+mo <- summary(nn_fit)$mo %>% 
+  as.data.frame()
+coef <- rbind(fixed, mo, focal_id, pb_id, stim_id) %>% 
+  janitor::clean_names()
+rm(fixed, mo, focal_id, pb_id, stim_id)
+coef$coef <- rownames(coef)
+
+# With a 1 unit increase in focal age (i.e., changing from one level to the next of the categorical predictor), the predicted odds of observing Y = 3 versus Y = 1 or 2 change by a factor of exp(beta) which, for diagram, is exp(-0.758) = 0.469
+coef_exp <- coef %>% 
+  mutate(estimate = exp(estimate),
+         est_error = exp(est_error),
+         l_95_percent_ci = exp(l_95_percent_ci),
+         u_95_percent_ci = exp(u_95_percent_ci),
+         rhat = round(rhat, 2),
+         bulk_ess = round(bulk_ess),
+         tail_ess = round(tail_ess)) %>% 
+  rename(lwr = l_95_percent_ci,
+         upr = u_95_percent_ci) %>% 
+  relocate(coef)
+
+## NEED TO DOUBLE CHECK TO SEE WHETHER ENGINE IS SUBTRACTING OR ADDING THE SLOPE VALUE: ON LOG ODDS SCALE, A NEGATIVE CHANGE INDUCES AN INCREASE IN THE OBSERVED CATEGORY VALUE, SO NORMALLY SUBTRACT THE SLOPE NOT ADD.
+
+
