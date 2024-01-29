@@ -72,15 +72,15 @@ stim_starts <- readRDS('../data_processed/stimuli.RDS') %>%
   select(pb_num,time,stim_num,comment)
 table(stim_starts$pb_num)
 multiple_starts <- c(10, 24, 29, 32, 46, 53)
-check <- stim_starts %>%
-  filter(pb_num %in% multiple_starts) # for stim 10+46+53 take first time, for 24+29+32 use second.
+check <- stim_starts %>% 
+  filter(pb_num %in% multiple_starts) # for stim 10+29+46+53 take first time, for 24+32 use second.
 for(i in multiple_starts){
   x <- check %>% filter(pb_num == i)
   check <- anti_join(check, x)
-  if(i %in% c(10,46,53)){
+  if(i %in% c(10,29,46,53)){
     x <- x[1,]
   }
-  if(i %in% c(24,29,32)){
+  if(i %in% c(24,32)){
     x <- x[2,]
   }
   check <- rbind(check, x)
@@ -137,7 +137,7 @@ for(i in 1:length(subjects)){
   focal <- look %>% filter(subject == subjects[i])
   look <- look %>% anti_join(focal, by = 'subject')
   for(j in 2:nrow(focal)){
-    focal$look_tminus1[j] <- focal$look_index[j-1]
+    focal$look_tminus1[j] <- focal$direction_look[j-1]
   }
   look <- rbind(look, focal)
 }
@@ -160,9 +160,7 @@ look_no_na <- look %>%
   mutate(after_stim = ifelse(time_since_stim < 0, 0, time_since_stim/60)) # time now in minutes, and all 0 before stimulus starts
 str(look_no_na)
 
-print(paste0('data created at ',Sys.time()))
-
-# set priors -- prior predictive: I think all age categories should have equal priors, as while we would probably expect there to be the biggest difference between oldest and youngest, that's not something we're certain of.
+## clean up final model variables
 look_no_na <- look_no_na %>%
   mutate(#age_diff_num = ifelse(age_difference == 'partner younger', 1,
          #                      ifelse(age_difference == 'matched', 2, 3)),
@@ -171,38 +169,56 @@ look_no_na <- look_no_na %>%
   mutate(focal_age = as.integer(focal_age), #as.factor(focal_age),
          partner_age = as.integer(partner_age),
          #age_diff_num = as.integer(age_diff_num), #as.factor(age_diff_num),
-         look_tminus1_num = as.integer(look_tminus1_num)) #as.factor(look_tminus1_num))
+         look_tminus1_num = as.integer(look_tminus1_num)) %>%  #as.factor(look_tminus1_num))
+  mutate(age_combo = paste0(focal_age,'_',partner_age))
+print(paste0('data created at ',Sys.time()))
 
-get_prior(formula = looking_direction ~ 1 + mo(focal_age) + mo(partner_age) + stim_type +   # fixed effects
+# set priors -- prior predictive: I think all age categories should have equal priors, as while we would probably expect there to be the biggest difference between oldest and youngest, that's not something we're certain of.
+get_prior(formula = looking_direction ~ 1 + mo(focal_age) + age_combo + stim_type +   # fixed effects
             s(after_stim) + mo(look_tminus1_num) +                                          # controls, treat time as a spline
             (1|focal_id) + (1|stim_id) + (1|playback_id),                                   # random effects
           data = look_no_na,
           family = cumulative("logit"))
 priors <- c(
   # focal age
-  prior(normal(0,0.25),     class = b,    coef = mofocal_age),
-  prior(dirichlet(2,2,2),   class = simo, coef = mofocal_age1),
+  prior(normal(0,1),      class = b,    coef = mofocal_age),
+  prior(dirichlet(2,2,2), class = simo, coef = mofocal_age1),
   # partner age
-  prior(normal(0,0.25),     class = b,    coef = mopartner_age),
-  prior(dirichlet(2,2,2),   class = simo, coef = mopartner_age1),
+  #prior(normal(0,0.25),     class = b,    coef = mopartner_age),
+  #prior(dirichlet(2,2,2),   class = simo, coef = mopartner_age1),
   # age interaction
-  #prior(normal(0,0.5),      class = b,    coef = mofocal_age:mopartner_age),
-  #prior(dirichlet(2),       class = simo, coef = mofocal_age:mopartner_age1),
-  #prior(dirichlet(2),       class = simo, coef = mofocal_age:mopartner_age2),
+  #prior(normal(0,0.25),     class = b,    coef = mofocal_age:mopartner_age),
+  #prior(dirichlet(2,2,2),   class = simo, coef = mofocal_age:mopartner_age1),
+  #prior(dirichlet(2,2,2),   class = simo, coef = mofocal_age:mopartner_age2),
+  prior(normal(0,1),     class = b,    coef = age_combo1_2),
+  prior(normal(0,1),     class = b,    coef = age_combo1_3),
+  prior(normal(0,1),     class = b,    coef = age_combo1_4),
+  prior(normal(0,1),     class = b,    coef = age_combo2_1),
+  prior(normal(0,1),     class = b,    coef = age_combo2_2),
+  prior(normal(0,1),     class = b,    coef = age_combo2_3),
+  prior(normal(0,1),     class = b,    coef = age_combo2_4),
+  prior(normal(0,1),     class = b,    coef = age_combo3_1),
+  prior(normal(0,1),     class = b,    coef = age_combo3_2),
+  prior(normal(0,1),     class = b,    coef = age_combo3_3),
+  prior(normal(0,1),     class = b,    coef = age_combo3_4),
+  prior(normal(0,1),     class = b,    coef = age_combo4_1),
+  prior(normal(0,1),     class = b,    coef = age_combo4_2),
+  prior(normal(0,1),     class = b,    coef = age_combo4_3),
+  prior(normal(0,1),     class = b,    coef = age_combo4_4),
   # stim type
-  prior(normal(0,1),        class = b,    coef = stim_typeh),
-  prior(normal(0,1),        class = b,    coef = stim_typel),
+  prior(normal(0,1),     class = b,    coef = stim_typeh),
+  prior(normal(0,1),     class = b,    coef = stim_typel),
   # time spline
-  prior(normal(0,1),        class = b,    coef = safter_stim_1), #prior(student_t(3,0,2.5), class = sds, coef = s(after_stim)),
+  prior(normal(0,1),     class = b,    coef = safter_stim_1), #prior(student_t(3,0,2.5), class = sds, coef = s(after_stim)),
   # action in previous second
-  prior(normal(0,0.333),    class = b,    coef = molook_tminus1_num),
-  prior(dirichlet(2),       class = simo, coef = molook_tminus1_num1))
+  prior(normal(0,0.333), class = b,    coef = molook_tminus1_num),
+  prior(dirichlet(2,2),    class = simo, coef = molook_tminus1_num1))
 
 ## prior predictive check
 num_chains <- 4
 num_iter <- 2000
 direction_look_prior <- brm(
-  formula = looking_direction ~ 1 + mo(focal_age) + mo(partner_age) + stim_type + # fixed effects
+  formula = looking_direction ~ 1 + mo(focal_age) + age_combo + stim_type + # fixed effects
     s(after_stim) + mo(look_tminus1_num) +                                        # controls, treat time as a spline
     (1|focal_id) + (1|stim_id) + (1|playback_id),                                 # random effects
   data = look_no_na,
@@ -211,20 +227,13 @@ direction_look_prior <- brm(
   iter = num_iter, warmup = num_iter/2, seed = 12345,
   sample_prior = 'only')
 
-make_stancode(formula = looking_direction ~ 1 + mo(focal_age) + mo(partner_age) + stim_type + # fixed effects
-                s(after_stim) + mo(look_tminus1_num) +                                        # controls, treat time as a spline
-                (1|focal_id) + (1|stim_id) + (1|playback_id),                                 # random effects
-              data = look_no_na,
-              family = cumulative("logit"),
-              prior = priors, chains = num_chains, cores = num_chains)
-
 pp_check(direction_look_prior) # prior expects 1 and 3 most likely, 2 least likely. data show 1 least likely, 2 middle, 3 most.
 
 print(paste0('priors set at ',Sys.time()))
 
 ## fit model
 direction_look_fit <- brm(
-  formula = looking_direction ~ 1 + mo(focal_age) + mo(partner_age) + stim_type +   # fixed effects
+  formula = looking_direction ~ 1 + mo(focal_age) + age_combo + stim_type +   # fixed effects
     s(after_stim) + mo(look_tminus1_num) +                                        # controls, treat time as a spline
     (1|focal_id) + (1|stim_id) + (1|playback_id),                                 # random effects
   data = look_no_na,
@@ -236,8 +245,8 @@ direction_look_fit <- brm(
 summary(direction_look_fit)
 
 # save workspace
-save.image('looking_direction/looking_direction_model_run_time_spline.RData')
-#load('looking_direction/looking_direction_model_run_time_spline.RData')# ; rm(biologylibs, homedrive, homelibs, homelibsprofile,rlibs,Rversion)
+save.image('looking_direction/looking_direction_model_run_agecombo.RData')
+#load('looking_direction/looking_direction_model_run_agecombo.RData')# ; rm(biologylibs, homedrive, homelibs, homelibsprofile,rlibs,Rversion)
 
 # ## notify model is done!!
 # library(audio, lib.loc = '../../packages')
@@ -248,7 +257,7 @@ save.image('looking_direction/looking_direction_model_run_time_spline.RData')
 print(paste0('model run at ',Sys.time()))
 
 ## check outputs ####
-#load('looking_direction_model_run_time_spline.RData') # rm(biologylibs, homedrive, homelibs, homelibsprofile, rlibs, Rversion) ; gc()
+#load('looking_direction_model_run_agecombo.RData') # rm(biologylibs, homedrive, homelibs, homelibsprofile, rlibs, Rversion) ; gc()
 summary(direction_look_fit)
 
 ## check Stan code
@@ -314,7 +323,7 @@ conditional_effects(direction_look_fit, effects = 'focal_age', categorical = TRU
         axis.text = element_text(size = 12),
         legend.title = element_text(size = 12),
         legend.text = element_text(size = 10)))
-ggsave(plot = focal_age_plot, filename = '../outputs/looking_marginaleffects_focalage_time_spline.png', device = 'png',
+ggsave(plot = focal_age_plot, filename = '../outputs/looking_marginaleffects_focalage_agecombo.png', device = 'png',
        width = 8.3, height = 5.8)
 
 conditional_effects(direction_look_fit, effects = 'partner_age', categorical = TRUE,
@@ -342,7 +351,7 @@ conditional_effects(direction_look_fit, effects = 'partner_age', categorical = T
         legend.title = element_text(size = 12),
         legend.text = element_text(size = 10))
 )
-ggsave(plot = age_part_plot, filename = '../outputs/looking_marginaleffects_agepartner_time_spline.png', device = 'png',
+ggsave(plot = age_part_plot, filename = '../outputs/looking_marginaleffects_agepartner_agecombo.png', device = 'png',
        width = 8.3, height = 5.8)
 
 conditional_effects(direction_look_fit, 'stim_type', categorical = TRUE,
@@ -364,7 +373,7 @@ conditional_effects(direction_look_fit, 'stim_type', categorical = TRUE,
         axis.text = element_text(size = 12),
         legend.title = element_text(size = 12),
         legend.text = element_text(size = 10)))
-ggsave(plot = stim_plot, filename = '../outputs/looking_marginaleffects_stimtype_time_spline.png', device = 'png',
+ggsave(plot = stim_plot, filename = '../outputs/looking_marginaleffects_stimtype_agecombo.png', device = 'png',
        width = 8.3, height = 5.8)
 
 #conditional_effects(direction_look_fit, 'time_since_stim', categorical = TRUE)
@@ -372,7 +381,7 @@ ggsave(plot = stim_plot, filename = '../outputs/looking_marginaleffects_stimtype
 
 library(ggpubr)
 (all_plots <- ggarrange(focal_age_plot, age_part_plot, stim_plot, ncol=3, nrow=1, common.legend = TRUE, legend = "bottom"))
-ggsave(plot = all_plots, filename = '../outputs/looking_marginaleffects_time_spline.png', device = 'png',
+ggsave(plot = all_plots, filename = '../outputs/looking_marginaleffects_agecombo.png', device = 'png',
        width = (5.8*3), height = 8.3)
 
 print(paste0('marginal effects plotted at ',Sys.time()))
