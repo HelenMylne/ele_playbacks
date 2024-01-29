@@ -36,14 +36,14 @@ stim_starts <- readRDS('../data_processed/stimuli.RDS') %>%
 table(stim_starts$pb_num)
 multiple_starts <- c(10, 24, 29, 32, 46, 53)
 check <- stim_starts %>% 
-  filter(pb_num %in% multiple_starts) # for stim 10+46+53 take first time, for 24+29+32 use second.
+  filter(pb_num %in% multiple_starts) # for stim 10+29+46+53 take first time, for 24+32 use second.
 for(i in multiple_starts){
   x <- check %>% filter(pb_num == i)
   check <- anti_join(check, x)
-  if(i %in% c(10,46,53)){
+  if(i %in% c(10,29,46,53)){
     x <- x[1,]
   }
-  if(i %in% c(24,29,32)){
+  if(i %in% c(24,32)){
     x <- x[2,]
   }
   check <- rbind(check, x)
