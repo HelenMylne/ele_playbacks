@@ -5,3 +5,6 @@
 *.RData
 *.exe
 *.RDataTmp
+model_playing_desktop.R
+*.png
+*.pdf
