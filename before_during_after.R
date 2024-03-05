@@ -211,131 +211,158 @@ save.image('nearest_neighbour/neighbour_model_run_bda.RData')
 ## check model fit
 (summary <- summary(nn_fit))
 par(mfrow = c(3,1))
-hist(summary$rhat)
-hist(summary$ess_bulk)
-hist(summary$ess_tail)
+hist(summary$fixed$Rhat, breaks = 50)
+hist(summary$fixed$Bulk_ESS, breaks = 50)
+hist(summary$fixed$Tail_ESS, breaks = 50)
 par(mfrow = c(1,1))
 
 ## extract posterior distribution
 draws <- as_draws_df(nn_fit) %>% 
-  select(-disc, -lprior, -lp__, -`.chain`, -`.iteration`, -`.draw`) %>% 
-  pivot_longer(cols = everything(), names_to = 'parameter', values_to = 'draw') %>% 
-  mutate(iteration = rep(rep(1:(num_iter/2),
-                             each = length(unique(parameter))),
-                         num_chains),
-         chain = rep(1:num_chains,
-                     each = length(unique(parameter))*(num_iter/2)),
-         invlogit_draw = invlogit(draw))
+  select(-lprior, -`lp__`)
+parameters <- colnames(draws)[1:(ncol(draws)-3)]
+draws <- draws  %>% 
+  pivot_longer(cols = all_of(parameters),
+               names_to = 'parameter',
+               values_to = 'draw') %>% 
+  rename(chain = `.chain`,
+         position = `.iteration`,
+         draw_id = `.draw`) %>% 
+  mutate(invlogit_draw = invlogit(draw))
 
 ## extract marginal effects
 marg <- conditional_effects(nn_fit,
-                            effects = c('f_age_num','stim_type',
-                                        'after_stim','nn_tminus1_num'),
-                            categorical = TRUE,
+                            effects = c('age_combo','stim_type',
+                                        'bda','prev'),
+                            categorical = FALSE,
                             #spaghetti = TRUE,
                             method = 'posterior_epred')
 names(marg)
-f_age_effect <- marg[[1]]
+age_effect <- marg[[1]]
 stim_effect <- marg[[2]]
-time_effect <- marg[[3]]
-prevsec_effect <- marg[[4]]
+bda_effect <- marg[[3]]
+prev_effect <- marg[[4]]
 
 ## plot marginal effects ####
-# conditional_effects(nn_fit, effects = 'f_age_num',
-#                     categorical = TRUE,
-#                     spaghetti = TRUE,
-#                     #conditions = c('stim_type'),
-#                     method = 'posterior_epred')
-(focal_age_plot <- ggplot(f_age_effect)+
-   geom_errorbar(aes(x = f_age_num, ymax = upper__, ymin = lower__, colour = cats__), linewidth = 1, width = 0.2)+
-   #geom_ribbon(aes(x = f_age_num, ymax = upper__, ymin = lower__, fill = cats__), alpha = 0.4)+
-   geom_point(aes(x = f_age_num, y = estimate__, colour = cats__), cex = 3)+
-   #geom_line(aes(x = f_age_num, y = estimate__, colour = cats__), linewidth = 1)+
-   xlab(label = 'focal age') + ylab('probability')+
-   scale_colour_viridis_d(name = 'age difference:',
-                          breaks = c('1','2','3'),
-                          labels = c('partner younger',
-                                     'age matched',
-                                     'partner older'))+
-   scale_fill_viridis_d(name = 'age difference:',
-                        breaks = c('1','2','3'),
-                        labels = c('partner younger',
-                                   'age matched',
-                                   'partner older')))+
-  theme(legend.position = 'bottom',
-        axis.title = element_text(size = 16),
-        axis.text = element_text(size = 12),
-        legend.title = element_text(size = 12),
-        legend.text = element_text(size = 10))
-ggsave(plot = focal_age_plot, filename = '../outputs/nn_marginaleffects_focalage.png', device = 'png',
+neighbour_labels <- c('neighbour age category 1',
+                      'neighbour age category 2',
+                      'neighbour age category 3',
+                      'neighbour age category 4')
+names(neighbour_labels) <- c(1:4)
+(focal_age_plot <- age_effect %>% 
+   separate(col = age_combo, sep = '_', remove = F,
+            into = c('focal_age','neighbour_age')) %>% 
+   mutate(agecombo = paste0(focal_age,'-',neighbour_age)) %>% 
+   ggplot()+
+   geom_errorbar(aes(#x = agecombo,
+                     x = focal_age,
+                     colour = focal_age,
+                     #linetype = neighbour_age,
+                     ymax = upper__, ymin = lower__),
+                 linewidth = 1, width = 0.2)+
+   geom_point(aes(#x = agecombo,
+                  x = focal_age,
+                  colour = focal_age,
+                  #shape = neighbour_age,
+                  y = estimate__),
+              cex = 3)+
+   #xlab(label = 'combined age categories')+
+   xlab(label = 'focal age category')+
+   ylab('probability of being nearest neighbours:\nafter dove stimulus, not nearest neighbours in previous second')+
+   scale_colour_viridis_d(name = 'focal age:')+
+   #scale_linetype(name = 'neighbour age line type:')+
+   #scale_shape_manual(name = 'neighbour age shape:', values = c(15:18))+
+   facet_wrap(. ~ neighbour_age,
+              labeller = labeller(neighbour_age = neighbour_labels))+
+   theme(legend.direction = 'horizontal',
+         legend.position = 'bottom',
+         legend.box = 'vertical',
+         legend.spacing.x = unit(0.2, 'cm'),
+         legend.spacing.y = unit(2, 'mm'),
+         axis.title = element_text(size = 16),
+         axis.text.x = element_text(size = 12,
+                                    #angle = 70,
+                                    vjust = 0.5),
+         axis.text.y = element_text(size = 12),
+         legend.title = element_text(size = 12),
+         legend.text = element_text(size = 10)) )
+ggsave(plot = focal_age_plot, filename = '../outputs/nn_marginaleffects_focalage_bda.png', device = 'png',
        width = 8.3, height = 5.8)
 
-# conditional_effects(nn_fit, 'stim_type',
-#                     categorical = TRUE,
-#                     method = 'posterior_epred')
-(stim_plot <- ggplot(stim_effect)+
-    geom_errorbar(aes(x = stim_type, ymin = lower__, ymax = upper__, colour = cats__), linewidth = 1, width = 0.2)+
-    geom_point(aes(x = stim_type, y = estimate__, colour = cats__),cex = 3)+
-    xlab(label = 'stimulus type') + ylab('probability')+
-    scale_colour_viridis_d(name = 'neighbour age:',
-                           breaks = c('1','2','3'),
-                           labels = c('younger', 'matched', 'older'))+
-    scale_fill_viridis_d(name = 'neighbour age:',
-                         breaks = c('1','2','3'),
-                         labels = c('younger', 'matched', 'older'))+
+(stim_plot <- stim_effect %>% 
+    ggplot()+
+    geom_errorbar(aes(x = stim_type,
+                      colour = stim_type,
+                      ymax = upper__, ymin = lower__),
+                  linewidth = 1, width = 0.2)+
+    geom_point(aes(x = stim_type,
+                   colour = stim_type,
+                   shape = stim_type,
+                   y = estimate__),
+              cex = 3)+
+    ylab('probability of being nearest neighbours after stimulus:\nage 1 with age 1, not neighbours in previous second')+
+    scale_colour_viridis_d(name = 'stimulus type:')+
+    scale_shape_manual(name = 'stimulus type:', values = c(15:18))+
     scale_x_discrete(name = 'stimulus type', breaks = c('ctd','l','h'),
                      labels = c('dove (control)', 'lion', 'human'),
-                     limits = c('ctd','l','h')))+
-  theme(legend.position = 'bottom',
-        axis.title = element_text(size = 16),
-        axis.text = element_text(size = 12),
-        legend.title = element_text(size = 12),
-        legend.text = element_text(size = 10))
-ggsave(plot = stim_plot, filename = '../outputs/nn_marginaleffects_stimtype.png', device = 'png',
+                     limits = c('ctd','l','h'))+
+    theme(legend.position = 'none',
+          axis.title = element_text(size = 16),
+          axis.text = element_text(size = 12),
+          legend.title = element_text(size = 12),
+          legend.text = element_text(size = 10)) )
+ggsave(plot = stim_plot, filename = '../outputs/nn_marginaleffects_stimtype_bda.png', device = 'png',
        width = 8.3, height = 5.8)
 
-(all_plots <- ggarrange(focal_age_plot, stim_plot, ncol=2, nrow=1, common.legend = TRUE, legend = "bottom"))
-ggsave(plot = all_plots, filename = '../outputs/nn_marginaleffects.png', device = 'png',
+(all_plots <- ggarrange(focal_age_plot, stim_plot, ncol=2, nrow=1, common.legend = FALSE, legend = "bottom"))
+ggsave(plot = all_plots, filename = '../outputs/nn_marginaleffects_bda.png', device = 'png',
        width = (5.8*2), height = 8.3)
 
-rm(f_age_effect,prevsec_effect, stim_effect, time_effect) ;gc()
+rm(all_plots,focal_age_plot,stim_plot,age_effect,prev_effect,stim_effect,bda_effect) ;gc()
 
 ## posterior predictive check ####
 pp_check(nn_fit, ndraws = 100) # perfect fit
 
 ## plot traces ####
+parameters_of_interest <- parameters[1:which(parameters == 'simo_moprev1[1]')]
 draws %>% 
-  filter(parameter %in% c("b_Intercept[1]","b_Intercept[2]",
-                          "b_stim_typeh","b_stim_typel",
-                          "bs_safter_stim_1","sds_safter_stim_1",
-                          "s_safter_stim_1[1]","s_safter_stim_1[2]",
-                          "s_safter_stim_1[3]","s_safter_stim_1[4]",
-                          "s_safter_stim_1[5]","s_safter_stim_1[6]",
-                          "s_safter_stim_1[7]","s_safter_stim_1[8]",
-                          "bsp_mof_age_num",
-                          "simo_mof_age_num1[1]","simo_mof_age_num1[2]","simo_mof_age_num1[3]",
-                          "sd_focal_id__Intercept","sd_playback_id__Intercept","sd_stim_id__Intercept",
-                          "bsp_monn_tminus1_num",
-                          "simo_monn_tminus1_num1[1]","simo_monn_tminus1_num1[2]"
-  )) %>% 
-  ggplot(aes(x = iteration, y = draw, colour = as.factor(chain)))+
+  filter(parameter %in% parameters_of_interest) %>% 
+  ggplot(aes(x = position, y = draw, colour = as.factor(chain)))+
   geom_line()+
   facet_wrap(. ~ parameter, scales = 'free_y')+
   theme(legend.position = 'none') # mostly fine, but playback ID intercept has a weird unmixed bit
 
 ## plot density curves ####
-unique(draws$parameter)
-draws_cut <- draws %>% 
-  filter(parameter %in% c('b_Intercept[1]','b_Intercept[2]',
-                          'b_stim_typel','b_stim_typeh',
-                          'bsp_mof_age_num','simo_mof_age_num1[1]',
-                          'simo_mof_age_num1[2]','simo_mof_age_num1[3]',
-                          'bsp_monn_tminus1_num',
-                          'simo_monn_tminus1_num1[1]','simo_monn_tminus1_num1[2]',
-                          'bs_safter_stim_1','sds_safter_stim_1',
-                          's_safter_stim_1[1]','s_safter_stim_1[2]',
-                          's_safter_stim_1[3]','s_safter_stim_1[4]',
-                          's_safter_stim_1[5]','s_safter_stim_1[6]',
-                          's_safter_stim_1[7]','s_safter_stim_1[8]'))
+draws %>% 
+  filter(parameter %in% parameters_of_interest) %>% 
+  ggplot(aes(x = draw, colour = as.factor(chain)))+
+  geom_density()+
+  facet_wrap(. ~ parameter, scales = 'free')+
+  theme(legend.position = 'none')
+
+save.image('nearest_neighbour/neighbour_model_run_bda.RData')
+
+## predict from model ####
+rm(list = ls()[! ls() %in% c('nn_fit','nn')])
+
+pred <- posterior_predict(object = nn_fit,
+                          newdata = nn)
+save.image('nearest_neighbour/neighbour_model_predictions_bda.RData')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
