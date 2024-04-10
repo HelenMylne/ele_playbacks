@@ -142,7 +142,14 @@ file_data <- separate(data = file_data, col = ., sep = '_', into = c('pb','stimu
   separate(col = bull, sep = 4, into = c('bull','bull_id'))
 str(file_data)
 file_data$pb_num <- as.numeric(file_data$pb_num)
-file_data$stim_num <- as.numeric(file_data$stim_num)
+file_data$stim_num <- ifelse(file_data$stim_num == '2a', 201,
+                      ifelse(file_data$stim_num == '2b', 202,
+                      ifelse(file_data$stim_num == '2c', 203,
+                      ifelse(file_data$stim_num == '15a', 1501,
+                      ifelse(file_data$stim_num == '15b', 1502,
+                      ifelse(file_data$stim_num == '15a.old', 1503,
+                      ifelse(file_data$stim_num == '16.old', 1601,
+                             as.numeric(file_data$stim_num))))))))
 file_data$date <- as.Date(file_data$date)
 file_data$bull_id <- as.numeric(file_data$bull_id)
 
@@ -194,7 +201,14 @@ for(i in 2:length(file_list)){
     separate(col = bull, sep = 4, into = c('bull','bull_id'))
   str(file_data)
   file_data$pb_num <- as.numeric(file_data$pb_num)
-  file_data$stim_num <- as.numeric(file_data$stim_num)
+  file_data$stim_num <- ifelse(file_data$stim_num == '2a', 201,
+                        ifelse(file_data$stim_num == '2b', 202,
+                        ifelse(file_data$stim_num == '2c', 203,
+                        ifelse(file_data$stim_num == '15a', 1501,
+                        ifelse(file_data$stim_num == '15b', 1502,
+                        ifelse(file_data$stim_num == '15a.old', 1503,
+                        ifelse(file_data$stim_num == '16.old', 1601,
+                               as.numeric(file_data$stim_num))))))))
   file_data$date <- as.Date(file_data$date)
   file_data$bull_id <- as.numeric(file_data$bull_id)
   
@@ -376,6 +390,9 @@ unique(df$behavior)
 pt <- df[df$status == 'POINT',] ; pt <- pt[!is.na(pt$time),]
 df <- df[df$status != 'POINT',] ; df <- df[!is.na(df$time),]
 
+## save workspace
+save.image('data_processing.RData')
+
 ###### PROPORTIONS OF TIME PER ACTIVITY: VEHICLE AND SPEAKER ####
 ## split into time before/during/after stimulus ####
 # create set of individual/behaviour breakdowns to go through
@@ -546,7 +563,6 @@ for(elephant_behaviour in 1:N){
 rm(response, response_split, elephant_behaviour, i, id_behav, j, k, N) ; gc()
 
 saveRDS(df, '../data_processed/elephants_behaviour_split_relative_to_stimulus_speakervehicle.RDS')
-
 
 ## calculate length of action by subtracting START time from STOP time ####
 # df <- readRDS('../data_processed/elephants_behaviour_split_relative_to_stimulus_speakervehicle.RDS')
@@ -853,6 +869,9 @@ ggplot(data = tail, aes(x = section, y = propn, group = subject))+
   scale_colour_viridis_d(direction = -1)+
   theme(legend.position = 'bottom')
 # add a grouped and stacked bar plot with 9 bars, or 3 sets of 3 stacks: before/during/after and dove/lion/human, each one split into colours by proportion relaxed vs up
+
+## save workspace
+save.image('data_processing.RData')
 
 ###### PROPORTIONS OF TIME PER ACTIVITY: ELEPHANTS ####
 ## split into time before/during/after stimulus ####
@@ -1317,6 +1336,9 @@ move %>%
   theme(legend.position = 'bottom')+
   labs(title = 'move directly away from other elephants\n(rows = focal age, columns = partner age)')
 
+## save workspace
+save.image('data_processing.RData')
+
 ###### PROPORTIONS OF TIME PER ACTIVITY: NEAREST NEIGHBOUR ######
 ## split into time before/during/after stimulus ####
 neighbour <- eles_long %>% 
@@ -1572,7 +1594,7 @@ saveRDS(behav, '../data_processed/elephants_behaviour_startstop_neighbour.RData'
 
 ## calculate proportion of time spent per activity ####
 # read in time in frame per elephant
-#df_eles <- readRDS('../data_processed/elephants.RDS')
+df_eles <- readRDS('../data_processed/elephants.RDS')
 
 # create data frame showing amount of time spent on each behaviour by every elephant in each playback section
 behav <- behav %>% 
@@ -1681,457 +1703,462 @@ props %>%
   theme(legend.position = 'bottom')+
   labs(title = 'neighbour ages\n(rows = focal age, columns = partner age)')
 
-###### PROPORTIONS OF TIME PER ACTIVITY: SOCIAL INTERACTIONS ######
-## split into time before/during/after stimulus -- DONE ####
-# run "prep for splitting" section, then go from here
-rm(pt) ; gc()
-social <- df %>% filter(type == 'social')
+## save workspace
+save.image('data_processing.RData')
 
-# fill in missing data: 3 points, all of which match to everything around them so can assume is the same
-for(i in which(is.na(social$comment) == TRUE)){
-  social$comment[i] <- ifelse(social$status[i] == 'START',
-                              social$comment[i+1],
-                              social$comment[i-1])
-}
-
-# standardise -- only keep "who touched who" for now
-unique(social$comment)
-social$partner <- case_when(
-  social$comment == 'b2_brushed_by_b2' ~ 'b2',
-  social$comment == 'brushed_by_b2' ~ 'b2',
-  social$comment == 'face_on_b2' ~ 'b2',
-  social$comment == 'backs_into_b1' ~ 'b1',
-  social$comment == 'b1_face_on_b2_butt' ~ 'b1',
-  social$comment == 'b6_trunk_on_b3' ~ 'b6',
-  social$comment == 'puts trunk on b3' ~ 'b3',
-  social$comment == 'b3_wrestle' ~ 'b3',
-  social$comment == 'wrestling b2' ~ 'b2',
-  social$comment == 'b4_pushes_b1' ~ 'b4',
-  social$comment == 'b4_touches_flank_b1' ~ 'b4',
-  social$comment == 'b6_pushes_b1' ~ 'b6',
-  social$comment == 'b1_pushes_b1' ~ 'b1',
-  social$comment == 'b6_trunk_on_b4' ~ 'b6',
-  social$comment == 'b7_pushes_b4' ~ 'b7',
-  social$comment == 'b4_trunk_on_b4' ~ 'b4',
-  social$comment == 'b5_pushes_b5' ~ 'b5',
-  social$comment == 'b5_leans_on_b7' ~ 'b5',
-  social$comment == 'b3_leans_on_b1' ~ 'b3',
-  social$comment == 'b2_trunk_on_b1_back;b3_leans_on_b1' ~ 'b2;b3',
-  social$comment == 'b2_trunk_on_b1_back' ~ 'b2',
-  social$comment == 'b1_trunk_on_back_b1' ~ 'b1',
-  social$comment == 'b1_trunk_on_back_b1;b3_trunk_on_ear_b3' ~ 'b1;b3',
-  social$comment == 'b3_headbutt_b3' ~ 'b3',
-  social$comment == 'b3_head_on_b3_butt' ~ 'b3',
-  social$comment == 'b1_ear_on_b1_back' ~ 'b1',
-  social$comment == 'b1_ear_on_b1_back;b2_trunk_on_b3_ear' ~ 'b1;b2',
-  social$comment == 'b2_head_touches_b2' ~ 'b2',
-  social$comment == 'b1_head_on_b1' ~ 'b1',
-  social$comment == 'b4_trunk_on_b3_leg' ~ 'b4',
-  social$comment == 'b4_trunk_on_b1_leg' ~ 'b4',
-  social$comment == 'b4_head_on_b1_butt' ~ 'b4',
-  social$comment == 'b3_trunk_on_b3_leg' ~ 'b3',
-  social$comment == 'b1_head_on_b1_butt' ~ 'b1',
-  social$comment == 'b4_pushes_b3_butt' ~ 'b4',
-  social$comment == 'b3_pushes_b3' ~ 'b3',
-  social$comment == 'pushed_by_b2' ~ 'b2',
-  social$comment == 'pushed_by_b3' ~ 'b3',
-  social$comment == 'pushes_past_b2' ~ 'b2',
-  .default = social$comment)
-social$initiated_by <- case_when(
-  social$comment == 'b2_brushed_by_b2' ~ 'b2',
-  social$comment == 'brushed_by_b2' ~ 'b2',
-  social$comment == 'face_on_b2' ~ 'focal',
-  social$comment == 'backs_into_b1' ~ 'focal',
-  social$comment == 'b1_face_on_b2_butt' ~ 'b1',
-  social$comment == 'b6_trunk_on_b3' ~ 'b6',
-  social$comment == 'puts trunk on b3' ~ 'focal',
-  social$comment == 'b3_wrestle' ~ 'unk',
-  social$comment == 'wrestling b2' ~ 'unk',
-  social$comment == 'b4_pushes_b1' ~ 'b4',
-  social$comment == 'b4_touches_flank_b1' ~ 'b4',
-  social$comment == 'b6_pushes_b1' ~ 'b6',
-  social$comment == 'b1_pushes_b1' ~ 'focal',
-  social$comment == 'b6_trunk_on_b4' ~ 'b6',
-  social$comment == 'b7_pushes_b4' ~ 'b7',
-  social$comment == 'b4_trunk_on_b4' ~ 'focal',
-  social$comment == 'b5_pushes_b5' ~ 'focal',
-  social$comment == 'b5_leans_on_b7' ~ 'b5',
-  social$comment == 'b3_leans_on_b1' ~ 'b3',
-  social$comment == 'b2_trunk_on_b1_back;b3_leans_on_b1' ~ 'b2;b3',
-  social$comment == 'b2_trunk_on_b1_back' ~ 'b2',
-  social$comment == 'b1_trunk_on_back_b1' ~ 'focal',
-  social$comment == 'b1_trunk_on_back_b1;b3_trunk_on_ear_b3' ~ 'focal;focal',
-  social$comment == 'b3_headbutt_b3' ~ 'focal',
-  social$comment == 'b3_head_on_b3_butt' ~ 'focal',
-  social$comment == 'b1_ear_on_b1_back' ~ 'focal',
-  social$comment == 'b1_ear_on_b1_back;b2_trunk_on_b3_ear' ~ 'focal;b2',
-  social$comment == 'b2_head_touches_b2' ~ 'focal',
-  social$comment == 'b1_head_on_b1' ~ 'focal',
-  social$comment == 'b4_trunk_on_b3_leg' ~ 'b4',
-  social$comment == 'b4_trunk_on_b1_leg' ~ 'b4',
-  social$comment == 'b4_head_on_b1_butt' ~ 'b4',
-  social$comment == 'b3_trunk_on_b3_leg' ~ 'focal',
-  social$comment == 'b1_head_on_b1_butt' ~ 'focal',
-  social$comment == 'b4_pushes_b3_butt' ~ 'b4',
-  social$comment == 'b3_pushes_b3' ~ 'focal',
-  social$comment == 'pushed_by_b2' ~ 'b2',
-  social$comment == 'pushed_by_b3' ~ 'b3',
-  social$comment == 'pushes_past_b2' ~ 'focal',
-  .default = 'unknown')
-unique(social$partner)
-unique(social$initiated_by)
-
-for(i in 1:nrow(social)){
-  if(social$partner[i] == 'b1;b2' | social$partner[i] == 'b2;b3' | social$partner[i] == 'b1;b3'){
-    x <- social[i,]
-    pre_x <- social[1:(i-1),]
-    post_x <- social[(i+1):nrow(social),]
-    x <- rbind(x, x) %>% 
-      separate(partner, into = c('partner1','partner2'), sep = ';', remove = T) %>% 
-      mutate(partner = c(partner1[1], partner2[1])) %>% 
-      select(colnames(social)) %>% 
-      separate(initiated_by, into = c('partner1','partner2'), sep = ';', remove = T) %>% 
-      mutate(initiated_by = c(partner1[1], partner2[1])) %>% 
-      select(colnames(social))
-    social <- rbind(pre_x, x, post_x)
-  }
-}
-rm(pre_x, post_x, x) ; gc()
-
-social <- social %>% 
-  separate(subject, into = c('focal', 'experiment'), remove = F, sep = '_') %>% 
-  select(-experiment) %>% 
-  mutate(targeted_elephant = ifelse(focal == partner, 'error',
-                                    ifelse(initiated_by == 'unknown',
-                                           'unknown',
-                                           ifelse(initiated_by == 'focal',
-                                                  partner,
-                                                  focal))),
-         initiated_by = ifelse(initiated_by == 'focal',
-                               focal, initiated_by))
-
-# create set of individual/behaviour breakdowns to go through
-social$elephant_social_unique <- paste0(social$subject,'_',social$initiated_by, social$targeted_elephant)
-id_behav <- sort(unique(social$elephant_social_unique))
-N <- length(id_behav)
-
-# prep data frame for rbind at end of loop, to put all of the levels back together
-social <- social %>% 
-  rename(behaviour = behavior) %>% 
-  mutate(activity_id = NA,
-         act_id = NA,
-         action_unique = NA)
-
-# set up list of ones which fail to come back to in BORIS
-correct_in_boris <- as.data.frame(id_behav) %>% 
-  separate(id_behav, into = c('bull', 'pb_num','target'), remove = F) %>% 
-  mutate(check = NA, time_fails = NA)
-
-# run for loop
-for(elephant_behaviour in 1:N){
-  # select individual and behavioural set
-  response <- social[social$elephant_social_unique == id_behav[elephant_behaviour],]
-  response <- response[is.na(response$time) == F,]
-  social <- anti_join(social, response)
-  
-  # check in correct order
-  response$order_correct <- NA
-  response$order_correct[1] <- ifelse(response$time[1] < response$time[2], 'yes', 
-                                      ifelse(response$time[1] == response$time[2], 'match', 'no'))
-  if(nrow(response) > 2 ) {
-    for(i in 2:(nrow(response)-1)){
-      response$order_correct[i] <- ifelse(response$time[i] < response$time[i+1] &
-                                            response$time[i] > response$time[i-1], 'yes', 
-                                          ifelse(response$time[i] == response$time[i+1] |
-                                                   response$time[i] == response$time[i-1], 'match',
-                                                 'no'))
-    }
-  } else {
-    response$order_correct <- ifelse(response$time[1] < response$time[2], 'yes', 'no')
-  }
-  
-  if(length(which(response$order_correct == 'no')) > 0) {
-    cowsay::say('STOP: ORDER INCORRECT', by = animals[runif(1,1,length(animals))] )
-    correct_in_boris$time_fails[which(correct_in_boris$id_behav == id_behav[elephant_behaviour])] <- list(response$time[which(response$order_correct == 'no')])
-  }
-  if(length(which(response$order_correct == 'match')) > 0) {
-    matching_times <- response[response$order_correct == 'match',]
-    matching_times <- matching_times[!is.na(matching_times$order_correct),]
-    response <- anti_join(response,matching_times)
-    matching_times$change <- as.integer(as.factor(matching_times$time))
-    for(j in unique(matching_times$change)){
-      pair <- matching_times[matching_times$change == j,]
-      matching_times <- anti_join(matching_times, pair)
-      pair <- pair[!is.na(pair$change),]
-      pair$time[which(pair$status == 'STOP')] <- pair$time[which(pair$status == 'STOP')] - 0.001
-      matching_times <- rbind(matching_times, pair)
-    }
-    matching_times <- matching_times %>%
-      select(-change) %>% 
-      arrange(time)
-    response <- rbind(response, matching_times) %>% 
-      arrange(time)
-    rm(matching_times, pair)
-  }
-  
-  # check pairs are together (should be if all in correct order!)
-  response$pairs_together <- NA
-  if(nrow(response) > 2 ) {
-    for(i in 1:(nrow(response)-1)){
-      response$pairs_together[i] <- ifelse(response$status[i] == 'START' & response$status[i+1] == 'STOP', 'yes',
-                                           ifelse(response$status[i] == 'STOP' & response$status[i+1] == 'START', 'yes', 'no'))
-    }
-  } else {
-    response$pairs_together <- ifelse(response$status[1] == 'START' & response$status[2] == 'STOP', 'yes', 'no')
-  }
-  
-  if(length(which(response$pairs_together == 'no')) > 0) {
-    cowsay::say('STOP: PAIRS NOT TOGETHER', by = animals[runif(1,1,length(animals))] )
-    for(k in 1:(nrow(response)-1)){
-      if(response$pairs_together[k] == 'no' & #response$pairs_together[k+1] == 'yes' &
-         response$status[k] == 'START' & response$status[k+1] == 'START') {
-        response$time[k+1] <- response$time[k+1]+0.001
-      }
-      if(response$pairs_together[k] == 'no' & #response$pairs_together[k+1] == 'yes' &
-         response$status[k] == 'STOP' & response$status[k+1] == 'STOP') {
-        response$time[k] <- response$time[k]-0.001
-      }
-    }
-    response <- response %>% arrange(time)
-    # repeat to ensure has now worked
-    if(nrow(response) > 2 ) {
-      for(i in 1:(nrow(response)-1)){
-        response$pairs_together[i] <- ifelse(response$status[i] == 'START' & response$status[i+1] == 'STOP', 'yes',
-                                             ifelse(response$status[i] == 'STOP' & response$status[i+1] == 'START', 'yes', 'no'))
-      }
-    } else {
-      response$pairs_together <- ifelse(response$status[1] == 'START' & response$status[2] == 'STOP', 'yes', 'no')
-    }
-    if(length(which(response$pairs_together == 'no')) > 0) {
-      cowsay::say('STOP: PAIRS NOT TOGETHER', by = animals[runif(1,1,length(animals))] )
-      correct_in_boris$time_fails[which(correct_in_boris$id_behav == id_behav[elephant_behaviour])] <- list(response$time[which(response$pairs_together == 'no')])
-    }
-  }
-  
-  # add label per start/stop pair
-  response$act_id <- rep(1:(nrow(response)/2), each = 2)
-  response$action_unique <- paste0(response$act_id,'_',response$subject,'_',response$type,'_',response$action)
-  
-  # for pairs that span across multiple parts of experiment, create variable indicating which parts
-  response$bda_split <- NA; for(i in 1:nrow(response)){
-    x <- response[response$act_id == response$act_id[i],]
-    response$bda_split[i] <- ifelse(x$bda[1] == x$bda[2], 'no',
-                                    ifelse(x$bda[1] == 'before',
-                                           ifelse(x$bda[2] == 'during', 'bd','ba'),
-                                           'da'))
-  }
-  rm(x)
-  
-  # single split pairs that span before-during or during-after. double split pairs that span before-after.
-  if(length(which(response$bda_split != 'no') > 0)) {
-    response_split <- response[response$bda_split != 'no',]
-    response <- anti_join(response, response_split)
-    if('bd' %in% response_split$bda_split) {
-      bd <- response_split[response_split$bda_split == 'bd',]
-      response_split <- anti_join(response_split, bd)
-      bd <- rbind(bd, bd)
-      bd$time[2] <- bd$stim_start[1]-0.001
-      bd$time[3] <- bd$stim_start[1]
-      response_split <- rbind(bd, response_split)
-      rm(bd)
-    }
-    if('da' %in% response_split$bda_split) {
-      da <- response_split[response_split$bda_split == 'da',]
-      response_split <- anti_join(response_split, da)
-      da <- rbind(da, da)
-      da$time[2] <- da$stim_stop[1]
-      da$time[3] <- da$stim_stop[1]+0.001
-      response_split <- rbind(response_split, da)
-      rm(da)
-    }
-    if('ba' %in% response_split$bda_split) {
-      ba <- response_split[response_split$bda_split == 'ba',]
-      response_split <- anti_join(response_split, ba)
-      ba <- rbind(ba, ba, ba)
-      ba$time[2] <- ba$stim_start[1]-0.001
-      ba$time[3] <- ba$stim_start[1]
-      ba$time[4] <- ba$stim_stop[1]
-      ba$time[5] <- ba$stim_stop[1]+0.001
-      response_split <- rbind(response_split, ba)
-      rm(ba)
-    } 
-    
-    # re-calculate which section each one goes in
-    response_split$bda <- ifelse(response_split$time < response_split$stim_start, 'before',
-                                 ifelse(response_split$time > response_split$stim_stop, 'after', 'during'))
-    
-    # recombine into individual elephant actions per category
-    response <- rbind(response, response_split)
-    
-  }
-  response <- response %>% 
-    arrange(time) %>% 
-    mutate(activity_id = as.numeric(as.factor(paste0(action_unique, bda)))) %>%
-    select(-order_correct, -pairs_together, -bda_split)
-  
-  # recombine into full dataset
-  social <- rbind(social, response)
-  
-  # clean up
-  gc()
-  
-}
-
-saveRDS(social, '../data_processed/elephants_behaviour_split_relative_to_stimulus_socialtouch.RDS')
-
-# ones to go back and check on
-correct_in_boris <- correct_in_boris %>% filter(time_fails != 'NA')
-nrow(correct_in_boris)
-
-# clean up
-rm(correct_in_boris, response, response_split, elephant_behaviour, i, id_behav, N) ; gc()
-
-## calculate length of action by subtracting START time from STOP time ####
-# social <- readRDS('../data_processed/elephants_behaviour_split_relative_to_stimulus_socialtouch.RDS')
-# create a variable with a unique value for every action, also split across before/during/after
-social$action_unique <- paste0(social$elephant_social_unique, '_', social$bda, '_', social$activity_id)
-social$act_id <- as.integer(as.factor(social$action_unique))
-length(unique(social$act_id))
-
-# combine start and stop lines for every action so it is a single row per behaviour
-start <- social %>% 
-  filter(status == 'START') %>% 
-  select(subject,behaviour,time,act_id) %>% 
-  rename(start_time = time)
-stop <- social %>% 
-  filter(status == 'STOP') %>% 
-  select(-subject, -behaviour, -status, -activity_unique, -activity_id) %>% 
-  rename(stop_time = time)
-behav <- left_join(start, stop, by = 'act_id') %>% 
-  relocate(act_id)
-
-# calculate duration of each behaviour
-behav$duration <- behav$stop_time - behav$start_time
-
-# neaten up
-behav <- behav[,c(1:5,30,6:29)]
-
-# save
-saveRDS(behav, '../data_processed/elephants_behaviour_startstop_socialtouch.RData')
-
-## calculate proportion of time spent per activity ####
-# read in time in frame per elephant
-#df_eles <- readRDS('../data_processed/elephants.RDS') ; in_frame <- read.csv('../data_processed/elephants_time_in_frame.csv')
-
-# create data frame showing amount of time spent on each behaviour by every elephant in each playback section
-num_eles <- length(unique(behav$subject))
-props <- data.frame(subject = rep(rep(sort(unique(behav$subject)),
-                                      each = 8),
-                                  each = 3),
-                    dyad_partner = rep(rep(c('b1','b2','b3','b4','b5','b6','b7','b8'),
-                                           num_eles),
-                                       each = 3),
-                    section = rep(rep(c('before','during','after'),
-                                      8),
-                                  num_eles)) %>% 
-  separate(subject, into = c('focal','pb_num'), sep = '_e', remove = F) %>% 
-  filter(focal != dyad_partner) %>% 
-  mutate(pb_num = as.numeric(pb_num)) %>% 
-  mutate(targeted_elephant = paste0(dyad_partner, '_e', pb_num)) %>% 
-  filter(targeted_elephant %in% behav$subject) %>% 
-  left_join(in_frame[,c('subject','section','in_frame_seconds')],
-            by = c('subject','section')) %>% 
-  mutate(giver = NA,
-         receiver = NA,
-         behav_seconds = NA,
-         propn = NA)
-props <- props %>% 
-  rbind(props) %>% 
-  mutate(giver = c(focal[1:nrow(props)], dyad_partner[1:nrow(props)]),
-         receiver = c(dyad_partner[1:nrow(props)], focal[1:nrow(props)]))
-
-# calculate time per elephant per playback section spent on each behaviour
-for( i in 1:nrow(props) ) {
-  touch <- behav %>%
-    filter(subject == props$subject[i]) %>% 
-    filter(partner == props$dyad_partner[i]) %>% 
-    filter(bda == props$section[i])
-  props$behav_seconds[i] <- ifelse(nrow(touch) == 0, 0,
-                                   sum(touch$duration[which(touch$initiated_by == props$giver[i])]))
-}
-
-# convert times to proportions so that duration in frame does not affect total
-props$propn <- props$behav_seconds / props$in_frame_seconds
-
-# add in additional information about each behaviour and elephant ages
-props <- props %>% 
-  left_join(distinct(df_eles[,c('subject','age', 'stim_num', 'stim_type', 'group_size')]),
-            by = 'subject')
-partner_info <- df_eles %>% 
-  select(subject, age) %>% 
-  distinct() %>% 
-  rename(targeted_elephant = subject,
-         partner_age = age) %>% 
-  mutate(partner_age = ifelse(targeted_elephant == 'b1_e19', '21-25',
-                              partner_age))
-props <- props %>% 
-  left_join(partner_info, by = 'targeted_elephant')
-
-# correct wrong age
-props$age <- ifelse(props$age == '16-25', '21-25', props$age) # experiment 19, bull1 listed as 16-25, which is not a correct age
-
-# age differences
-props$age_category <- ifelse(props$age == '10-15', 1,
-                             ifelse(props$age == '16-20', 2,
-                                    ifelse(props$age == '21-25', 3,
-                                           ifelse(props$age == '26-35', 4, NA))))
-props$partner_age_category <- ifelse(props$partner_age == '10-15', 1,
-                                     ifelse(props$partner_age == '16-20', 2,
-                                            ifelse(props$partner_age == '21-25', 3,
-                                                   ifelse(props$partner_age == '26-35', 4, NA))))
-props$age_difference <- ifelse(props$age_category == props$partner_age_category, 'matched',
-                               ifelse(props$age_category > props$partner_age_category,
-                                      'partner younger', 'partner older'))
-
-# save
-saveRDS(props, '../data_processed/socialtouch_behaviour_proportions.RDS')
-
-## graph proportions ####
-#props <- readRDS('../data_processed/elephant_behaviour_proportions.RDS')
-props$section <- factor(props$section, levels = c('before','during','after'))
-props$stimulus <- ifelse(props$stim_type == 'ctd', 'cape turtle dove (control)', 
-                         ifelse(props$stim_type == 'h', 'human', 'lion')) %>% 
-  factor(levels = c('cape turtle dove (control)','lion','human'))
-props$age <- factor(props$age, levels = c('10-15','16-20','21-25','26-35','unkage'))
-props$partner_age <- factor(props$partner_age, levels = c('10-15','16-20','21-25','26-35','unkage'))
-props$age_difference <- factor(props$age_difference,
-                               levels = c('partner younger','matched','partner older'))
-props$dyad <- paste0('e',props$pb_num,'_', props$focal,'_', props$dyad_partner)
-
-# social interactions
-props %>% 
-  filter(propn != 'NaN') %>% 
-  ggplot(aes(x = section, y = propn, group = dyad))+
-  geom_line(linewidth = 0.2, aes(colour = stimulus))+
-  geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
-  facet_grid(stimulus ~ age_difference)+
-  scale_y_continuous('proportion of time in physical contact with other elephants')+
-  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
-  scale_colour_viridis_d(direction = -1)+
-  theme(legend.position = 'bottom')
-
-props %>% 
-  filter(propn != 'NaN') %>% 
-  ggplot(aes(x = section, y = propn, group = dyad))+
-  geom_line(linewidth = 0.2, aes(colour = stimulus))+
-  geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
-  facet_grid(age ~ partner_age)+  # columns = partner age, rows = focal age
-  scale_y_continuous('proportion of time in physical contact with other elephants')+
-  scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
-  scale_colour_viridis_d(direction = -1)+
-  theme(legend.position = 'bottom')+
-  labs(title = 'neighbour ages\n(rows = focal age, columns = partner age)')
-
+# ###### PROPORTIONS OF TIME PER ACTIVITY: SOCIAL INTERACTIONS ######
+# ## split into time before/during/after stimulus -- DONE ####
+# # run "prep for splitting" section, then go from here
+# social <- df %>% filter(type == 'social')
+# 
+# # fill in missing data: 3 points, all of which match to everything around them so can assume is the same
+# for(i in which(is.na(social$comment) == TRUE)){
+#   social$comment[i] <- ifelse(social$status[i] == 'START',
+#                               social$comment[i+1],
+#                               social$comment[i-1])
+# }
+# 
+# # standardise -- only keep "who touched who" for now
+# unique(social$comment)
+# social$partner <- case_when(
+#   social$comment == 'b2_brushed_by_b2' ~ 'b2',
+#   social$comment == 'brushed_by_b2' ~ 'b2',
+#   social$comment == 'face_on_b2' ~ 'b2',
+#   social$comment == 'backs_into_b1' ~ 'b1',
+#   social$comment == 'b1_face_on_b2_butt' ~ 'b1',
+#   social$comment == 'b6_trunk_on_b3' ~ 'b6',
+#   social$comment == 'puts trunk on b3' ~ 'b3',
+#   social$comment == 'b3_wrestle' ~ 'b3',
+#   social$comment == 'wrestling b2' ~ 'b2',
+#   social$comment == 'b4_pushes_b1' ~ 'b4',
+#   social$comment == 'b4_touches_flank_b1' ~ 'b4',
+#   social$comment == 'b6_pushes_b1' ~ 'b6',
+#   social$comment == 'b1_pushes_b1' ~ 'b1',
+#   social$comment == 'b6_trunk_on_b4' ~ 'b6',
+#   social$comment == 'b7_pushes_b4' ~ 'b7',
+#   social$comment == 'b4_trunk_on_b4' ~ 'b4',
+#   social$comment == 'b5_pushes_b5' ~ 'b5',
+#   social$comment == 'b5_leans_on_b7' ~ 'b5',
+#   social$comment == 'b3_leans_on_b1' ~ 'b3',
+#   social$comment == 'b2_trunk_on_b1_back;b3_leans_on_b1' ~ 'b2;b3',
+#   social$comment == 'b2_trunk_on_b1_back' ~ 'b2',
+#   social$comment == 'b1_trunk_on_back_b1' ~ 'b1',
+#   social$comment == 'b1_trunk_on_back_b1;b3_trunk_on_ear_b3' ~ 'b1;b3',
+#   social$comment == 'b3_headbutt_b3' ~ 'b3',
+#   social$comment == 'b3_head_on_b3_butt' ~ 'b3',
+#   social$comment == 'b1_ear_on_b1_back' ~ 'b1',
+#   social$comment == 'b1_ear_on_b1_back;b2_trunk_on_b3_ear' ~ 'b1;b2',
+#   social$comment == 'b2_head_touches_b2' ~ 'b2',
+#   social$comment == 'b1_head_on_b1' ~ 'b1',
+#   social$comment == 'b4_trunk_on_b3_leg' ~ 'b4',
+#   social$comment == 'b4_trunk_on_b1_leg' ~ 'b4',
+#   social$comment == 'b4_head_on_b1_butt' ~ 'b4',
+#   social$comment == 'b3_trunk_on_b3_leg' ~ 'b3',
+#   social$comment == 'b1_head_on_b1_butt' ~ 'b1',
+#   social$comment == 'b4_pushes_b3_butt' ~ 'b4',
+#   social$comment == 'b3_pushes_b3' ~ 'b3',
+#   social$comment == 'pushed_by_b2' ~ 'b2',
+#   social$comment == 'pushed_by_b3' ~ 'b3',
+#   social$comment == 'pushes_past_b2' ~ 'b2',
+#   .default = social$comment)
+# social$initiated_by <- case_when(
+#   social$comment == 'b2_brushed_by_b2' ~ 'b2',
+#   social$comment == 'brushed_by_b2' ~ 'b2',
+#   social$comment == 'face_on_b2' ~ 'focal',
+#   social$comment == 'backs_into_b1' ~ 'focal',
+#   social$comment == 'b1_face_on_b2_butt' ~ 'b1',
+#   social$comment == 'b6_trunk_on_b3' ~ 'b6',
+#   social$comment == 'puts trunk on b3' ~ 'focal',
+#   social$comment == 'b3_wrestle' ~ 'unk',
+#   social$comment == 'wrestling b2' ~ 'unk',
+#   social$comment == 'b4_pushes_b1' ~ 'b4',
+#   social$comment == 'b4_touches_flank_b1' ~ 'b4',
+#   social$comment == 'b6_pushes_b1' ~ 'b6',
+#   social$comment == 'b1_pushes_b1' ~ 'focal',
+#   social$comment == 'b6_trunk_on_b4' ~ 'b6',
+#   social$comment == 'b7_pushes_b4' ~ 'b7',
+#   social$comment == 'b4_trunk_on_b4' ~ 'focal',
+#   social$comment == 'b5_pushes_b5' ~ 'focal',
+#   social$comment == 'b5_leans_on_b7' ~ 'b5',
+#   social$comment == 'b3_leans_on_b1' ~ 'b3',
+#   social$comment == 'b2_trunk_on_b1_back;b3_leans_on_b1' ~ 'b2;b3',
+#   social$comment == 'b2_trunk_on_b1_back' ~ 'b2',
+#   social$comment == 'b1_trunk_on_back_b1' ~ 'focal',
+#   social$comment == 'b1_trunk_on_back_b1;b3_trunk_on_ear_b3' ~ 'focal;focal',
+#   social$comment == 'b3_headbutt_b3' ~ 'focal',
+#   social$comment == 'b3_head_on_b3_butt' ~ 'focal',
+#   social$comment == 'b1_ear_on_b1_back' ~ 'focal',
+#   social$comment == 'b1_ear_on_b1_back;b2_trunk_on_b3_ear' ~ 'focal;b2',
+#   social$comment == 'b2_head_touches_b2' ~ 'focal',
+#   social$comment == 'b1_head_on_b1' ~ 'focal',
+#   social$comment == 'b4_trunk_on_b3_leg' ~ 'b4',
+#   social$comment == 'b4_trunk_on_b1_leg' ~ 'b4',
+#   social$comment == 'b4_head_on_b1_butt' ~ 'b4',
+#   social$comment == 'b3_trunk_on_b3_leg' ~ 'focal',
+#   social$comment == 'b1_head_on_b1_butt' ~ 'focal',
+#   social$comment == 'b4_pushes_b3_butt' ~ 'b4',
+#   social$comment == 'b3_pushes_b3' ~ 'focal',
+#   social$comment == 'pushed_by_b2' ~ 'b2',
+#   social$comment == 'pushed_by_b3' ~ 'b3',
+#   social$comment == 'pushes_past_b2' ~ 'focal',
+#   .default = 'unknown')
+# unique(social$partner)
+# unique(social$initiated_by)
+# 
+# for(i in 1:nrow(social)){
+#   if(social$partner[i] == 'b1;b2' | social$partner[i] == 'b2;b3' | social$partner[i] == 'b1;b3'){
+#     x <- social[i,]
+#     pre_x <- social[1:(i-1),]
+#     post_x <- social[(i+1):nrow(social),]
+#     x <- rbind(x, x) %>%
+#       separate(partner, into = c('partner1','partner2'), sep = ';', remove = T) %>%
+#       mutate(partner = c(partner1[1], partner2[1])) %>%
+#       select(colnames(social)) %>%
+#       separate(initiated_by, into = c('partner1','partner2'), sep = ';', remove = T) %>%
+#       mutate(initiated_by = c(partner1[1], partner2[1])) %>%
+#       select(colnames(social))
+#     social <- rbind(pre_x, x, post_x)
+#   }
+# }
+# rm(pre_x, post_x, x) ; gc()
+# 
+# social <- social %>%
+#   separate(subject, into = c('focal', 'experiment'), remove = F, sep = '_') %>%
+#   select(-experiment) %>%
+#   mutate(targeted_elephant = ifelse(focal == partner, 'error',
+#                                     ifelse(initiated_by == 'unknown',
+#                                            'unknown',
+#                                            ifelse(initiated_by == 'focal',
+#                                                   partner,
+#                                                   focal))),
+#          initiated_by = ifelse(initiated_by == 'focal',
+#                                focal, initiated_by))
+# 
+# # create set of individual/behaviour breakdowns to go through
+# social$elephant_social_unique <- paste0(social$subject,'_',social$initiated_by, social$targeted_elephant)
+# id_behav <- sort(unique(social$elephant_social_unique))
+# N <- length(id_behav)
+# 
+# # prep data frame for rbind at end of loop, to put all of the levels back together
+# social <- social %>%
+#   rename(behaviour = behavior) %>%
+#   mutate(activity_id = NA,
+#          act_id = NA,
+#          action_unique = NA)
+# 
+# # set up list of ones which fail to come back to in BORIS
+# correct_in_boris <- as.data.frame(id_behav) %>%
+#   separate(id_behav, into = c('bull', 'pb_num','target'), remove = F) %>%
+#   mutate(check = NA, time_fails = NA)
+# 
+# # run for loop
+# for(elephant_behaviour in 1:N){
+#   # select individual and behavioural set
+#   response <- social[social$elephant_social_unique == id_behav[elephant_behaviour],]
+#   response <- response[is.na(response$time) == F,]
+#   social <- anti_join(social, response)
+# 
+#   # check in correct order
+#   response$order_correct <- NA
+#   response$order_correct[1] <- ifelse(response$time[1] < response$time[2], 'yes',
+#                                       ifelse(response$time[1] == response$time[2], 'match', 'no'))
+#   if(nrow(response) > 2 ) {
+#     for(i in 2:(nrow(response)-1)){
+#       response$order_correct[i] <- ifelse(response$time[i] < response$time[i+1] &
+#                                             response$time[i] > response$time[i-1], 'yes',
+#                                           ifelse(response$time[i] == response$time[i+1] |
+#                                                    response$time[i] == response$time[i-1], 'match',
+#                                                  'no'))
+#     }
+#   } else {
+#     response$order_correct <- ifelse(response$time[1] < response$time[2], 'yes', 'no')
+#   }
+# 
+#   if(length(which(response$order_correct == 'no')) > 0) {
+#     cowsay::say('STOP: ORDER INCORRECT', by = animals[runif(1,1,length(animals))] )
+#     correct_in_boris$time_fails[which(correct_in_boris$id_behav == id_behav[elephant_behaviour])] <- list(response$time[which(response$order_correct == 'no')])
+#   }
+#   if(length(which(response$order_correct == 'match')) > 0) {
+#     matching_times <- response[response$order_correct == 'match',]
+#     matching_times <- matching_times[!is.na(matching_times$order_correct),]
+#     response <- anti_join(response,matching_times)
+#     matching_times$change <- as.integer(as.factor(matching_times$time))
+#     for(j in unique(matching_times$change)){
+#       pair <- matching_times[matching_times$change == j,]
+#       matching_times <- anti_join(matching_times, pair)
+#       pair <- pair[!is.na(pair$change),]
+#       pair$time[which(pair$status == 'STOP')] <- pair$time[which(pair$status == 'STOP')] - 0.001
+#       matching_times <- rbind(matching_times, pair)
+#     }
+#     matching_times <- matching_times %>%
+#       select(-change) %>%
+#       arrange(time)
+#     response <- rbind(response, matching_times) %>%
+#       arrange(time)
+#     rm(matching_times, pair)
+#   }
+# 
+#   # check pairs are together (should be if all in correct order!)
+#   response$pairs_together <- NA
+#   if(nrow(response) > 2 ) {
+#     for(i in 1:(nrow(response)-1)){
+#       response$pairs_together[i] <- ifelse(response$status[i] == 'START' & response$status[i+1] == 'STOP', 'yes',
+#                                            ifelse(response$status[i] == 'STOP' & response$status[i+1] == 'START', 'yes', 'no'))
+#     }
+#   } else {
+#     response$pairs_together <- ifelse(response$status[1] == 'START' & response$status[2] == 'STOP', 'yes', 'no')
+#   }
+# 
+#   if(length(which(response$pairs_together == 'no')) > 0) {
+#     cowsay::say('STOP: PAIRS NOT TOGETHER', by = animals[runif(1,1,length(animals))] )
+#     for(k in 1:(nrow(response)-1)){
+#       if(response$pairs_together[k] == 'no' & #response$pairs_together[k+1] == 'yes' &
+#          response$status[k] == 'START' & response$status[k+1] == 'START') {
+#         response$time[k+1] <- response$time[k+1]+0.001
+#       }
+#       if(response$pairs_together[k] == 'no' & #response$pairs_together[k+1] == 'yes' &
+#          response$status[k] == 'STOP' & response$status[k+1] == 'STOP') {
+#         response$time[k] <- response$time[k]-0.001
+#       }
+#     }
+#     response <- response %>% arrange(time)
+#     # repeat to ensure has now worked
+#     if(nrow(response) > 2 ) {
+#       for(i in 1:(nrow(response)-1)){
+#         response$pairs_together[i] <- ifelse(response$status[i] == 'START' & response$status[i+1] == 'STOP', 'yes',
+#                                              ifelse(response$status[i] == 'STOP' & response$status[i+1] == 'START', 'yes', 'no'))
+#       }
+#     } else {
+#       response$pairs_together <- ifelse(response$status[1] == 'START' & response$status[2] == 'STOP', 'yes', 'no')
+#     }
+#     if(length(which(response$pairs_together == 'no')) > 0) {
+#       cowsay::say('STOP: PAIRS NOT TOGETHER', by = animals[runif(1,1,length(animals))] )
+#       correct_in_boris$time_fails[which(correct_in_boris$id_behav == id_behav[elephant_behaviour])] <- list(response$time[which(response$pairs_together == 'no')])
+#     }
+#   }
+# 
+#   # add label per start/stop pair
+#   response$act_id <- rep(1:(nrow(response)/2), each = 2)
+#   response$action_unique <- paste0(response$act_id,'_',response$subject,'_',response$type,'_',response$action)
+# 
+#   # for pairs that span across multiple parts of experiment, create variable indicating which parts
+#   response$bda_split <- NA; for(i in 1:nrow(response)){
+#     x <- response[response$act_id == response$act_id[i],]
+#     response$bda_split[i] <- ifelse(x$bda[1] == x$bda[2], 'no',
+#                                     ifelse(x$bda[1] == 'before',
+#                                            ifelse(x$bda[2] == 'during', 'bd','ba'),
+#                                            'da'))
+#   }
+#   rm(x)
+# 
+#   # single split pairs that span before-during or during-after. double split pairs that span before-after.
+#   if(length(which(response$bda_split != 'no') > 0)) {
+#     response_split <- response[response$bda_split != 'no',]
+#     response <- anti_join(response, response_split)
+#     if('bd' %in% response_split$bda_split) {
+#       bd <- response_split[response_split$bda_split == 'bd',]
+#       response_split <- anti_join(response_split, bd)
+#       bd <- rbind(bd, bd)
+#       bd$time[2] <- bd$stim_start[1]-0.001
+#       bd$time[3] <- bd$stim_start[1]
+#       response_split <- rbind(bd, response_split)
+#       rm(bd)
+#     }
+#     if('da' %in% response_split$bda_split) {
+#       da <- response_split[response_split$bda_split == 'da',]
+#       response_split <- anti_join(response_split, da)
+#       da <- rbind(da, da)
+#       da$time[2] <- da$stim_stop[1]
+#       da$time[3] <- da$stim_stop[1]+0.001
+#       response_split <- rbind(response_split, da)
+#       rm(da)
+#     }
+#     if('ba' %in% response_split$bda_split) {
+#       ba <- response_split[response_split$bda_split == 'ba',]
+#       response_split <- anti_join(response_split, ba)
+#       ba <- rbind(ba, ba, ba)
+#       ba$time[2] <- ba$stim_start[1]-0.001
+#       ba$time[3] <- ba$stim_start[1]
+#       ba$time[4] <- ba$stim_stop[1]
+#       ba$time[5] <- ba$stim_stop[1]+0.001
+#       response_split <- rbind(response_split, ba)
+#       rm(ba)
+#     }
+# 
+#     # re-calculate which section each one goes in
+#     response_split$bda <- ifelse(response_split$time < response_split$stim_start, 'before',
+#                                  ifelse(response_split$time > response_split$stim_stop, 'after', 'during'))
+# 
+#     # recombine into individual elephant actions per category
+#     response <- rbind(response, response_split)
+# 
+#   }
+#   response <- response %>%
+#     arrange(time) %>%
+#     mutate(activity_id = as.numeric(as.factor(paste0(action_unique, bda)))) %>%
+#     select(-order_correct, -pairs_together, -bda_split)
+# 
+#   # recombine into full dataset
+#   social <- rbind(social, response)
+# 
+#   # clean up
+#   gc()
+# 
+# }
+# 
+# saveRDS(social, '../data_processed/elephants_behaviour_split_relative_to_stimulus_socialtouch.RDS')
+# 
+# # ones to go back and check on
+# correct_in_boris <- correct_in_boris %>% filter(time_fails != 'NA')
+# nrow(correct_in_boris)
+# 
+# # clean up
+# rm(correct_in_boris, response, response_split, elephant_behaviour, i, id_behav, N) ; gc()
+# 
+# ## calculate length of action by subtracting START time from STOP time ####
+# # social <- readRDS('../data_processed/elephants_behaviour_split_relative_to_stimulus_socialtouch.RDS')
+# # create a variable with a unique value for every action, also split across before/during/after
+# social$action_unique <- paste0(social$elephant_social_unique, '_', social$bda, '_', social$activity_id)
+# social$act_id <- as.integer(as.factor(social$action_unique))
+# length(unique(social$act_id))
+# 
+# # combine start and stop lines for every action so it is a single row per behaviour
+# start <- social %>%
+#   filter(status == 'START') %>%
+#   select(subject,behaviour,time,act_id) %>%
+#   rename(start_time = time)
+# stop <- social %>%
+#   filter(status == 'STOP') %>%
+#   select(-subject, -behaviour, -status, -activity_unique, -activity_id) %>%
+#   rename(stop_time = time)
+# behav <- left_join(start, stop, by = 'act_id') %>%
+#   relocate(act_id)
+# 
+# # calculate duration of each behaviour
+# behav$duration <- behav$stop_time - behav$start_time
+# 
+# # neaten up
+# behav <- behav[,c(1:5,30,6:29)]
+# 
+# # save
+# saveRDS(behav, '../data_processed/elephants_behaviour_startstop_socialtouch.RData')
+# 
+# ## calculate proportion of time spent per activity ####
+# # read in time in frame per elephant
+# #df_eles <- readRDS('../data_processed/elephants.RDS') ; in_frame <- read.csv('../data_processed/elephants_time_in_frame.csv')
+# 
+# # create data frame showing amount of time spent on each behaviour by every elephant in each playback section
+# num_eles <- length(unique(behav$subject))
+# props <- data.frame(subject = rep(rep(sort(unique(behav$subject)),
+#                                       each = 8),
+#                                   each = 3),
+#                     dyad_partner = rep(rep(c('b1','b2','b3','b4','b5','b6','b7','b8'),
+#                                            num_eles),
+#                                        each = 3),
+#                     section = rep(rep(c('before','during','after'),
+#                                       8),
+#                                   num_eles)) %>%
+#   separate(subject, into = c('focal','pb_num'), sep = '_e', remove = F) %>%
+#   filter(focal != dyad_partner) %>%
+#   mutate(pb_num = as.numeric(pb_num)) %>%
+#   mutate(targeted_elephant = paste0(dyad_partner, '_e', pb_num)) %>%
+#   filter(targeted_elephant %in% behav$subject) %>%
+#   left_join(in_frame[,c('subject','section','in_frame_seconds')],
+#             by = c('subject','section')) %>%
+#   mutate(giver = NA,
+#          receiver = NA,
+#          behav_seconds = NA,
+#          propn = NA)
+# props <- props %>%
+#   rbind(props) %>%
+#   mutate(giver = c(focal[1:nrow(props)], dyad_partner[1:nrow(props)]),
+#          receiver = c(dyad_partner[1:nrow(props)], focal[1:nrow(props)]))
+# 
+# # calculate time per elephant per playback section spent on each behaviour
+# for( i in 1:nrow(props) ) {
+#   touch <- behav %>%
+#     filter(subject == props$subject[i]) %>%
+#     filter(partner == props$dyad_partner[i]) %>%
+#     filter(bda == props$section[i])
+#   props$behav_seconds[i] <- ifelse(nrow(touch) == 0, 0,
+#                                    sum(touch$duration[which(touch$initiated_by == props$giver[i])]))
+# }
+# 
+# # convert times to proportions so that duration in frame does not affect total
+# props$propn <- props$behav_seconds / props$in_frame_seconds
+# 
+# # add in additional information about each behaviour and elephant ages
+# props <- props %>%
+#   left_join(distinct(df_eles[,c('subject','age', 'stim_num', 'stim_type', 'group_size')]),
+#             by = 'subject')
+# partner_info <- df_eles %>%
+#   select(subject, age) %>%
+#   distinct() %>%
+#   rename(targeted_elephant = subject,
+#          partner_age = age) %>%
+#   mutate(partner_age = ifelse(targeted_elephant == 'b1_e19', '21-25',
+#                               partner_age))
+# props <- props %>%
+#   left_join(partner_info, by = 'targeted_elephant')
+# 
+# # correct wrong age
+# props$age <- ifelse(props$age == '16-25', '21-25', props$age) # experiment 19, bull1 listed as 16-25, which is not a correct age
+# 
+# # age differences
+# props$age_category <- ifelse(props$age == '10-15', 1,
+#                              ifelse(props$age == '16-20', 2,
+#                                     ifelse(props$age == '21-25', 3,
+#                                            ifelse(props$age == '26-35', 4, NA))))
+# props$partner_age_category <- ifelse(props$partner_age == '10-15', 1,
+#                                      ifelse(props$partner_age == '16-20', 2,
+#                                             ifelse(props$partner_age == '21-25', 3,
+#                                                    ifelse(props$partner_age == '26-35', 4, NA))))
+# props$age_difference <- ifelse(props$age_category == props$partner_age_category, 'matched',
+#                                ifelse(props$age_category > props$partner_age_category,
+#                                       'partner younger', 'partner older'))
+# 
+# # save
+# saveRDS(props, '../data_processed/socialtouch_behaviour_proportions.RDS')
+# 
+# ## graph proportions ####
+# #props <- readRDS('../data_processed/elephant_behaviour_proportions.RDS')
+# props$section <- factor(props$section, levels = c('before','during','after'))
+# props$stimulus <- ifelse(props$stim_type == 'ctd', 'cape turtle dove (control)',
+#                          ifelse(props$stim_type == 'h', 'human', 'lion')) %>%
+#   factor(levels = c('cape turtle dove (control)','lion','human'))
+# props$age <- factor(props$age, levels = c('10-15','16-20','21-25','26-35','unkage'))
+# props$partner_age <- factor(props$partner_age, levels = c('10-15','16-20','21-25','26-35','unkage'))
+# props$age_difference <- factor(props$age_difference,
+#                                levels = c('partner younger','matched','partner older'))
+# props$dyad <- paste0('e',props$pb_num,'_', props$focal,'_', props$dyad_partner)
+# 
+# # social interactions
+# props %>%
+#   filter(propn != 'NaN') %>%
+#   ggplot(aes(x = section, y = propn, group = dyad))+
+#   geom_line(linewidth = 0.2, aes(colour = stimulus))+
+#   geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
+#   facet_grid(stimulus ~ age_difference)+
+#   scale_y_continuous('proportion of time in physical contact with other elephants')+
+#   scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
+#   scale_colour_viridis_d(direction = -1)+
+#   theme(legend.position = 'bottom')
+# 
+# props %>%
+#   filter(propn != 'NaN') %>%
+#   ggplot(aes(x = section, y = propn, group = dyad))+
+#   geom_line(linewidth = 0.2, aes(colour = stimulus))+
+#   geom_point(size = 0.4, alpha = 0.6, aes(colour = stimulus))+
+#   facet_grid(age ~ partner_age)+  # columns = partner age, rows = focal age
+#   scale_y_continuous('proportion of time in physical contact with other elephants')+
+#   scale_x_discrete(expand = c(0.05,0.05), 'time relative to stimulus')+
+#   scale_colour_viridis_d(direction = -1)+
+#   theme(legend.position = 'bottom')+
+#   labs(title = 'neighbour ages\n(rows = focal age, columns = partner age)')
+# 
+# ## save workspace
+# save.image('data_processing.RData')
+# 
 ###### PROPORTIONS OF TIME PER ACTIVITY: COMBINE INTO SINGLE DATA FRAME ######
 # clean environment
 rm(list = ls()) ; gc()
@@ -2401,6 +2428,9 @@ props %>%
 ggsave('../outputs/moving_boxplots_elephants_duringafter.png', device = 'png',
        width = 11.70, height = 6.30)
 
+## save workspace
+save.image('data_processing.RData')
+
 ###### LATENCY TO CHANGE BEHAVIOUR FROM START OF STIMULUS ######
 in_frame <- read_csv('../data_processed/elephants_time_in_frame.csv') %>% 
   select('subject','section','in_frame_seconds')
@@ -2504,6 +2534,9 @@ df %>%
   facet_wrap(. ~ stimulus, nrow = 3)
 
   
+## save workspace
+save.image('data_processing.RData')
+
 ###### AT EVERY SECOND, WHAT ARE THEY DOING ######
 ### out of sight #### 
 # clean environment
@@ -2804,7 +2837,7 @@ for(row in 1:nrow(by_sec)) {
   }
 }
 
-# fill in NA values, rename elephant columns to indicate looking directions
+# fill in NA values, rename elephant columns to indicate movement directions
 by_sec <- by_sec %>% 
   mutate(b1 = ifelse( is.na(b1) == TRUE, 'not_moving', b1),
          b2 = ifelse( is.na(b2) == TRUE, 'not_moving', b2),
@@ -2823,6 +2856,15 @@ by_sec <- by_sec %>%
          b7_move = b7,
          b8_move = b8)
 
+# replace NA values where partner does not exist
+by_sec <- by_sec %>% 
+  mutate(b3_move = ifelse(is.na(b3_look) == TRUE, NA, b3_move),
+         b4_move = ifelse(is.na(b4_look) == TRUE, NA, b4_move),
+         b5_move = ifelse(is.na(b5_look) == TRUE, NA, b5_move),
+         b6_move = ifelse(is.na(b6_look) == TRUE, NA, b6_move),
+         b7_move = ifelse(is.na(b7_look) == TRUE, NA, b7_move),
+         b8_move = ifelse(is.na(b8_look) == TRUE, NA, b8_move))
+
 # save output
 saveRDS(by_sec, '../data_processed/behaviour_by_second.RDS')
 
@@ -2831,13 +2873,12 @@ rm(list = ls()[!ls() %in% c('by_sec', 'videos')]) ; gc()
 
 ### nearest neighbour ####
 # by_sec <- readRDS('../data_processed/behaviour_by_second.RDS')
-by_sec <- by_sec[,1:28]
 
 # import data
 nn <- readRDS('../data_processed/elephants_behaviour_startstop_neighbour.RData')
 
 # create new columns for running
-by_sec <- by_sec %>% 
+by_sec <- by_sec %>%
   mutate(neighbour = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
          b1 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
          b2 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
@@ -2855,7 +2896,7 @@ for(behaviour in 1:length(unique(nn$behaviour))){
     partners <- sort(unique(x$neighbour))
     for(partner in partners){
       x <- nn[nn$behaviour == unique(nn$behaviour)[behaviour] &
-                      nn$subject == unique(by_sec$subject)[elephant] & 
+                      nn$subject == unique(by_sec$subject)[elephant] &
                       nn$neighbour == partner, ]
       if(nrow(x) > 0){
         for( i in 1:nrow(x)){
@@ -2872,7 +2913,7 @@ for(behaviour in 1:length(unique(nn$behaviour))){
   }
 }
 
-# remove times with 2 nearest neighbours at the same time
+# remove times with 2 nearest neighbours at the same time -- where there is a 1 second overlap in neighbours, select new neighbour
 for(i in 1:nrow(by_sec)){
   if( length(which(is.na(by_sec[i,30:37]) == FALSE)) > 1 ){
     for(j in 30:37){
@@ -2893,8 +2934,8 @@ for(row in 1:nrow(by_sec)) {
 }
 rm(column, j, old_neighbour, row) ; gc()
 
-# rename elephant columns to indicate looking directions
-by_sec <- by_sec %>% 
+# rename elephant columns to indicate neighbours
+by_sec <- by_sec %>%
   mutate(b1 = ifelse( is.na(b1) == TRUE, '0', b1),
          b2 = ifelse( is.na(b2) == TRUE, '0', b2),
          b3 = ifelse( is.na(b3) == TRUE, '0', b3),
@@ -2902,7 +2943,7 @@ by_sec <- by_sec %>%
          b5 = ifelse( is.na(b5) == TRUE, '0', b5),
          b6 = ifelse( is.na(b6) == TRUE, '0', b6),
          b7 = ifelse( is.na(b7) == TRUE, '0', b7),
-         b8 = ifelse( is.na(b8) == TRUE, '0', b8)) %>% 
+         b8 = ifelse( is.na(b8) == TRUE, '0', b8)) %>%
   rename(b1_nn = b1,
          b2_nn = b2,
          b3_nn = b3,
@@ -2912,172 +2953,179 @@ by_sec <- by_sec %>%
          b7_nn = b7,
          b8_nn = b8)
 
-# save output
-saveRDS(by_sec, '../data_processed/behaviour_by_second.RDS')
-
-### social behaviour ####
-# by_sec <- readRDS('../data_processed/behaviour_by_second.RDS')
-
-# import data
-soc <- readRDS('../data_processed/elephants_behaviour_startstop_socialtouch.RData')
-
-# create new columns for running
+# replace NA values where partner does not exist
 by_sec <- by_sec %>% 
-  mutate(social = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
-         b1 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
-         b2 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
-         b3 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
-         b4 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
-         b5 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
-         b6 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
-         b7 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
-         b8 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA))
-
-# identify times of changing behaviour: social touch
-for(i in 1:nrow(soc)){
-  row_num_start <- which(by_sec$second == ceiling(soc$start_time[i]) & by_sec$subject == soc$subject[i])
-  row_num_stop <- which(by_sec$second == round(soc$stop_time[i], 0) & by_sec$subject == soc$subject[i])
-  by_sec[row_num_start:row_num_stop, 'social'] <- soc$partner[i]
-  by_sec[row_num_start:row_num_stop, which(colnames(by_sec) == soc$partner[i])] <- soc$initiated_by[i]
-}
-
-check <- by_sec %>%
-  filter(!is.na(social)) %>% 
-  filter(out_frame == 'in_frame') %>% 
-  select(c(1:5,38:46)) %>% 
-  mutate(unique = paste0(subject, second)) %>% 
-  group_by(unique) %>% 
-  mutate(num_touch = length(which(is.na(c(b1,b2,b3,b4,b5,b6,b7,b8)) == FALSE))) %>% 
-  filter(num_touch > 1) # all 3 individuals were in contact on this occaison: this is correct
-
-# fill in impossible dyads and zeroes
-for(row in 1:nrow(by_sec)) {
-  for(column in 38:46){
-    if(colnames(by_sec)[column] == by_sec$bull[row]){
-      by_sec[row,column] <- 'impossible_partner'
-    }
-  }
-}
-
-# rename elephant columns to indicate looking directions
-by_sec <- by_sec %>% 
-  mutate(social = ifelse( is.na(social) == TRUE, 'no contact', social),
-         b1 = ifelse( is.na(b1) == TRUE, '0', b1),
-         b2 = ifelse( is.na(b2) == TRUE, '0', b2),
-         b3 = ifelse( is.na(b3) == TRUE, '0', b3),
-         b4 = ifelse( is.na(b4) == TRUE, '0', b4),
-         b5 = ifelse( is.na(b5) == TRUE, '0', b5),
-         b6 = ifelse( is.na(b6) == TRUE, '0', b6),
-         b7 = ifelse( is.na(b7) == TRUE, '0', b7),
-         b8 = ifelse( is.na(b8) == TRUE, '0', b8)) %>% 
-  rename(b1_social = b1,
-         b2_social = b2,
-         b3_social = b3,
-         b4_social = b4,
-         b5_social = b5,
-         b6_social = b6,
-         b7_social = b7,
-         b8_social = b8)
+  mutate(b3_nn = ifelse(is.na(b3_look) == TRUE, NA, b3_nn),
+         b4_nn = ifelse(is.na(b4_look) == TRUE, NA, b4_nn),
+         b5_nn = ifelse(is.na(b5_look) == TRUE, NA, b5_nn),
+         b6_nn = ifelse(is.na(b6_look) == TRUE, NA, b6_nn),
+         b7_nn = ifelse(is.na(b7_look) == TRUE, NA, b7_nn),
+         b8_nn = ifelse(is.na(b8_look) == TRUE, NA, b8_nn))
 
 # save output
 saveRDS(by_sec, '../data_processed/behaviour_by_second.RDS')
 
+# clean environment
+rm(list = ls()[!ls() %in% c('by_sec', 'videos')]) ; gc()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# fill in times of each behaviour: social touch
-for(behaviour in 1:length(unique(soc$behaviour))){
-  for(elephant in 1:length(unique(by_sec$subject))){
-    x <- soc[soc$subject == unique(by_sec$subject)[elephant],]
-    partners <- sort(unique(x$neighbour))
-    for(partner in partners){
-      x <- soc[soc$behaviour == unique(soc$behaviour)[behaviour] &
-                 soc$subject == unique(by_sec$subject)[elephant] & 
-                 soc$neighbour == partner, ]
-      if(nrow(x) > 0){
-        for( i in 1:nrow(x)){
-          times <- seq(from = round(x$start_time[i]), to = round(x$stop_time[i]), by = 1)
-          by_sec[which(by_sec$subject == unique(by_sec$subject)[elephant] &
-                         by_sec$second %in% times),
-                 'neighbour'] <- unique(x$neighbour)
-          by_sec[which(by_sec$subject == unique(by_sec$subject)[elephant] &
-                         by_sec$second %in% times),
-                 which(colnames(by_sec) == partner)] <- 1
-        }
-      }
-    }
-  }
-}
-
-# remove times with 2 nearest neighbours at the same time
-for(i in 1:nrow(by_sec)){
-  if( length(which(is.na(by_sec[i,30:37]) == FALSE)) > 1 ){
-    for(j in 30:37){
-      old_neighbour <- colnames(by_sec)[(30:37)[!is.na(by_sec[(i-1),30:37])]]
-      by_sec[i,old_neighbour] <- NA
-    }
-  }
-}
-rm(x, behaviour, elephant, i, partner, partners, times)
-
-# fill in impossible dyads
-for(row in 1:nrow(by_sec)) {
-  for(column in 30:37){
-    if(colnames(by_sec)[column] == by_sec$bull[row]){
-      by_sec[row,column] <- 'impossible_partner'
-    }
-  }
-}
-rm(column, j, old_neighbour, row) ; gc()
-
-# rename elephant columns to indicate looking directions
-by_sec <- by_sec %>% 
-  mutate(b1 = ifelse( is.na(b1) == TRUE, '0', b1),
-         b2 = ifelse( is.na(b2) == TRUE, '0', b2),
-         b3 = ifelse( is.na(b3) == TRUE, '0', b3),
-         b4 = ifelse( is.na(b4) == TRUE, '0', b4),
-         b5 = ifelse( is.na(b5) == TRUE, '0', b5),
-         b6 = ifelse( is.na(b6) == TRUE, '0', b6),
-         b7 = ifelse( is.na(b7) == TRUE, '0', b7),
-         b8 = ifelse( is.na(b8) == TRUE, '0', b8)) %>% 
-  rename(b1_nn = b1,
-         b2_nn = b2,
-         b3_nn = b3,
-         b4_nn = b4,
-         b5_nn = b5,
-         b6_nn = b6,
-         b7_nn = b7,
-         b8_nn = b8)
-
-# save output
-saveRDS(by_sec, '../data_processed/behaviour_by_second.RDS')
-
+# ### social behaviour ####
+# # by_sec <- readRDS('../data_processed/behaviour_by_second.RDS')
+# 
+# # import data
+# soc <- readRDS('../data_processed/elephants_behaviour_startstop_socialtouch.RData')
+# 
+# # create new columns for running
+# by_sec <- by_sec %>%
+#   mutate(social = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+#          b1 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+#          b2 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+#          b3 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+#          b4 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+#          b5 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+#          b6 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+#          b7 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA),
+#          b8 = ifelse(out_frame == 'out_of_sight', 'out_of_sight', NA))
+# 
+# # identify times of changing behaviour: social touch
+# for(i in 1:nrow(soc)){
+#   row_num_start <- which(by_sec$second == ceiling(soc$start_time[i]) & by_sec$subject == soc$subject[i])
+#   row_num_stop <- which(by_sec$second == round(soc$stop_time[i], 0) & by_sec$subject == soc$subject[i])
+#   by_sec[row_num_start:row_num_stop, 'social'] <- soc$partner[i]
+#   by_sec[row_num_start:row_num_stop, which(colnames(by_sec) == soc$partner[i])] <- soc$initiated_by[i]
+# }
+# 
+# check <- by_sec %>%
+#   filter(!is.na(social)) %>%
+#   filter(out_frame == 'in_frame') %>%
+#   select(c(1:5,38:46)) %>%
+#   mutate(unique = paste0(subject, second)) %>%
+#   group_by(unique) %>%
+#   mutate(num_touch = length(which(is.na(c(b1,b2,b3,b4,b5,b6,b7,b8)) == FALSE))) %>%
+#   filter(num_touch > 1) # all 3 individuals were in contact on this occasion: this is correct
+# 
+# # fill in impossible dyads and zeroes
+# for(row in 1:nrow(by_sec)) {
+#   for(column in 38:46){
+#     if(colnames(by_sec)[column] == by_sec$bull[row]){
+#       by_sec[row,column] <- 'impossible_partner'
+#     }
+#   }
+# }
+# 
+# # rename elephant columns to indicate social interactions
+# by_sec <- by_sec %>%
+#   mutate(social = ifelse( is.na(social) == TRUE, 'no contact', social),
+#          b1 = ifelse( is.na(b1) == TRUE, '0', b1),
+#          b2 = ifelse( is.na(b2) == TRUE, '0', b2),
+#          b3 = ifelse( is.na(b3) == TRUE, '0', b3),
+#          b4 = ifelse( is.na(b4) == TRUE, '0', b4),
+#          b5 = ifelse( is.na(b5) == TRUE, '0', b5),
+#          b6 = ifelse( is.na(b6) == TRUE, '0', b6),
+#          b7 = ifelse( is.na(b7) == TRUE, '0', b7),
+#          b8 = ifelse( is.na(b8) == TRUE, '0', b8)) %>%
+#   rename(b1_social = b1,
+#          b2_social = b2,
+#          b3_social = b3,
+#          b4_social = b4,
+#          b5_social = b5,
+#          b6_social = b6,
+#          b7_social = b7,
+#          b8_social = b8)
+# 
+# # replace NA values where partner does not exist
+# by_sec <- by_sec %>% 
+#   mutate(b3_social = ifelse(is.na(b3_look) == TRUE, NA, b3_social),
+#          b4_social = ifelse(is.na(b4_look) == TRUE, NA, b4_social),
+#          b5_social = ifelse(is.na(b5_look) == TRUE, NA, b5_social),
+#          b6_social = ifelse(is.na(b6_look) == TRUE, NA, b6_social),
+#          b7_social = ifelse(is.na(b7_look) == TRUE, NA, b7_social),
+#          b8_social = ifelse(is.na(b8_look) == TRUE, NA, b8_social))
+# 
+# # save output
+# saveRDS(by_sec, '../data_processed/behaviour_by_second.RDS')
+# 
+# # # fill in times of each behaviour: social touch
+# # for(behaviour in 1:length(unique(soc$behaviour))){
+# #   for(elephant in 1:length(unique(by_sec$subject))){
+# #     x <- soc[soc$subject == unique(by_sec$subject)[elephant],]
+# #     partners <- sort(unique(x$neighbour))
+# #     for(partner in partners){
+# #       x <- soc[soc$behaviour == unique(soc$behaviour)[behaviour] &
+# #                  soc$subject == unique(by_sec$subject)[elephant] &
+# #                  soc$neighbour == partner, ]
+# #       if(nrow(x) > 0){
+# #         for( i in 1:nrow(x)){
+# #           times <- seq(from = round(x$start_time[i]), to = round(x$stop_time[i]), by = 1)
+# #           by_sec[which(by_sec$subject == unique(by_sec$subject)[elephant] &
+# #                          by_sec$second %in% times),
+# #                  'neighbour'] <- unique(x$neighbour)
+# #           by_sec[which(by_sec$subject == unique(by_sec$subject)[elephant] &
+# #                          by_sec$second %in% times),
+# #                  which(colnames(by_sec) == partner)] <- 1
+# #         }
+# #       }
+# #     }
+# #   }
+# # }
+# # 
+# # # remove times with 2 nearest neighbours at the same time
+# # for(i in 1:nrow(by_sec)){
+# #   if( length(which(is.na(by_sec[i,30:37]) == FALSE)) > 1 ){
+# #     for(j in 30:37){
+# #       old_neighbour <- colnames(by_sec)[(30:37)[!is.na(by_sec[(i-1),30:37])]]
+# #       by_sec[i,old_neighbour] <- NA
+# #     }
+# #   }
+# # }
+# # rm(x, behaviour, elephant, i, partner, partners, times)
+# # 
+# # # fill in impossible dyads
+# # for(row in 1:nrow(by_sec)) {
+# #   for(column in 30:37){
+# #     if(colnames(by_sec)[column] == by_sec$bull[row]){
+# #       by_sec[row,column] <- 'impossible_partner'
+# #     }
+# #   }
+# # }
+# # rm(column, j, old_neighbour, row) ; gc()
+# # 
+# # # rename elephant columns to indicate looking directions
+# # by_sec <- by_sec %>%
+# #   mutate(b1 = ifelse( is.na(b1) == TRUE, '0', b1),
+# #          b2 = ifelse( is.na(b2) == TRUE, '0', b2),
+# #          b3 = ifelse( is.na(b3) == TRUE, '0', b3),
+# #          b4 = ifelse( is.na(b4) == TRUE, '0', b4),
+# #          b5 = ifelse( is.na(b5) == TRUE, '0', b5),
+# #          b6 = ifelse( is.na(b6) == TRUE, '0', b6),
+# #          b7 = ifelse( is.na(b7) == TRUE, '0', b7),
+# #          b8 = ifelse( is.na(b8) == TRUE, '0', b8)) %>%
+# #   rename(b1_nn = b1,
+# #          b2_nn = b2,
+# #          b3_nn = b3,
+# #          b4_nn = b4,
+# #          b5_nn = b5,
+# #          b6_nn = b6,
+# #          b7_nn = b7,
+# #          b8_nn = b8)
+# # 
+# # # save output
+# # saveRDS(by_sec, '../data_processed/behaviour_by_second.RDS')
+# 
 ### convert to long format and remove impossible dyads ####
 # by_sec <- readRDS('../data_processed/behaviour_by_second.RDS')
 rm(list = ls() [ !ls() %in% c('by_sec','videos') ])
 
 by_sec_long <- by_sec %>% 
-  pivot_longer(cols = 6:45, names_to = 'behaviour_type', values_to = 'action') %>% 
+  pivot_longer(cols = 6:46, names_to = 'behaviour_type', values_to = 'action') %>% 
   filter(action != 'impossible_partner') %>% 
   separate(behaviour_type, into = c('target','type'), remove = F) %>% 
   mutate(type = ifelse(target == 'ears' | target == 'trunk' | target == 'tail', 'stress',
                        ifelse(target == 'neighbour', 'intitiated_by', type))) %>% 
-  mutate(partner = ifelse( target == 'stress' | target == 'neighbour' | target == 'speaker' | target == 'vehicle',
-                           subject, paste0(target, '_e', pb_num))) %>% 
+  mutate(partner = ifelse(target == 'stress' | target == 'speaker' | target == 'vehicle',
+                          subject, 
+                          ifelse(target == 'neighbour',
+                                 paste0(action, '_e', pb_num),
+                                 paste0(target, '_e', pb_num)))) %>% 
   filter(partner %in% unique(by_sec$subject)) %>% 
   mutate(partner = ifelse(partner == subject, NA, partner),
          target = ifelse(target == 'b1' | target == 'b2' | target == 'b3' | target == 'b4' |
@@ -3122,17 +3170,73 @@ by_sec_wide <- by_sec_wide %>%
          b3_nn = ifelse(b3 == 0, NA, b3_nn), b4_nn = ifelse(b4 == 0, NA, b4_nn),
          b5_nn = ifelse(b5 == 0, NA, b5_nn), b6_nn = ifelse(b6 == 0, NA, b6_nn),
          b7_nn = ifelse(b7 == 0, NA, b7_nn), b8_nn = ifelse(b8 == 0, NA, b8_nn)) %>% 
-  mutate(b1_social = ifelse(b1 == 0, NA, b1_social), b2_social = ifelse(b2 == 0, NA, b2_social),
-         b3_social = ifelse(b3 == 0, NA, b3_social), b4_social = ifelse(b4 == 0, NA, b4_social),
-         b5_social = ifelse(b5 == 0, NA, b5_social), b6_social = ifelse(b6 == 0, NA, b6_social),
-         b7_social = ifelse(b7 == 0, NA, b7_social), b8_social = ifelse(b8 == 0, NA, b8_social)) %>% 
+  # mutate(b1_social = ifelse(b1 == 0, NA, b1_social), b2_social = ifelse(b2 == 0, NA, b2_social),
+  #        b3_social = ifelse(b3 == 0, NA, b3_social), b4_social = ifelse(b4 == 0, NA, b4_social),
+  #        b5_social = ifelse(b5 == 0, NA, b5_social), b6_social = ifelse(b6 == 0, NA, b6_social),
+  #        b7_social = ifelse(b7 == 0, NA, b7_social), b8_social = ifelse(b8 == 0, NA, b8_social)) %>% 
   rename(b1_present = b1, b2_present = b2, b3_present = b3, b4_present = b4,
          b5_present = b5, b6_present = b6, b7_present = b7, b8_present = b8)
 
 # convert to index variable
 by_sec_index <- by_sec_wide
 for( j in 5:45 ){
-  by_sec_index[,j] <- as.integer(as.factor(by_sec_index[,j]))
+  # Looking direction
+  if(length(grep(pattern = 'look', x = colnames(by_sec_index)[j])) > 0){
+    by_sec_index[,j] <- as.integer(factor(by_sec_index[,j],
+                                          levels = c('look directly away',
+                                                     'side-on',
+                                                     'look at directly')))
+  }
+  # Movement direction
+  if(length(grep(pattern = 'move', x = colnames(by_sec_index)[j])) > 0){
+    by_sec_index[,j] <- as.integer(factor(by_sec_index[,j],
+                                          levels = c('not_moving',
+                                                     'move away directly',
+                                                     'move away at an angle',
+                                                     'move directly with',
+                                                     'approach at an angle',
+                                                     'approach directly'))
+                                   ) - 1
+  }
+  # Nearest neighbour
+  if(length(grep(pattern = 'nn', x = colnames(by_sec_index)[j])) > 0){
+    by_sec_index[,j] <- as.integer(factor(by_sec_index[,j],
+                                          levels = c('0', '1')))
+  }
+  # Social touch
+  if(colnames(by_sec_index)[j] == 'social'){
+    by_sec_index[,j] <- as.integer(factor(by_sec_index[,j],
+                                          levels = c('no contact',
+                                                     'b1','b2','b3','b4',
+                                                     'b5','b6','b7','b8'))
+                                   ) - 1
+  }
+  if(length(grep(pattern = '_social', x = colnames(by_sec_index)[j])) > 0){
+    by_sec_index[,j] <- as.integer(factor(by_sec_index[,j],
+                                          levels = c('0',
+                                                     'b1','b2','b3','b4',
+                                                     'b5','b6','b7','b8',
+                                                     'unknown'))
+                                   ) - 1
+  }
+  # ears
+  if(colnames(by_sec_index)[j] == 'ears'){
+    by_sec_index[,j] <- as.integer(factor(by_sec_index[,j],
+                                          levels = c('relaxed (back or flapping regularly)',
+                                                     'flared')))
+  }
+  # trunk
+  if(colnames(by_sec_index)[j] == 'trunk'){
+    by_sec_index[,j] <- as.integer(factor(by_sec_index[,j],
+                                          levels = c('not sniffing (rest/feed/dust/stationary)',
+                                          'down and ground-level sniff',
+                                          'up and periscope sniffing')))
+  }
+  # tail
+  if(colnames(by_sec_index)[j] == 'tail'){
+    by_sec_index[,j] <- as.integer(factor(by_sec_index[,j],
+                                          levels = c('down', 'up')))
+  }
 }
 
 # combine to single data frame so have both index variable and name together
@@ -3156,7 +3260,7 @@ colnames(by_sec_index2) <- c("subject","bull","pb_num","second",
                              "b5_social_index","b6_social_index","b7_social_index","b8_social_index",
                              "b1_present_index","b2_present_index","b3_present_index","b4_present_index",
                              "b5_present_index","b6_present_index","b7_present_index","b8_present_index",
-                             "unique_index",
+                             #"unique_index",
                              "out_frame_name",
                              "ears_name","trunk_name","tail_name",
                              "speaker_look_name","vehicle_look_name",
@@ -3201,309 +3305,312 @@ by_sec_index2 <- by_sec_index2 %>%
 
 saveRDS(by_sec_index2, '../data_processed/behaviour_by_second_indexvariables.RDS')
 
-### graphs ####
-by_sec <- readRDS('../data_processed/behaviour_by_second_indexvariables.RDS') %>% 
-  mutate(b1_nn_name = ifelse(b1_nn_name == '0', 'not_nearest',
-                             ifelse(b1_nn_name == '1', 'nearest_neighbour', b1_nn_name))) %>% 
-  mutate(b2_nn_name = ifelse(b2_nn_name == '0', 'not_nearest',
-                             ifelse(b2_nn_name == '1', 'nearest_neighbour', b2_nn_name))) %>% 
-  mutate(b3_nn_name = ifelse(b3_nn_name == '0', 'not_nearest',
-                             ifelse(b3_nn_name == '1', 'nearest_neighbour', b3_nn_name))) %>% 
-  mutate(b4_nn_name = ifelse(b4_nn_name == '0', 'not_nearest',
-                             ifelse(b4_nn_name == '1', 'nearest_neighbour', b4_nn_name))) %>% 
-  mutate(b5_nn_name = ifelse(b5_nn_name == '0', 'not_nearest',
-                             ifelse(b5_nn_name == '1', 'nearest_neighbour', b5_nn_name))) %>% 
-  mutate(b6_nn_name = ifelse(b6_nn_name == '0', 'not_nearest',
-                             ifelse(b6_nn_name == '1', 'nearest_neighbour', b6_nn_name))) %>% 
-  mutate(b7_nn_name = ifelse(b7_nn_name == '0', 'not_nearest',
-                             ifelse(b7_nn_name == '1', 'nearest_neighbour', b7_nn_name))) %>% 
-  mutate(b8_nn_name = ifelse(b8_nn_name == '0', 'not_nearest',
-                             ifelse(b8_nn_name == '1', 'nearest_neighbour', b8_nn_name)))
-
-ages <- readRDS('../data_processed/elephants.RDS') %>% 
-  select(subject, bull, age, pb_num) %>% 
-  distinct()
-
-stimuli <- readRDS('../data_processed/stimuli.RDS') %>% 
-  filter(behavior == 'STIMULUS')
-
-b1_e1 <- by_sec %>%
-  filter(subject == 'b1_e1') %>% 
-  select("second","ears_name","trunk_name","tail_name",
-         "speaker_look_name","vehicle_look_name","speaker_move_name","vehicle_move_name",
-         "b1_look_name","b2_look_name","b3_look_name","b4_look_name",
-         "b1_move_name","b2_move_name","b3_move_name","b4_move_name",
-         "neighbour_name","b1_nn_name","b2_nn_name","b3_nn_name","b4_nn_name",
-         "social_name","b1_social_name","b2_social_name","b3_social_name","b4_social_name")
-ages_e1 <- ages %>% 
-  filter(pb_num == 1) %>% 
-  mutate(partner_look = paste0('b',bull),
-         partner_move = paste0('b',bull),
-         partner_age = age)
-stim_e1 <- stimuli %>% 
-  filter(pb_num == 1) %>% 
-  select(time, status) %>% 
-  mutate(second = round(as.numeric(time), 0))
-
-look <- b1_e1 %>% 
-  select("second","b1_look_name","b2_look_name","b3_look_name","b4_look_name") %>% 
-  pivot_longer(cols = c("b1_look_name","b2_look_name","b3_look_name","b4_look_name"),
-               names_to = 'partner_look', values_to = 'direction_look') %>% 
-  filter(direction_look != 'impossible_partner') %>% 
-  separate(partner_look, into = c('partner_look','look_name'), sep = 2) %>% 
-  select(-look_name) %>% 
-  left_join(ages_e1[,c('partner_look','partner_age')], by = 'partner_look') %>% 
-  mutate(direction = ifelse(direction_look == 'look at directly',3,
-                            ifelse(direction_look == 'side-on',2,1)))
-ggplot()+
-  geom_rect(data = stim_e1, aes(xmin = second[which(status == 'START')], xmax = second[which(status == 'STOP')],
-                                ymin = min(look$direction)-0.5, ymax = max(look$direction)+0.5),
-            fill = 'grey')+
-  geom_line(data = look, mapping = aes(x = second, y = direction, colour = partner_look))+
-  coord_cartesian(ylim = c(min(look$direction)-0.1, max(look$direction)+0.1), expand = FALSE)
-
-move <- b1_e1 %>% 
-  select("second","b1_move_name","b2_move_name","b3_move_name","b4_move_name") %>% 
-  pivot_longer(cols = c("b1_move_name","b2_move_name","b3_move_name","b4_move_name"),
-               names_to = 'partner_move', values_to = 'direction_move') %>% 
-  filter(direction_move != 'impossible_partner') %>% 
-  separate(partner_move, into = c('partner_move','move_name'), sep = 2) %>% 
-  select(-move_name) %>% 
-  left_join(ages_e1[,c('partner_move','partner_age')], by = 'partner_move') %>% 
-  mutate(direction = ifelse(direction_move == 'approach directly',5,
-                            ifelse(direction_move == 'approach at an angle',4,
-                                   ifelse(direction_move == 'move directly with',3,
-                                          ifelse(direction_move == 'move away at an angle',2,
-                                                 ifelse(direction_move == 'move away directly',1, NA))))))
-ggplot()+
-  geom_rect(data = stim_e1, aes(xmin = second[which(status == 'START')], xmax = second[which(status == 'STOP')],
-                                ymin = min(move$direction, na.rm = T)-0.5, ymax = max(move$direction, na.rm = T)+0.5),
-            fill = 'grey')+
-  geom_line(data = move, mapping = aes(x = second, y = direction, colour = partner_move))+
-  coord_cartesian(ylim = c(min(move$direction, na.rm = T)-0.1, max(move$direction, na.rm = T)+0.1), expand = FALSE)
-
-
-
-
-
-
-
-
-e3 <- by_sec %>%
-  filter(pb_num == 3) %>% 
-  select("subject","pb_num","second","ears_name","trunk_name","tail_name",
-         "speaker_look_name","vehicle_look_name","speaker_move_name","vehicle_move_name",
-         "b1_look_name","b2_look_name","b3_look_name","b4_look_name",
-         "b5_look_name","b6_look_name","b7_look_name","b8_look_name",
-         "b1_move_name","b2_move_name","b3_move_name","b4_move_name",
-         "b5_move_name","b6_move_name","b7_move_name","b8_move_name",
-         "neighbour_name","b1_nn_name","b2_nn_name","b3_nn_name","b4_nn_name","b5_nn_name","b6_nn_name","b7_nn_name","b8_nn_name",
-         "social_name","b1_social_name","b2_social_name","b3_social_name","b4_social_name","b5_social_name","b6_social_name","b7_social_name","b8_social_name")
-ages_e3 <- ages %>% 
-  filter(pb_num == 3) %>% 
-  mutate(partner_look = paste0('b',bull),
-         partner_move = paste0('b',bull),
-         partner_age = age)
-stim_e3 <- stimuli %>% 
-  filter(pb_num == 3) %>% 
-  select(time, status) %>% 
-  mutate(second = round(as.numeric(time), 0)) %>% 
-  mutate(second_std = second - min(second))
-
-look <- e3 %>% 
-  select("subject","pb_num","second","b1_look_name","b2_look_name","b3_look_name","b4_look_name","b5_look_name","b6_look_name","b7_look_name","b8_look_name") %>% 
-  pivot_longer(cols = c("b1_look_name","b2_look_name","b3_look_name","b4_look_name","b5_look_name","b6_look_name","b7_look_name","b8_look_name"),
-               names_to = 'partner_look', values_to = 'direction_look') %>% 
-  filter(direction_look != 'impossible_partner') %>% 
-  left_join(ages_e3[,c('subject','age')], by = 'subject') %>% 
-  separate(partner_look, into = c('partner_look','look_name'), sep = 2) %>% 
-  select(-look_name) %>% 
-  mutate(pb_num = as.numeric(pb_num)) %>% 
-  left_join(ages_e3[,c('partner_look','pb_num','partner_age')], by = c('partner_look','pb_num')) %>% 
-  mutate(age = ifelse(age == '16-25','21-25',age),
-         partner_age = ifelse(partner_age == '16-25','21-25',partner_age)) %>% 
-  mutate(age_focal = as.integer(as.factor(age)),
-         age_partner = as.integer(as.factor(partner_age))) %>% 
-  mutate(age_difference = ifelse(age_focal == age_partner, 'age matched',
-                                 ifelse(age_focal > age_partner, 'older than partner', 'younger than partner')),
-         direction = ifelse(direction_look == 'look at directly',3,
-                            ifelse(direction_look == 'side-on',2,
-                                   ifelse(direction_look == 'look directly away',1, NA)))) %>% 
-  mutate(second_std = second - min(stim_e3$second)) %>% 
-  separate(subject, into = c('bull', 'exp'), sep = '_', remove = F) %>% 
-  select(-exp) %>% 
-  mutate(bull = paste0(bull, ' (focal)'),
-         partner_look = paste0(partner_look, ' (target)'))
-
-ggplot()+
-  #facet_wrap(. ~ subject)+
-  facet_grid(partner_look ~ bull)+
-  annotate('rect',xmin = stim_e3$second_std[which(stim_e3$status == 'START')],
-           xmax = stim_e3$second_std[which(stim_e3$status == 'STOP')],
-           ymin = min(look$direction, na.rm = T)-0.5,
-           ymax = max(look$direction, na.rm = T)+0.5,
-           fill = 'grey')+
-  geom_line(data = look, mapping = aes(x = second_std, y = direction, 
-                                       colour = age_difference, group = partner_look))+
-  coord_cartesian(ylim = c(min(look$direction, na.rm = T)-0.1, max(look$direction, na.rm = T)+0.1), expand = FALSE)+
-  #theme(legend.position = c(0.92, 0.05),
-  #      legend.justification = c(1, 0))+
-  theme(legend.position = 'bottom')+#,
-  #       axis.text.y = element_blank(),
-  #       axis.ticks.y = element_blank())+
-  # scale_y_continuous(breaks = 1:3, labels = c('away','side','face'))+
-  labs(colour = 'age relative to partner')
-
-e7 <- by_sec %>%
-  filter(pb_num == 7) %>% 
-  select("subject","pb_num","second","ears_name","trunk_name","tail_name",
-         "speaker_look_name","vehicle_look_name","speaker_move_name","vehicle_move_name",
-         "b1_look_name","b2_look_name","b3_look_name","b4_look_name",
-         "b5_look_name","b6_look_name","b7_look_name","b8_look_name",
-         "b1_move_name","b2_move_name","b3_move_name","b4_move_name",
-         "b5_move_name","b6_move_name","b7_move_name","b8_move_name",
-         "neighbour_name","b1_nn_name","b2_nn_name","b3_nn_name","b4_nn_name","b5_nn_name","b6_nn_name","b7_nn_name","b8_nn_name",
-         "social_name","b1_social_name","b2_social_name","b3_social_name","b4_social_name","b5_social_name","b6_social_name","b7_social_name","b8_social_name")
-ages_e7 <- ages %>% 
-  filter(pb_num == 7) %>% 
-  mutate(partner_look = paste0('b',bull),
-         partner_move = paste0('b',bull),
-         partner_age = age)
-stim_e7 <- stimuli %>% 
-  filter(pb_num == 7) %>% 
-  select(time, status) %>% 
-  mutate(second = round(as.numeric(time), 0)) %>% 
-  mutate(second_std = second - min(second))
-
-look <- e7 %>% 
-  select("subject","pb_num","second","b1_look_name","b2_look_name","b3_look_name","b4_look_name","b5_look_name","b6_look_name","b7_look_name","b8_look_name") %>% 
-  pivot_longer(cols = c("b1_look_name","b2_look_name","b3_look_name","b4_look_name","b5_look_name","b6_look_name","b7_look_name","b8_look_name"),
-               names_to = 'partner_look', values_to = 'direction_look') %>% 
-  filter(direction_look != 'impossible_partner') %>% 
-  left_join(ages_e7[,c('subject','age')], by = 'subject') %>% 
-  separate(partner_look, into = c('partner_look','look_name'), sep = 2) %>% 
-  select(-look_name) %>% 
-  mutate(pb_num = as.numeric(pb_num)) %>% 
-  left_join(ages_e7[,c('partner_look','pb_num','partner_age')], by = c('partner_look','pb_num')) %>% 
-  mutate(age = ifelse(age == '16-25','21-25',age),
-         partner_age = ifelse(partner_age == '16-25','21-25',partner_age)) %>% 
-  mutate(age_focal = as.integer(as.factor(age)),
-         age_partner = as.integer(as.factor(partner_age))) %>% 
-  mutate(age_difference = ifelse(age_focal == age_partner, 'age matched',
-                                 ifelse(age_focal > age_partner, 'older than partner', 'younger than partner')),
-         direction = ifelse(direction_look == 'look at directly',3,
-                            ifelse(direction_look == 'side-on',2,
-                                   ifelse(direction_look == 'look directly away',1, NA)))) %>% 
-  mutate(second_std = second - min(stim_e7$second)) %>% 
-  separate(subject, into = c('bull', 'exp'), sep = '_', remove = F) %>% 
-  select(-exp) %>% 
-  mutate(bull = paste0(bull, ' (focal)'),
-         partner_look = paste0(partner_look, ' (target)'))
-
-ggplot()+
-  #facet_wrap(. ~ subject)+
-  facet_grid(partner_look ~ bull)+
-  annotate('rect',xmin = stim_e7$second_std[which(stim_e7$status == 'START')],
-           xmax = stim_e7$second_std[which(stim_e7$status == 'STOP')],
-           ymin = min(look$direction, na.rm = T)-0.5,
-           ymax = max(look$direction, na.rm = T)+0.5,
-           fill = 'grey')+
-  geom_line(data = look, mapping = aes(x = second_std, y = direction, 
-                                       colour = age_difference, group = partner_look))+
-  coord_cartesian(ylim = c(min(look$direction, na.rm = T)-0.1, max(look$direction, na.rm = T)+0.1), expand = FALSE)+
-  #theme(legend.position = c(0.92, 0.05),
-  #      legend.justification = c(1, 0))+
-  theme(legend.position = 'bottom')+#,
-  #       axis.text.y = element_blank(),
-  #       axis.ticks.y = element_blank())+
-  # scale_y_continuous(breaks = 1:3, labels = c('away','side','face'))+
-  labs(colour = 'age relative to partner')
-
-
-
-
-
-
-
-
-
-
-
-
-
-plot <- by_sec %>%
-  select("subject","bull","pb_num","second","ears_name","trunk_name","tail_name",
-         "speaker_look_name","vehicle_look_name","speaker_move_name","vehicle_move_name",
-         "b1_look_name","b2_look_name","b3_look_name","b4_look_name","b5_look_name","b6_look_name","b7_look_name","b8_look_name",
-         "b1_move_name","b2_move_name","b3_move_name","b4_move_name","b5_move_name","b6_move_name","b7_move_name","b8_move_name",
-         "neighbour_name","b1_nn_name","b2_nn_name","b3_nn_name","b4_nn_name","b5_nn_name","b6_nn_name","b7_nn_name","b8_nn_name",
-         "social_name","b1_social_name","b2_social_name","b3_social_name","b4_social_name","b5_social_name","b6_social_name","b7_social_name","b8_social_name",
-         "b1_present_index","b2_present_index","b3_present_index","b4_present_index","b5_present_index","b6_present_index","b7_present_index","b8_present_index")
-ages <- ages %>% 
-  mutate(partner_look = paste0('b',bull),
-         partner_move = paste0('b',bull),
-         partner_age = age)
-stim <- stimuli %>% 
-  select(pb_num, time, status) %>% 
-  mutate(second = round(as.numeric(time), 0))
-
-look <- plot %>% 
-  select("subject","pb_num","bull","second","b1_look_name","b2_look_name","b3_look_name","b4_look_name","b5_look_name","b6_look_name","b7_look_name","b8_look_name") %>% 
-  pivot_longer(cols = c("b1_look_name","b2_look_name","b3_look_name","b4_look_name","b5_look_name","b6_look_name","b7_look_name","b8_look_name"),
-               names_to = 'partner_look', values_to = 'direction_look') %>% 
-  filter(direction_look != 'impossible_partner') %>% 
-  left_join(ages[,c('subject','age')], by = 'subject') %>% 
-  separate(partner_look, into = c('partner_look','look_name'), sep = 2) %>% 
-  select(-look_name) %>% 
-  mutate(pb_num = as.numeric(pb_num)) %>% 
-  left_join(ages[,c('partner_look','pb_num','partner_age')], by = c('partner_look','pb_num')) %>% 
-  mutate(age = ifelse(age == '16-25','21-25',age),
-         partner_age = ifelse(partner_age == '16-25','21-25',partner_age)) %>% 
-  mutate(age_focal = as.integer(as.factor(age)),
-         age_partner = as.integer(as.factor(partner_age))) %>% 
-  mutate(age_difference = ifelse(age_focal == age_partner, 'age_matched',
-                                 ifelse(age_focal > age_partner, 'partner_younger', 'partner_older')),
-         direction = ifelse(direction_look == 'look at directly',3,
-                            ifelse(direction_look == 'side-on',2,
-                                   ifelse(direction_look == 'look directly away',1, NA))))
-ggplot()+
-  # geom_rect(data = stim, aes(xmin = second[which(status == 'START')], xmax = second[which(status == 'STOP')],
-  #                            ymin = min(look$direction)-0.5, ymax = max(look$direction)+0.5),
-  #           fill = 'grey')+
-  geom_line(data = look, mapping = aes(x = second, y = direction, colour = age_difference, group_by = subject))+
-  facet_wrap(. ~ as.numeric(pb_num), scales = 'free_x')+
-  coord_cartesian(ylim = c(min(look$direction)-0.1, max(look$direction)+0.1), expand = FALSE)
-
-
-
-move <- plot %>% 
-  select("second","b1_move_name","b2_move_name","b3_move_name","b4_move_name") %>% 
-  pivot_longer(cols = c("b1_move_name","b2_move_name","b3_move_name","b4_move_name"),
-               names_to = 'partner_move', values_to = 'direction_move') %>% 
-  filter(direction_move != 'impossible_partner') %>% 
-  separate(partner_move, into = c('partner_move','move_name'), sep = 2) %>% 
-  select(-move_name) %>% 
-  left_join(ages_e1[,c('partner_move','partner_age')], by = 'partner_move') %>% 
-  mutate(direction = ifelse(direction_move == 'approach directly',5,
-                            ifelse(direction_move == 'approach at an angle',4,
-                                   ifelse(direction_move == 'move directly with',3,
-                                          ifelse(direction_move == 'move away at an angle',2,
-                                                 ifelse(direction_move == 'move away directly',1, NA))))))
-ggplot()+
-  geom_rect(data = stim_e1, aes(xmin = second[which(status == 'START')], xmax = second[which(status == 'STOP')],
-                                ymin = min(move$direction, na.rm = T)-0.5, ymax = max(move$direction, na.rm = T)+0.5),
-            fill = 'grey')+
-  geom_line(data = move, mapping = aes(x = second, y = direction, colour = partner_move, group = ))+
-  coord_cartesian(ylim = c(min(move$direction, na.rm = T)-0.1, max(move$direction, na.rm = T)+0.1), expand = FALSE)
-
-
-
-
-
-
-
-
-
-
-
-
+# ### graphs ####
+# by_sec <- readRDS('../data_processed/behaviour_by_second_indexvariables.RDS') %>% 
+#   mutate(b1_nn_name = ifelse(b1_nn_name == '0', 'not_nearest',
+#                              ifelse(b1_nn_name == '1', 'nearest_neighbour', b1_nn_name))) %>% 
+#   mutate(b2_nn_name = ifelse(b2_nn_name == '0', 'not_nearest',
+#                              ifelse(b2_nn_name == '1', 'nearest_neighbour', b2_nn_name))) %>% 
+#   mutate(b3_nn_name = ifelse(b3_nn_name == '0', 'not_nearest',
+#                              ifelse(b3_nn_name == '1', 'nearest_neighbour', b3_nn_name))) %>% 
+#   mutate(b4_nn_name = ifelse(b4_nn_name == '0', 'not_nearest',
+#                              ifelse(b4_nn_name == '1', 'nearest_neighbour', b4_nn_name))) %>% 
+#   mutate(b5_nn_name = ifelse(b5_nn_name == '0', 'not_nearest',
+#                              ifelse(b5_nn_name == '1', 'nearest_neighbour', b5_nn_name))) %>% 
+#   mutate(b6_nn_name = ifelse(b6_nn_name == '0', 'not_nearest',
+#                              ifelse(b6_nn_name == '1', 'nearest_neighbour', b6_nn_name))) %>% 
+#   mutate(b7_nn_name = ifelse(b7_nn_name == '0', 'not_nearest',
+#                              ifelse(b7_nn_name == '1', 'nearest_neighbour', b7_nn_name))) %>% 
+#   mutate(b8_nn_name = ifelse(b8_nn_name == '0', 'not_nearest',
+#                              ifelse(b8_nn_name == '1', 'nearest_neighbour', b8_nn_name)))
+# 
+# ages <- readRDS('../data_processed/elephants.RDS') %>% 
+#   select(subject, bull, age, pb_num) %>% 
+#   distinct()
+# 
+# stimuli <- readRDS('../data_processed/stimuli.RDS') %>% 
+#   filter(behavior == 'STIMULUS')
+# 
+# b1_e1 <- by_sec %>%
+#   filter(subject == 'b1_e1') %>% 
+#   select("second","ears_name","trunk_name","tail_name",
+#          "speaker_look_name","vehicle_look_name","speaker_move_name","vehicle_move_name",
+#          "b1_look_name","b2_look_name","b3_look_name","b4_look_name",
+#          "b1_move_name","b2_move_name","b3_move_name","b4_move_name",
+#          "neighbour_name","b1_nn_name","b2_nn_name","b3_nn_name","b4_nn_name",
+#          "social_name","b1_social_name","b2_social_name","b3_social_name","b4_social_name")
+# ages_e1 <- ages %>% 
+#   filter(pb_num == 1) %>% 
+#   mutate(partner_look = paste0('b',bull),
+#          partner_move = paste0('b',bull),
+#          partner_age = age)
+# stim_e1 <- stimuli %>% 
+#   filter(pb_num == 1) %>% 
+#   select(time, status) %>% 
+#   mutate(second = round(as.numeric(time), 0))
+# 
+# look <- b1_e1 %>% 
+#   select("second","b1_look_name","b2_look_name","b3_look_name","b4_look_name") %>% 
+#   pivot_longer(cols = c("b1_look_name","b2_look_name","b3_look_name","b4_look_name"),
+#                names_to = 'partner_look', values_to = 'direction_look') %>% 
+#   filter(direction_look != 'impossible_partner') %>% 
+#   separate(partner_look, into = c('partner_look','look_name'), sep = 2) %>% 
+#   select(-look_name) %>% 
+#   left_join(ages_e1[,c('partner_look','partner_age')], by = 'partner_look') %>% 
+#   mutate(direction = ifelse(direction_look == 'look at directly',3,
+#                             ifelse(direction_look == 'side-on',2,1)))
+# ggplot()+
+#   geom_rect(data = stim_e1, aes(xmin = second[which(status == 'START')], xmax = second[which(status == 'STOP')],
+#                                 ymin = min(look$direction)-0.5, ymax = max(look$direction)+0.5),
+#             fill = 'grey')+
+#   geom_line(data = look, mapping = aes(x = second, y = direction, colour = partner_look))+
+#   coord_cartesian(ylim = c(min(look$direction)-0.1, max(look$direction)+0.1), expand = FALSE)
+# 
+# move <- b1_e1 %>% 
+#   select("second","b1_move_name","b2_move_name","b3_move_name","b4_move_name") %>% 
+#   pivot_longer(cols = c("b1_move_name","b2_move_name","b3_move_name","b4_move_name"),
+#                names_to = 'partner_move', values_to = 'direction_move') %>% 
+#   filter(direction_move != 'impossible_partner') %>% 
+#   separate(partner_move, into = c('partner_move','move_name'), sep = 2) %>% 
+#   select(-move_name) %>% 
+#   left_join(ages_e1[,c('partner_move','partner_age')], by = 'partner_move') %>% 
+#   mutate(direction = ifelse(direction_move == 'approach directly',5,
+#                             ifelse(direction_move == 'approach at an angle',4,
+#                                    ifelse(direction_move == 'move directly with',3,
+#                                           ifelse(direction_move == 'move away at an angle',2,
+#                                                  ifelse(direction_move == 'move away directly',1, NA))))))
+# ggplot()+
+#   geom_rect(data = stim_e1, aes(xmin = second[which(status == 'START')], xmax = second[which(status == 'STOP')],
+#                                 ymin = min(move$direction, na.rm = T)-0.5, ymax = max(move$direction, na.rm = T)+0.5),
+#             fill = 'grey')+
+#   geom_line(data = move, mapping = aes(x = second, y = direction, colour = partner_move))+
+#   coord_cartesian(ylim = c(min(move$direction, na.rm = T)-0.1, max(move$direction, na.rm = T)+0.1), expand = FALSE)
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# e3 <- by_sec %>%
+#   filter(pb_num == 3) %>% 
+#   select("subject","pb_num","second","ears_name","trunk_name","tail_name",
+#          "speaker_look_name","vehicle_look_name","speaker_move_name","vehicle_move_name",
+#          "b1_look_name","b2_look_name","b3_look_name","b4_look_name",
+#          "b5_look_name","b6_look_name","b7_look_name","b8_look_name",
+#          "b1_move_name","b2_move_name","b3_move_name","b4_move_name",
+#          "b5_move_name","b6_move_name","b7_move_name","b8_move_name",
+#          "neighbour_name","b1_nn_name","b2_nn_name","b3_nn_name","b4_nn_name","b5_nn_name","b6_nn_name","b7_nn_name","b8_nn_name",
+#          "social_name","b1_social_name","b2_social_name","b3_social_name","b4_social_name","b5_social_name","b6_social_name","b7_social_name","b8_social_name")
+# ages_e3 <- ages %>% 
+#   filter(pb_num == 3) %>% 
+#   mutate(partner_look = paste0('b',bull),
+#          partner_move = paste0('b',bull),
+#          partner_age = age)
+# stim_e3 <- stimuli %>% 
+#   filter(pb_num == 3) %>% 
+#   select(time, status) %>% 
+#   mutate(second = round(as.numeric(time), 0)) %>% 
+#   mutate(second_std = second - min(second))
+# 
+# look <- e3 %>% 
+#   select("subject","pb_num","second","b1_look_name","b2_look_name","b3_look_name","b4_look_name","b5_look_name","b6_look_name","b7_look_name","b8_look_name") %>% 
+#   pivot_longer(cols = c("b1_look_name","b2_look_name","b3_look_name","b4_look_name","b5_look_name","b6_look_name","b7_look_name","b8_look_name"),
+#                names_to = 'partner_look', values_to = 'direction_look') %>% 
+#   filter(direction_look != 'impossible_partner') %>% 
+#   left_join(ages_e3[,c('subject','age')], by = 'subject') %>% 
+#   separate(partner_look, into = c('partner_look','look_name'), sep = 2) %>% 
+#   select(-look_name) %>% 
+#   mutate(pb_num = as.numeric(pb_num)) %>% 
+#   left_join(ages_e3[,c('partner_look','pb_num','partner_age')], by = c('partner_look','pb_num')) %>% 
+#   mutate(age = ifelse(age == '16-25','21-25',age),
+#          partner_age = ifelse(partner_age == '16-25','21-25',partner_age)) %>% 
+#   mutate(age_focal = as.integer(as.factor(age)),
+#          age_partner = as.integer(as.factor(partner_age))) %>% 
+#   mutate(age_difference = ifelse(age_focal == age_partner, 'age matched',
+#                                  ifelse(age_focal > age_partner, 'older than partner', 'younger than partner')),
+#          direction = ifelse(direction_look == 'look at directly',3,
+#                             ifelse(direction_look == 'side-on',2,
+#                                    ifelse(direction_look == 'look directly away',1, NA)))) %>% 
+#   mutate(second_std = second - min(stim_e3$second)) %>% 
+#   separate(subject, into = c('bull', 'exp'), sep = '_', remove = F) %>% 
+#   select(-exp) %>% 
+#   mutate(bull = paste0(bull, ' (focal)'),
+#          partner_look = paste0(partner_look, ' (target)'))
+# 
+# ggplot()+
+#   #facet_wrap(. ~ subject)+
+#   facet_grid(partner_look ~ bull)+
+#   annotate('rect',xmin = stim_e3$second_std[which(stim_e3$status == 'START')],
+#            xmax = stim_e3$second_std[which(stim_e3$status == 'STOP')],
+#            ymin = min(look$direction, na.rm = T)-0.5,
+#            ymax = max(look$direction, na.rm = T)+0.5,
+#            fill = 'grey')+
+#   geom_line(data = look, mapping = aes(x = second_std, y = direction, 
+#                                        colour = age_difference, group = partner_look))+
+#   coord_cartesian(ylim = c(min(look$direction, na.rm = T)-0.1, max(look$direction, na.rm = T)+0.1), expand = FALSE)+
+#   #theme(legend.position = c(0.92, 0.05),
+#   #      legend.justification = c(1, 0))+
+#   theme(legend.position = 'bottom')+#,
+#   #       axis.text.y = element_blank(),
+#   #       axis.ticks.y = element_blank())+
+#   # scale_y_continuous(breaks = 1:3, labels = c('away','side','face'))+
+#   labs(colour = 'age relative to partner')
+# 
+# e7 <- by_sec %>%
+#   filter(pb_num == 7) %>% 
+#   select("subject","pb_num","second","ears_name","trunk_name","tail_name",
+#          "speaker_look_name","vehicle_look_name","speaker_move_name","vehicle_move_name",
+#          "b1_look_name","b2_look_name","b3_look_name","b4_look_name",
+#          "b5_look_name","b6_look_name","b7_look_name","b8_look_name",
+#          "b1_move_name","b2_move_name","b3_move_name","b4_move_name",
+#          "b5_move_name","b6_move_name","b7_move_name","b8_move_name",
+#          "neighbour_name","b1_nn_name","b2_nn_name","b3_nn_name","b4_nn_name","b5_nn_name","b6_nn_name","b7_nn_name","b8_nn_name",
+#          "social_name","b1_social_name","b2_social_name","b3_social_name","b4_social_name","b5_social_name","b6_social_name","b7_social_name","b8_social_name")
+# ages_e7 <- ages %>% 
+#   filter(pb_num == 7) %>% 
+#   mutate(partner_look = paste0('b',bull),
+#          partner_move = paste0('b',bull),
+#          partner_age = age)
+# stim_e7 <- stimuli %>% 
+#   filter(pb_num == 7) %>% 
+#   select(time, status) %>% 
+#   mutate(second = round(as.numeric(time), 0)) %>% 
+#   mutate(second_std = second - min(second))
+# 
+# look <- e7 %>% 
+#   select("subject","pb_num","second","b1_look_name","b2_look_name","b3_look_name","b4_look_name","b5_look_name","b6_look_name","b7_look_name","b8_look_name") %>% 
+#   pivot_longer(cols = c("b1_look_name","b2_look_name","b3_look_name","b4_look_name","b5_look_name","b6_look_name","b7_look_name","b8_look_name"),
+#                names_to = 'partner_look', values_to = 'direction_look') %>% 
+#   filter(direction_look != 'impossible_partner') %>% 
+#   left_join(ages_e7[,c('subject','age')], by = 'subject') %>% 
+#   separate(partner_look, into = c('partner_look','look_name'), sep = 2) %>% 
+#   select(-look_name) %>% 
+#   mutate(pb_num = as.numeric(pb_num)) %>% 
+#   left_join(ages_e7[,c('partner_look','pb_num','partner_age')], by = c('partner_look','pb_num')) %>% 
+#   mutate(age = ifelse(age == '16-25','21-25',age),
+#          partner_age = ifelse(partner_age == '16-25','21-25',partner_age)) %>% 
+#   mutate(age_focal = as.integer(as.factor(age)),
+#          age_partner = as.integer(as.factor(partner_age))) %>% 
+#   mutate(age_difference = ifelse(age_focal == age_partner, 'age matched',
+#                                  ifelse(age_focal > age_partner, 'older than partner', 'younger than partner')),
+#          direction = ifelse(direction_look == 'look at directly',3,
+#                             ifelse(direction_look == 'side-on',2,
+#                                    ifelse(direction_look == 'look directly away',1, NA)))) %>% 
+#   mutate(second_std = second - min(stim_e7$second)) %>% 
+#   separate(subject, into = c('bull', 'exp'), sep = '_', remove = F) %>% 
+#   select(-exp) %>% 
+#   mutate(bull = paste0(bull, ' (focal)'),
+#          partner_look = paste0(partner_look, ' (target)'))
+# 
+# ggplot()+
+#   #facet_wrap(. ~ subject)+
+#   facet_grid(partner_look ~ bull)+
+#   annotate('rect',xmin = stim_e7$second_std[which(stim_e7$status == 'START')],
+#            xmax = stim_e7$second_std[which(stim_e7$status == 'STOP')],
+#            ymin = min(look$direction, na.rm = T)-0.5,
+#            ymax = max(look$direction, na.rm = T)+0.5,
+#            fill = 'grey')+
+#   geom_line(data = look, mapping = aes(x = second_std, y = direction, 
+#                                        colour = age_difference, group = partner_look))+
+#   coord_cartesian(ylim = c(min(look$direction, na.rm = T)-0.1, max(look$direction, na.rm = T)+0.1), expand = FALSE)+
+#   #theme(legend.position = c(0.92, 0.05),
+#   #      legend.justification = c(1, 0))+
+#   theme(legend.position = 'bottom')+#,
+#   #       axis.text.y = element_blank(),
+#   #       axis.ticks.y = element_blank())+
+#   # scale_y_continuous(breaks = 1:3, labels = c('away','side','face'))+
+#   labs(colour = 'age relative to partner')
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# plot <- by_sec %>%
+#   select("subject","bull","pb_num","second","ears_name","trunk_name","tail_name",
+#          "speaker_look_name","vehicle_look_name","speaker_move_name","vehicle_move_name",
+#          "b1_look_name","b2_look_name","b3_look_name","b4_look_name","b5_look_name","b6_look_name","b7_look_name","b8_look_name",
+#          "b1_move_name","b2_move_name","b3_move_name","b4_move_name","b5_move_name","b6_move_name","b7_move_name","b8_move_name",
+#          "neighbour_name","b1_nn_name","b2_nn_name","b3_nn_name","b4_nn_name","b5_nn_name","b6_nn_name","b7_nn_name","b8_nn_name",
+#          "social_name","b1_social_name","b2_social_name","b3_social_name","b4_social_name","b5_social_name","b6_social_name","b7_social_name","b8_social_name",
+#          "b1_present_index","b2_present_index","b3_present_index","b4_present_index","b5_present_index","b6_present_index","b7_present_index","b8_present_index")
+# ages <- ages %>% 
+#   mutate(partner_look = paste0('b',bull),
+#          partner_move = paste0('b',bull),
+#          partner_age = age)
+# stim <- stimuli %>% 
+#   select(pb_num, time, status) %>% 
+#   mutate(second = round(as.numeric(time), 0))
+# 
+# look <- plot %>% 
+#   select("subject","pb_num","bull","second","b1_look_name","b2_look_name","b3_look_name","b4_look_name","b5_look_name","b6_look_name","b7_look_name","b8_look_name") %>% 
+#   pivot_longer(cols = c("b1_look_name","b2_look_name","b3_look_name","b4_look_name","b5_look_name","b6_look_name","b7_look_name","b8_look_name"),
+#                names_to = 'partner_look', values_to = 'direction_look') %>% 
+#   filter(direction_look != 'impossible_partner') %>% 
+#   left_join(ages[,c('subject','age')], by = 'subject') %>% 
+#   separate(partner_look, into = c('partner_look','look_name'), sep = 2) %>% 
+#   select(-look_name) %>% 
+#   mutate(pb_num = as.numeric(pb_num)) %>% 
+#   left_join(ages[,c('partner_look','pb_num','partner_age')], by = c('partner_look','pb_num')) %>% 
+#   mutate(age = ifelse(age == '16-25','21-25',age),
+#          partner_age = ifelse(partner_age == '16-25','21-25',partner_age)) %>% 
+#   mutate(age_focal = as.integer(as.factor(age)),
+#          age_partner = as.integer(as.factor(partner_age))) %>% 
+#   mutate(age_difference = ifelse(age_focal == age_partner, 'age_matched',
+#                                  ifelse(age_focal > age_partner, 'partner_younger', 'partner_older')),
+#          direction = ifelse(direction_look == 'look at directly',3,
+#                             ifelse(direction_look == 'side-on',2,
+#                                    ifelse(direction_look == 'look directly away',1, NA))))
+# ggplot()+
+#   # geom_rect(data = stim, aes(xmin = second[which(status == 'START')], xmax = second[which(status == 'STOP')],
+#   #                            ymin = min(look$direction)-0.5, ymax = max(look$direction)+0.5),
+#   #           fill = 'grey')+
+#   geom_line(data = look, mapping = aes(x = second, y = direction, colour = age_difference, group_by = subject))+
+#   facet_wrap(. ~ as.numeric(pb_num), scales = 'free_x')+
+#   coord_cartesian(ylim = c(min(look$direction)-0.1, max(look$direction)+0.1), expand = FALSE)
+# 
+# 
+# 
+# move <- plot %>% 
+#   select("second","b1_move_name","b2_move_name","b3_move_name","b4_move_name") %>% 
+#   pivot_longer(cols = c("b1_move_name","b2_move_name","b3_move_name","b4_move_name"),
+#                names_to = 'partner_move', values_to = 'direction_move') %>% 
+#   filter(direction_move != 'impossible_partner') %>% 
+#   separate(partner_move, into = c('partner_move','move_name'), sep = 2) %>% 
+#   select(-move_name) %>% 
+#   left_join(ages_e1[,c('partner_move','partner_age')], by = 'partner_move') %>% 
+#   mutate(direction = ifelse(direction_move == 'approach directly',5,
+#                             ifelse(direction_move == 'approach at an angle',4,
+#                                    ifelse(direction_move == 'move directly with',3,
+#                                           ifelse(direction_move == 'move away at an angle',2,
+#                                                  ifelse(direction_move == 'move away directly',1, NA))))))
+# ggplot()+
+#   geom_rect(data = stim_e1, aes(xmin = second[which(status == 'START')], xmax = second[which(status == 'STOP')],
+#                                 ymin = min(move$direction, na.rm = T)-0.5, ymax = max(move$direction, na.rm = T)+0.5),
+#             fill = 'grey')+
+#   geom_line(data = move, mapping = aes(x = second, y = direction, colour = partner_move, group = ))+
+#   coord_cartesian(ylim = c(min(move$direction, na.rm = T)-0.1, max(move$direction, na.rm = T)+0.1), expand = FALSE)
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# ## save workspace
+# save.image('data_processing.RData')
+# 
+# 
+# 

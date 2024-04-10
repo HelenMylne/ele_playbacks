@@ -16,10 +16,11 @@ set.seed(12345)
 
 #### NEAREST NEIGHBOUR: ordinal logistic regression ####
 # https://dagitty.net/dags.html?id=fQrEyF#
-pdf('outputs/nn_modelprep.pdf')
+pdf('outputs/neighbour_ordinal_model/neighbour_ordinal_modelprep.pdf')
 
 # read in data
 ages <- readRDS('data_processed/behaviour_by_second_indexvariables_bda.RDS') %>% 
+  # ages <- readRDS('../data_processed/behaviour_by_second_indexvariables_bda.RDS') %>% 
   select(focal, f_age_cat, f_age_num) %>% 
   distinct() %>% 
   filter(!is.na(f_age_cat)) %>% 
@@ -28,6 +29,7 @@ ages <- readRDS('data_processed/behaviour_by_second_indexvariables_bda.RDS') %>%
          p_age_num = f_age_num)
 
 stim_starts <- readRDS('data_processed/stimuli.RDS') %>%
+  # stim_starts <- readRDS('../data_processed/stimuli.RDS') %>%
   filter(status == 'START' & behavior == 'STIMULUS') %>%
   select(pb_num,time,stim_num,stim_type,group_size,comment)
 table(stim_starts$pb_num)
@@ -55,6 +57,7 @@ stim_starts <- stim_starts %>%
   select(pb_num,stim_start,stim_num,stim_type,group_size)
 
 nn_all <- readRDS('data_processed/behaviour_by_second_indexvariables.RDS') %>%
+  # nn_all <- readRDS('../data_processed/behaviour_by_second_indexvariables.RDS') %>%
   filter(out_frame_name != 'out_of_sight') %>%
   select(subject,pb_num,second,
          b1_nn_name,#b1_nn_index,
@@ -198,12 +201,12 @@ nn_fit <- brm(
   family = cumulative("logit"),
   prior = priors, chains = num_chains, cores = num_chains, threads = threading(4),
   iter = num_iter, warmup = num_iter/2, seed = 12345)
-save.image('ele_playbacks/nearest_neighbour/neighbour_model_run.RData')
+save.image('ele_playbacks/nearest_neighbour/neighbour_ordinal_run.RData')
 dev.off()
 
 #### check outputs ####
-# load('ele_playbacks/nearest_neighbour/neighbour_model_run.RData') # rm(biologylibs, homedrive, homelibs, homelibsprofile, rlibs, Rversion) ; gc()
-pdf('outputs/nn_modelchecks.pdf')
+# load('ele_playbacks/nearest_neighbour/neighbour_ordinal_run.RData') # rm(biologylibs, homedrive, homelibs, homelibsprofile, rlibs, Rversion) ; gc()
+pdf('outputs/neighbour_ordinal_model/neighbour_ordinal_modelchecks.pdf')
 
 ## check Stan code
 nn_fit$model
@@ -250,7 +253,7 @@ summary(nn_fit)
 # monn_tminus1_num1[2]   0.49      0.01     0.47     0.51 1.00     3366     2723
 # 
 # Family Specific Parameters: 
-#   Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+#      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # disc     1.00      0.00     1.00     1.00   NA       NA       NA
 # 
 # Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS and Tail_ESS are effective sample size measures, and Rhat is the potential scale reduction factor on split chains (at convergence, Rhat = 1).
@@ -335,7 +338,7 @@ prevsec_effect <- marg[[4]]
         axis.text = element_text(size = 12),
         legend.title = element_text(size = 12),
         legend.text = element_text(size = 10))
-ggsave(plot = focal_age_plot, filename = 'outputs/nn_marginaleffects_focalage.png', device = 'png',
+ggsave(plot = focal_age_plot, filename = 'outputs/neighbour_ordinal_model/neighbour_ordinal_marginaleffects_focalage.png', device = 'png',
        width = 8.3, height = 5.8)
 
 # conditional_effects(nn_fit, 'stim_type',
@@ -359,16 +362,16 @@ ggsave(plot = focal_age_plot, filename = 'outputs/nn_marginaleffects_focalage.pn
         axis.text = element_text(size = 12),
         legend.title = element_text(size = 12),
         legend.text = element_text(size = 10))
-ggsave(plot = stim_plot, filename = 'outputs/nn_marginaleffects_stimtype.png', device = 'png',
+ggsave(plot = stim_plot, filename = 'outputs/neighbour_ordinal_model/neighbour_ordinal_marginaleffects_stimtype.png', device = 'png',
        width = 8.3, height = 5.8)
 
 #(all_plots <- ggarrange(focal_age_plot, stim_plot, ncol=2, nrow=1, common.legend = TRUE, legend = "bottom"))
-#ggsave(plot = all_plots, filename = '../outputs/nn_marginaleffects.png', device = 'png',
+#ggsave(plot = all_plots, filename = '../outputs/neighbour_ordinal_model/neighbour_ordinal_marginaleffects.png', device = 'png',
 #       width = (5.8*2), height = 8.3)
 
-ggsave(plot = focal_age_plot, filename = 'outputs/nn_marginaleffects_focalage.png', device = 'png',
+ggsave(plot = focal_age_plot, filename = 'outputs/neighbour_ordinal_model/neighbour_ordinal_marginaleffects_focalage.png', device = 'png',
        width = 5.8, height = 8.3)
-ggsave(plot = stim_plot, filename = 'outputs/nn_marginaleffects_stimtype.png', device = 'png',
+ggsave(plot = stim_plot, filename = 'outputs/neighbour_ordinal_model/neighbour_ordinal_marginaleffects_stimtype.png', device = 'png',
        width = 5.8, height = 8.3)
 
 rm(f_age_effect,prevsec_effect, stim_effect, time_effect) ;gc()
@@ -497,28 +500,28 @@ nn_no_na %>%
   geom_vline(aes(xintercept = 0))+
   geom_point(alpha = 0.1)+ # colour = rgb(0,0,1,0.01)
   facet_grid(stim_type ~ factor(nn_tminus1,
-                                levels = c('partner younger',
+                                levels = c('partner_younger',
                                            'matched',
-                                           'partner older')),
+                                           'partner_older')),
              labeller = labeller(stim_type = stimuli))
 
 ## save output
-save.image('ele_playbacks/nearest_neighbour/neighbour_model_run.RData')
+save.image('ele_playbacks/nearest_neighbour/neighbour_ordinal_run.RData')
 dev.off()
 
-#### predict from model -- raw data ####
-#load('ele_playbacks/nearest_neighbour/neighbour_model_run.RData') # rm(biologylibs, homedrive, homelibs, homelibsprofile, rlibs, Rversion) ; gc()
+#### predict from model ####
+#load('ele_playbacks/nearest_neighbour/neighbour_ordinal_run.RData') # load('nearest_neighbour/neighbour_ordinal_run.RData')
 rm(list = ls()[! ls() %in% c('nn_fit','nn_no_na')]) ; gc()
-pdf('outputs/nn_modelpredictions.pdf')
+pdf('outputs/neighbour_ordinal_model/neighbour_ordinal_modelpredictions.pdf')
 
 ## predict from raw data
 nn_no_na$unique_data_combo <- 1:nrow(nn_no_na)
 pred_mtx <- posterior_epred(object = nn_fit, newdata = nn_no_na)
 colnames(pred_mtx) <- nn_no_na$unique_data_combo
-save.image('ele_playbacks/nearest_neighbour/neighbour_model_predictions.RData')
+save.image('ele_playbacks/nearest_neighbour/neighbour_ordinal_predictions.RData')
 
 ## convert predictions to long format data set, using only first 100 values per chain
-#load('ele_playbacks/nearest_neighbour/neighbour_model_predictions.RData')
+#load('ele_playbacks/nearest_neighbour/neighbour_ordinal_predictions.RData')
 predictions1 <- pred_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,1] %>%
   as.data.frame() %>%
   pivot_longer(everything(), names_to = 'unique_data_combo', values_to = 'prediction') %>%
@@ -537,7 +540,7 @@ predictions3 <- pred_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,3] %>%
   mutate(unique_data_combo = as.integer(unique_data_combo),
          pred_type = 3) %>%
   left_join(nn_no_na, by = 'unique_data_combo')
-save.image('ele_playbacks/nearest_neighbour/neighbour_model_predictions.RData')
+save.image('ele_playbacks/nearest_neighbour/neighbour_ordinal_predictions.RData')
 
 ## create long format data set with all predictions -- use for calculating some uncertainty measure (standard deviation/error amongst sets of predictions)
 # predictions_all <- predictions %>%
@@ -553,10 +556,10 @@ save.image('ele_playbacks/nearest_neighbour/neighbour_model_predictions.RData')
 #   predictions_all <- rbind(predictions_all, pred)
 # }
 predictions_all <- rbind(predictions1, predictions2, predictions3)
-save.image('ele_playbacks/nearest_neighbour/neighbour_model_predictions.RData')
+save.image('ele_playbacks/nearest_neighbour/neighbour_ordinal_predictions.RData')
 
-#### plot predictions -- posterior_epred() ####
-#load('ele_playbacks/nearest_neighbour/neighbour_model_predictions.RData')  #load('nearest_neighbour/neighbour_model_predictions.RData')
+#### plot predictions ####
+#load('ele_playbacks/nearest_neighbour/neighbour_ordinal_predictions.RData')  #load('nearest_neighbour/neighbour_ordinal_predictions.RData')
 rm(pred_mtx, predictions1, predictions2, predictions3) ; gc()
 
 ## make labels for prediction type look nice
@@ -630,18 +633,18 @@ names(prevsec_labels) <- 1:3
     theme(legend.position = 'bottom'))
 (ctd_plot + lion_plot + human_plot)+
   plot_annotation(tag_levels = 'a')
-ggsave(plot = last_plot(), file = '../outputs/nn_predictions_violin.png',
+ggsave(plot = last_plot(), file = '../outputs/neighbour_ordinal_model/neighbour_ordinal_predictions_violin.png',
        device = 'png', height = 8, width = 48)
 
 ## save output
-save.image('ele_playbacks/nearest_neighbour/neighbour_model_predictions.RData')
+save.image('ele_playbacks/nearest_neighbour/neighbour_ordinal_predictions.RData')
 dev.off()
 
 #### graph contrasts from predictions and extract coefficients ####
 #CALCULATE POSTERIOR CONTRASTS FROM PREDICTIONS
-# load('ele_playbacks/nearest_neighbour/neighbour_model_predictions.RData') ; load('nearest_neighbour/neighbour_model_predictions.RData')
+# load('ele_playbacks/nearest_neighbour/neighbour_ordinal_predictions.RData') ; load('nearest_neighbour/neighbour_ordinal_predictions.RData')
 rm(prevsec_labels, ctd_plot, human_plot, lion_plot, predictions_all) ; gc()
-pdf('outputs/nn_modelcontrasts.pdf')
+pdf('outputs/neighbour_ordinal_model/neighbour_ordinal_modelcontrasts.pdf')
 
 ## stim type ####
 ## redo predictions with different stimulus types: all doves
@@ -674,10 +677,10 @@ human_mtx <- posterior_epred(object = nn_fit, newdata = human_nn)
 colnames(human_mtx) <- human_nn$unique_data_combo
 human_mtx <- human_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
 
-save.image('ele_playbacks/nearest_neighbour/neighbour_model_stimuluscontrasts_epred.RData')
+save.image('ele_playbacks/nearest_neighbour/neighbour_ordinal_stimuluscontrasts.RData')
 
 ## count types of each prediction
-#load('nearest_neighbour/neighbour_model_stimuluscontrasts_epred.RData')
+#load('nearest_neighbour/neighbour_ordinal_stimuluscontrasts.RData')
 # count_values <- function(vector, levels = c(1,2,3)) {
 #   x <- tabulate(factor(vector, levels), length(levels))
 #   return(list(x))
@@ -764,6 +767,36 @@ lion_vs_human_age1 <- human_mtx[,,1] - lion_mtx[,,1]
 lion_vs_human_age2 <- human_mtx[,,2] - lion_mtx[,,2]
 lion_vs_human_age3 <- human_mtx[,,3] - lion_mtx[,,3]
 
+## plot -- no difference between stimuli
+plot(density(ctd_vs_lion_age1), col = 'red', las = 1, xlim = c(-0.1, 0.1),
+     main = 'contrasts between stim types:\nred = younger, purple = match, blue = older;\nsolid = ctd vs l, dashed = ctd vs h, dotted = l vs h')
+mean(ctd_vs_lion_age1) ; sd(ctd_vs_lion_age1)
+# -0.0002164913 ± 0.006336687
+lines(density(ctd_vs_lion_age2), col = 'purple')
+mean(ctd_vs_lion_age2) ; sd(ctd_vs_lion_age2)
+# 0.0001157238 ± 0.008796879
+lines(density(ctd_vs_lion_age3), col = 'blue')
+mean(ctd_vs_lion_age3) ; sd(ctd_vs_lion_age3)
+# 0.0001007675 ± 0.006776772
+lines(density(ctd_vs_human_age1), col = 'red', lty = 2)
+mean(ctd_vs_human_age1) ; sd(ctd_vs_human_age1)
+# -0.0002242824 ± 0.005650672
+lines(density(ctd_vs_human_age2), col = 'purple', lty = 2)
+mean(ctd_vs_human_age2) ; sd(ctd_vs_human_age2)
+# -0.000297644 ± 0.008083713
+lines(density(ctd_vs_human_age3), col = 'blue', lty = 2)
+mean(ctd_vs_human_age3) ; sd(ctd_vs_human_age3)
+# 0.0005219263 ± 0.006415421
+lines(density(lion_vs_human_age1), col = 'red', lty = 3)
+mean(lion_vs_human_age1) ; sd(lion_vs_human_age1)
+# -7.79103e-06 ± 0.007634558
+lines(density(lion_vs_human_age2), col = 'purple', lty = 3)
+mean(lion_vs_human_age2) ; sd(lion_vs_human_age2)
+# -0.0004133678 ± 0.01080005
+lines(density(lion_vs_human_age3), col = 'blue', lty = 3)
+mean(lion_vs_human_age3) ; sd(lion_vs_human_age3)
+# 0.0004211588 ± 0.008483265
+
 ## summarise contrasts
 contrasts <- nn_no_na %>%
   select(-stim_type) %>%
@@ -813,9 +846,9 @@ contrasts_long <- contrasts %>%
 stim_pred %>%
   ggplot()+
   geom_density(aes(x = mean_propn, colour = as.factor(f_age_num)))+
-  facet_wrap(pred_type ~ stim_type)
+  facet_wrap(pred_type ~ stim_type, scales = 'free')
 
-stim_pred_all %>%
+stim_pred_all %>% # something is wrong with this - they're only ctd
   ggplot()+
   geom_density(aes(x = probability, colour = predict_cat))+
   facet_wrap(stim_type ~ f_age_num, scales = 'free_y')
@@ -838,21 +871,22 @@ contrasts_long %>%
   geom_density(aes(x = difference))+
   facet_grid(pred_type ~ contrast)
 
+#pdf('../outputs/neighbour_ordinal_model/neighbour_ordinal_contrasts_stimuli.pdf')
 for(i in unique(contrasts_long$contrast)){
   plot <- contrasts_long %>%
     filter(contrast == i) %>%
     ggplot()+
     geom_density(aes(x = difference, colour = pred_type))+
-    facet_grid(nn_tminus1 ~ f_age_num,
+    facet_wrap(nn_tminus1 ~ f_age_num,
                scales = 'free')+
     labs(title = i)
   print(plot)
 }
-
-save.image('ele_playbacks/nearest_neighbour/neighbour_model_stimuluscontrasts_epred.RData')
+#dev.off()
+save.image('ele_playbacks/nearest_neighbour/neighbour_ordinal_stimuluscontrasts.RData')
 
 ## focal age ####
-# load('nearest_neighbour/neighbour_model_stimuluscontrasts_epred.RData')
+# load('nearest_neighbour/neighbour_ordinal_stimuluscontrasts.RData')
 rm(ctd_nn, ctd_mtx, human_nn, human_mtx, lion_nn, lion_mtx,
    contrasts, contrasts_long, stim_pred,
    ctd_vs_human_age1, ctd_vs_human_age2, ctd_vs_human_age3,
@@ -879,7 +913,7 @@ age_nn_alt <- nn_no_na %>%
 age_mtx_alt <- posterior_epred(object = nn_fit, newdata = age_nn_alt)
 colnames(age_mtx_alt) <- age_nn_alt$unique_data_combo
 age_mtx_alt <- age_mtx_alt[c(1:100,1001:1100,2001:2100,3001:3100),,]
-save.image('ele_playbacks/nearest_neighbour/neighbour_model_agecontrasts_epred.RData')
+save.image('ele_playbacks/nearest_neighbour/neighbour_ordinal_agecontrasts.RData')
 
 ## summarise and convert to long format
 age_pred <- age_nn_org %>%
@@ -944,12 +978,25 @@ for(i in 2:3){
 }
 
 ## calculate contrasts
-alt_vs_org_young <- age_mtx_alt[,,1] - age_mtx_org[,,1]
-alt_vs_org_match <- age_mtx_alt[,,2] - age_mtx_org[,,2]
-alt_vs_org_older <- age_mtx_alt[,,3] - age_mtx_org[,,3]
+alt_vs_org_young <- age_mtx_alt[,which(nn_no_na$f_age_num != 4),1] - age_mtx_org[,which(nn_no_na$f_age_num != 4),1]
+alt_vs_org_match <- age_mtx_alt[,which(nn_no_na$f_age_num != 4),2] - age_mtx_org[,which(nn_no_na$f_age_num != 4),2]
+alt_vs_org_older <- age_mtx_alt[,which(nn_no_na$f_age_num != 4),3] - age_mtx_org[,which(nn_no_na$f_age_num != 4),3]
+
+## plot
+plot(density(alt_vs_org_young), col = 'red', las = 1, xlim = c(-0.1, 0.1),
+     main = 'contrasts between adjacent age category:\nred = younger, purple = match, blue = older')
+mean(alt_vs_org_young) ; sd(alt_vs_org_young)
+# original categories 1-3 only: 0.008424558 ± 0.02210265, Entire matrix: -0.004951402 ± 0.04987196
+lines(density(alt_vs_org_match), col = 'purple')
+mean(alt_vs_org_match) ; sd(alt_vs_org_match)
+# 0.004302089 ± 0.09081412
+lines(density(alt_vs_org_older), col = 'blue')
+mean(alt_vs_org_older) ; sd(alt_vs_org_older)
+# 0.0006493128 ± 0.07784338
 
 ## summarise contrasts
 contrasts <- nn_no_na %>%
+  filter(f_age_num != 4) %>% 
   mutate(alt_vs_org_young_mu = apply(alt_vs_org_young, 2, mean),
          alt_vs_org_young_sd = apply(alt_vs_org_young, 2, sd),
          alt_vs_org_match_mu = apply(alt_vs_org_match, 2, mean),
@@ -995,7 +1042,7 @@ contrasts_long <- contrasts_long %>%
                              ifelse(nn_tminus1_num == 2,
                                     'neighbour matched at t-1',
                                     'neighbour older at t-1')))
-
+#pdf('../outputs/neighbour_ordinal_model/neighbour_ordinal_contrasts_ages.pdf')
 for(i in unique(contrasts_long$contrast)){
   plot <- contrasts_long %>%
     filter(contrast == i) %>%
@@ -1006,11 +1053,11 @@ for(i in unique(contrasts_long$contrast)){
     labs(title = i)
   print(plot)
 }
-
-save.image('ele_playbacks/nearest_neighbour/neighbour_model_agecontrasts_epred.RData')
+#dev.off()
+save.image('ele_playbacks/nearest_neighbour/neighbour_ordinal_agecontrasts.RData')
 
 ## neighbour in previous second ####
-#load('nearest_neighbour/neighbour_model_agecontrasts_epred.RData')
+#load('nearest_neighbour/neighbour_ordinal_agecontrasts.RData')
 rm(age_nn_org, age_mtx_org, age_nn_alt, age_mtx_alt, age_pred, alt_vs_org_young, alt_vs_org_match, alt_vs_org_older, contrasts, contrasts_long) ; gc()
 
 ## redo predictions with different previous neighbours: all younger -- NOTE: THIS INCLUDES IMPOSSIBLE COMBINATIONS OF FOCAL AGE 1, NN AT T-1 YOUNGER
@@ -1043,10 +1090,10 @@ older_mtx <- posterior_epred(object = nn_fit, newdata = older_nn)
 colnames(older_mtx) <- older_nn$unique_data_combo
 older_mtx <- older_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
 
-save.image('ele_playbacks/nearest_neighbour/neighbour_model_prevseccontrasts_epred.RData')
+save.image('ele_playbacks/nearest_neighbour/neighbour_ordinal_prevseccontrasts.RData')
 
 ## summarise and convert to long format
-load('ele_playbacks/nearest_neighbour/neighbour_model_prevseccontrasts_epred.RData')
+load('ele_playbacks/nearest_neighbour/neighbour_ordinal_prevseccontrasts.RData')
 prevsec_pred <- young_nn %>%
   dplyr::select(-nn_tminus1_num) %>%
   mutate(young_prop1_mu = apply(young_mtx[,,1], 2, mean),
@@ -1141,6 +1188,36 @@ match_vs_older_age1 <- older_mtx[,,1] - match_mtx[,,1]
 match_vs_older_age2 <- older_mtx[,,2] - match_mtx[,,2]
 match_vs_older_age3 <- older_mtx[,,3] - match_mtx[,,3]
 
+## plot contrasts
+plot(density(young_vs_match_age1), col = 'red', las = 1, xlim = c(-1, 1), ylim = c(0,40),
+     main = 'contrasts between t-1 neighbours:\nred = Pr(younger), purple = Pr(match), blue = Pr(older);\nsolid = young vs match, dashed = young vs older, dotted = match vs older')
+mean(young_vs_match_age1) ; sd(young_vs_match_age1)
+# -0.8425294 ± 0.2040871
+lines(density(young_vs_match_age2), col = 'purple')
+mean(young_vs_match_age2) ; sd(young_vs_match_age2)
+# 0.7961065 ± 0.3054583
+lines(density(young_vs_match_age3), col = 'blue')
+mean(young_vs_match_age3) ; sd(young_vs_match_age3)
+# 0.04642289 ± 0.1146574
+lines(density(young_vs_older_age1), col = 'red', lty = 2)
+mean(young_vs_older_age1) ; sd(young_vs_older_age1)
+# -0.8894144 ± 0.1986614
+lines(density(young_vs_older_age2), col = 'purple', lty = 2)
+mean(young_vs_older_age2) ; sd(young_vs_older_age2)
+# 0.02082896 ± 0.3333747
+lines(density(young_vs_older_age3), col = 'blue', lty = 2)
+mean(young_vs_older_age3) ; sd(young_vs_older_age3)
+# 0.8685854 ± 0.2100632
+lines(density(match_vs_older_age1), col = 'red', lty = 3)
+mean(match_vs_older_age1) ; sd(match_vs_older_age1)
+# -0.04688498 ± 0.1105872
+lines(density(match_vs_older_age2), col = 'purple', lty = 3)
+mean(match_vs_older_age2) ; sd(match_vs_older_age2)
+# -0.7752776 ± 0.3100541
+lines(density(match_vs_older_age3), col = 'blue', lty = 3)
+mean(match_vs_older_age3) ; sd(match_vs_older_age3)
+# 0.8221626 ± 0.2132306
+
 ## summarise contrasts
 contrasts <- nn_no_na %>%
   select(-nn_tminus1_num) %>%
@@ -1197,18 +1274,19 @@ contrasts_long <- contrasts_long %>%
   separate(contrast, into = c('prevsec_a','prevsec_b'), sep = '_vs_', remove = F) %>%
   select(pred_type, f_age_num, prevsec_a, prevsec_b, contrast, difference, stim_type, after_stim)
 
+#pdf('../outputs/neighbour_ordinal_model/neighbour_ordinal_contrasts_prevsec.pdf')
 for(i in unique(contrasts_long$contrast)){
-  ( plot <- contrasts_long %>%
+  plot <- contrasts_long %>%
     filter(contrast == i) %>%
     ggplot()+
     geom_density(aes(x = difference, colour = pred_type))+
     facet_grid(as.factor(f_age_num) ~ stim_type,
                scales = 'free')+
-    labs(title = i) )
+    labs(title = i)
   print(plot)
 }
-
-save.image('ele_playbacks/nearest_neighbour/neighbour_model_prevseccontrasts_epred.RData')
+#dev.off()
+save.image('ele_playbacks/nearest_neighbour/neighbour_ordinal_prevseccontrasts.RData')
 
 # predictions %>%
 #   mutate(previous = ifelse(nn_tminus1_num == 1, 'younger',
@@ -1259,7 +1337,7 @@ save.image('ele_playbacks/nearest_neighbour/neighbour_model_prevseccontrasts_epr
 #   scale_x_continuous(limits = c(-2,2))
 
 ## time since stimulus ####
-# load('nearest_neighbour/neighbour_model_prevseccontrasts_epred.RData')
+# load('nearest_neighbour/neighbour_ordinal_prevseccontrasts.RData')
 rm(young_nn, young_mtx, match_nn, match_mtx, older_nn, older_mtx,
    contrasts, contrasts_long, prevsec_pred,
    young_vs_match_age1, young_vs_match_age2, young_vs_match_age3,
@@ -1323,7 +1401,7 @@ time_mtx_alt_1.00 <- posterior_epred(object = nn_fit, newdata = time_nn_alt_1.00
 colnames(time_mtx_alt_1.00) <- time_nn_alt_1.00$unique_data_combo
 time_mtx_alt_1.00 <- time_mtx_alt_1.00[c(1:100,1001:1100,2001:2100,3001:3100),,]
 
-save.image('ele_playbacks/nearest_neighbour/neighbour_model_timecontrasts_epred.RData')
+save.image('ele_playbacks/nearest_neighbour/neighbour_ordinal_timecontrasts.RData')
 
 ## summarise and convert to long format
 time_pred <- time_nn_org %>% 
@@ -1426,6 +1504,45 @@ alt1.00_vs_0.75_young <- time_mtx_alt_1.00[,,1] - time_mtx_alt_0.75[,,1]
 alt1.00_vs_0.75_match <- time_mtx_alt_1.00[,,2] - time_mtx_alt_0.75[,,2]
 alt1.00_vs_0.75_older <- time_mtx_alt_1.00[,,3] - time_mtx_alt_0.75[,,3]
 
+## plot contrasts -- no effect of time whatsoever
+plot(density(alt0.25_vs_0.00_young), col = 'red', las = 1, xlim = c(-0.001, 0.001),
+     main = 'contrasts between stim types:\nsolid = younger, dashed = match, dotted = older;\nred = 0-15s, blue = 15-30s, green = 30-45s, black = 45-60s')
+mean(alt0.25_vs_0.00_young) ; sd(alt0.25_vs_0.00_young)
+# 4.342812e-05 ± 0.000310953
+lines(density(alt0.50_vs_0.25_young), col = 'blue')
+mean(alt0.50_vs_0.25_young) ; sd(alt0.50_vs_0.25_young)
+# 4.574861e-05 ± 0.0002955898
+lines(density(alt0.75_vs_0.50_young), col = 'green')
+mean(alt0.75_vs_0.50_young) ; sd(alt0.75_vs_0.50_young)
+# 5.256342e-05 ± 0.0003034267
+lines(density(alt1.00_vs_0.75_young), col = 'black')
+mean(alt1.00_vs_0.75_young) ; sd(alt1.00_vs_0.75_young)
+# 6.204836e-05 ± 0.0003189413
+lines(density(alt0.25_vs_0.00_match), col = 'red', lty = 2)
+mean(alt0.25_vs_0.00_match) ; sd(alt0.25_vs_0.00_match)
+# 2.947249e-06 ± 0.000437141
+lines(density(alt0.50_vs_0.25_match), col = 'blue', lty = 2)
+mean(alt0.50_vs_0.25_match) ; sd(alt0.50_vs_0.25_match)
+# 2.808559e-06 ± 0.000418051
+lines(density(alt0.75_vs_0.50_match), col = 'green', lty = 2)
+mean(alt0.75_vs_0.50_match) ; sd(alt0.75_vs_0.50_match)
+# 3.055587e-06 ± 0.0004272815
+lines(density(alt1.00_vs_0.75_match), col = 'black')
+mean(alt1.00_vs_0.75_match) ; sd(alt1.00_vs_0.75_match)
+# 3.482751e-06 ± 0.0004451155
+lines(density(alt0.25_vs_0.00_older), col = 'red', lty = 3)
+mean(alt0.25_vs_0.00_older) ; sd(alt0.25_vs_0.00_older)
+# -4.637537e-05 ± 0.000352237
+lines(density(alt0.50_vs_0.25_older), col = 'blue', lty = 3)
+mean(alt0.50_vs_0.25_older) ; sd(alt0.50_vs_0.25_older)
+# -4.855717e-05 ± 0.0003371717
+lines(density(alt0.75_vs_0.50_older), col = 'green', lty = 3)
+mean(alt0.75_vs_0.50_older) ; sd(alt0.75_vs_0.50_older)
+# -5.5619e-05 ± 0.0003404904
+lines(density(alt1.00_vs_0.75_older), col = 'black')
+mean(alt1.00_vs_0.75_older) ; sd(alt1.00_vs_0.75_older)
+# -6.553111e-05 ± 0.0003487694
+
 ## summarise contrasts
 contrasts <- nn_no_na %>% 
   mutate(alt0.25_vs_0.00_young_mu = apply(alt0.25_vs_0.00_young, 2, mean),
@@ -1510,5 +1627,5 @@ for(i in unique(contrasts_long$contrast)){
   print(plot)
 }
 
-save.image('ele_playbacks/nearest_neighbour/neighbour_model_timecontrasts_epred.RData')
+save.image('ele_playbacks/nearest_neighbour/neighbour_ordinal_timecontrasts.RData')
 dev.off()

@@ -16,7 +16,7 @@ library(patchwork, lib.loc = '../packages/')
 theme_set(theme_classic())
 set.seed(12345)
 
-pdf('outputs/looking_direction_modelprep.pdf')
+pdf('outputs/looking_ordinal_model_1/looking_ordinal_model1_modelprep.pdf')
 
 #### data prep ####
 # https://dagitty.net/dags.html?id=dw8twK
@@ -203,7 +203,7 @@ print(paste0('priors set at ',Sys.time()))
 
 ## reset plotting
 dev.off()
-pdf('outputs/looking_direction_modelchecks.pdf')
+pdf('outputs/looking_ordinal_model_1/looking_ordinal_model1_modelchecks.pdf')
 
 #### fit model ####
 direction_look_fit <- brm(
@@ -216,14 +216,14 @@ direction_look_fit <- brm(
   iter = num_iter, warmup = num_iter/2, seed = 12345)
 
 # save workspace
-save.image('ele_playbacks/looking_direction/looking_direction_model_run_agecombo.RData') # save.image('ele_playbacks/looking_direction/looking_direction_model_run_agecombo.RData')
+save.image('ele_playbacks/looking_direction/looking_ordinal_model1_run_agecombo.RData') # save.image('ele_playbacks/looking_direction/looking_ordinal_model1_run_agecombo.RData')
 
 # inspect model
 summary(direction_look_fit)
 print(paste0('model run at ',Sys.time()))
 
 #### check outputs ####
-#load('looking_direction/looking_direction_model_run_agecombo.RData') # rm(biologylibs, homedrive, homelibs, homelibsprofile, rlibs, Rversion) ; gc()
+#load('looking_direction/looking_ordinal_model1_run_agecombo.RData') # rm(biologylibs, homedrive, homelibs, homelibsprofile, rlibs, Rversion) ; gc()
 summary(direction_look_fit)
 
 ## check Stan code
@@ -314,7 +314,7 @@ time_effect <- marg[[5]]
           axis.text = element_text(size = 12),
           legend.title = element_text(size = 12),
           legend.text = element_text(size = 10)))
-ggsave(plot = focal_age_plot, filename = 'outputs/looking_marginaleffects_focalage_agecombo.png', device = 'png',
+ggsave(plot = focal_age_plot, filename = 'outputs/looking_ordinal_model_1/looking_ordinal1_marginaleffects_focalage_agecombo.png', device = 'png',
        width = 8.3, height = 5.8)
 
 focal_age_labels <- c('focal age category 1',
@@ -369,7 +369,7 @@ names(focal_age_labels) <- 1:4
           axis.text = element_text(size = 12),
           legend.title = element_text(size = 12),
           legend.text = element_text(size = 10)) )
-ggsave(plot = agecombo_plot, filename = 'outputs/looking_marginaleffects_agepartner_agecombo.png', device = 'png',
+ggsave(plot = agecombo_plot, filename = 'outputs/looking_ordinal_model_1/looking_ordinal1_marginaleffects_agepartner_agecombo.png', device = 'png',
        width = 8.3, height = 5.8)
 
 (stim_plot <- ggplot(stim_effect)+
@@ -393,13 +393,13 @@ ggsave(plot = agecombo_plot, filename = 'outputs/looking_marginaleffects_agepart
          axis.text = element_text(size = 12),
          legend.title = element_text(size = 12),
          legend.text = element_text(size = 10)) )
-ggsave(plot = stim_plot, filename = 'outputs/looking_marginaleffects_stimtype_agecombo.png', device = 'png',
+ggsave(plot = stim_plot, filename = 'outputs/looking_ordinal_model_1/looking_ordinal1_marginaleffects_stimtype_agecombo.png', device = 'png',
        width = 8.3, height = 5.8)
 
 (focal_age_plot + agecombo_plot + stim_plot) +
   plot_annotation(tag_levels = 'a')
 ggsave(plot = last_plot(),
-       filename = 'outputs/looking_marginaleffects.png',
+       filename = 'outputs/looking_ordinal_model_1/looking_ordinal1_marginaleffects.png',
        device = 'png', width = (5.8*3), height = 8.3)
 print(paste0('marginal effects plotted at ',Sys.time()))
 
@@ -512,9 +512,10 @@ look_no_na %>%
   geom_point(colour = rgb(0,0,1,0.01))+
   #geom_line()+
   facet_grid(focal_age ~ factor(age_difference,
-                                levels = c('partner younger','matched','partner older')),
+                                levels = c('partner_younger','matched','partner_older')),
              labeller = labeller(focal_age = age_labels))+
-  scale_x_continuous(name = 'time since stimulus started (s)')
+  scale_x_continuous(name = 'time since stimulus started (s)')+
+  ggtitle('dove (raw data)')
 
 ## plot lion data
 look_no_na %>%
@@ -525,9 +526,10 @@ look_no_na %>%
   geom_point(colour = rgb(0,0,1,0.01))+
   #geom_line()+
   facet_grid(focal_age ~ factor(age_difference,
-                                levels = c('partner younger','matched','partner older')),
+                                levels = c('partner_younger','matched','partner_older')),
              labeller = labeller(focal_age = age_labels))+
-  scale_x_continuous(name = 'time since stimulus started (s)')
+  scale_x_continuous(name = 'time since stimulus started (s)')+
+  ggtitle('lion (raw data)')
 
 ## plot human data
 look_no_na %>%
@@ -538,15 +540,16 @@ look_no_na %>%
   geom_point(colour = rgb(0,0,1,0.01))+
   #geom_line()+
   facet_grid(focal_age ~ factor(age_difference,
-                                levels = c('partner younger','matched','partner older')),
+                                levels = c('partner_younger','matched','partner_older')),
              labeller = labeller(focal_age = age_labels))+
-  scale_x_continuous(name = 'time since stimulus started (s)')
+  scale_x_continuous(name = 'time since stimulus started (s)')+
+  ggtitle('human (raw data)')
 
 print(paste0('raw data plotted at ',Sys.time()))
 
 ## reset plotting
-save.image('ele_playbacks/looking_direction/looking_direction_model_run_agecombo.RData') # save.image('ele_playbacks/looking_direction/looking_direction_model_run_agecombo.RData')
+save.image('ele_playbacks/looking_direction/looking_ordinal_model1_run_agecombo.RData') # save.image('ele_playbacks/looking_direction/looking_ordinal_model1_run_agecombo.RData')
 dev.off()
-#pdf('outputs/looking_direction_modelpredictions.pdf')
+#pdf('outputs/looking_ordinal_model_1/looking_ordinal_model1predictions.pdf')
 
 #### predict from model -- TAKE THIS FROM MOVEMENT MODEL ONCE YOU'VE WORKED IT OUT FOR THAT ####

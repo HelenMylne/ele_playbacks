@@ -82,22 +82,61 @@ stim_stops <- stim_stops %>%
 rm(check, i, multiple_stops, x) ; gc()
 
 ######## combine with behaviour data to identify before/during/after ####
-cols_of_interest <- c('b1_nn_name','b2_nn_name','b3_nn_name','b4_nn_name',
-  'b5_nn_name','b6_nn_name','b7_nn_name','b8_nn_name',
-  'b1_move_name','b2_move_name','b3_move_name','b4_move_name',
-  'b5_move_name','b6_move_name','b7_move_name','b8_move_name',
-  'b1_look_name','b2_look_name','b3_look_name','b4_look_name',
-  'b5_look_name','b6_look_name','b7_look_name','b8_look_name')
+cols_of_interest <- c('b1_nn','b2_nn','b3_nn','b4_nn',
+                      'b5_nn','b6_nn','b7_nn','b8_nn',
+                      'b1_move','b2_move','b3_move','b4_move',
+                      'b5_move','b6_move','b7_move','b8_move',
+                      'b1_look','b2_look','b3_look','b4_look',
+                      'b5_look','b6_look','b7_look','b8_look')
+cols_of_interest_name <- c('b1_nn_name','b2_nn_name','b3_nn_name','b4_nn_name',
+                           'b5_nn_name','b6_nn_name','b7_nn_name','b8_nn_name',
+                           'b1_move_name','b2_move_name','b3_move_name','b4_move_name',
+                           'b5_move_name','b6_move_name','b7_move_name','b8_move_name',
+                           'b1_look_name','b2_look_name','b3_look_name','b4_look_name',
+                           'b5_look_name','b6_look_name','b7_look_name','b8_look_name')
+cols_of_interest_index <- c('b1_nn_index','b2_nn_index','b3_nn_index','b4_nn_index',
+                            'b5_nn_index','b6_nn_index','b7_nn_index','b8_nn_index',
+                            'b1_move_index','b2_move_index','b3_move_index','b4_move_index',
+                            'b5_move_index','b6_move_index','b7_move_index','b8_move_index',
+                            'b1_look_index','b2_look_index','b3_look_index','b4_look_index',
+                            'b5_look_index','b6_look_index','b7_look_index','b8_look_index')
 behav <- readRDS('../data_processed/behaviour_by_second_indexvariables.RDS') %>% 
-  select(subject,pb_num,second,out_frame_name,
-         all_of(cols_of_interest)) %>%
+  filter(out_frame_name == 'in_frame') %>% 
+  select(subject,pb_num,second,
+         all_of(cols_of_interest_name),all_of(cols_of_interest_index)) %>%
+  rename(b1_nn = b1_nn_name, b2_nn = b2_nn_name,
+         b3_nn = b3_nn_name, b4_nn = b4_nn_name,
+         b5_nn = b5_nn_name, b6_nn = b6_nn_name,
+         b7_nn = b7_nn_name, b8_nn = b8_nn_name,
+         b1_move = b1_move_name, b2_move = b2_move_name,
+         b3_move = b3_move_name, b4_move = b4_move_name,
+         b5_move = b5_move_name, b6_move = b6_move_name,
+         b7_move = b7_move_name, b8_move = b8_move_name,
+         b1_look = b1_look_name, b2_look = b2_look_name,
+         b3_look = b3_look_name, b4_look = b4_look_name,
+         b5_look = b5_look_name, b6_look = b6_look_name,
+         b7_look = b7_look_name, b8_look = b8_look_name) %>% 
   pivot_longer(cols = all_of(cols_of_interest),
-               names_to = 'elephant_activity', values_to = 'action') %>% 
-  filter(is.na(action) == FALSE) %>% 
-  filter(action != 'impossible_partner') %>% 
-  filter(out_frame_name != 'out_of_sight') %>% 
-  separate(elephant_activity, into = c('targeted_elephant','activity','name'), sep = '_', remove = T) %>% 
-  dplyr::select(-name,-out_frame_name) %>% 
+               names_to = 'elephant_activity_name', values_to = 'action_name') %>% 
+  rename(b1_nn = b1_nn_index, b2_nn = b2_nn_index,
+         b3_nn = b3_nn_index, b4_nn = b4_nn_index,
+         b5_nn = b5_nn_index, b6_nn = b6_nn_index,
+         b7_nn = b7_nn_index, b8_nn = b8_nn_index,
+         b1_move = b1_move_index, b2_move = b2_move_index,
+         b3_move = b3_move_index, b4_move = b4_move_index,
+         b5_move = b5_move_index, b6_move = b6_move_index,
+         b7_move = b7_move_index, b8_move = b8_move_index,
+         b1_look = b1_look_index, b2_look = b2_look_index,
+         b3_look = b3_look_index, b4_look = b4_look_index,
+         b5_look = b5_look_index, b6_look = b6_look_index,
+         b7_look = b7_look_index, b8_look = b8_look_index) %>% 
+  pivot_longer(cols = all_of(cols_of_interest),
+               names_to = 'elephant_activity_index', values_to = 'action_index') %>% 
+  filter(elephant_activity_name == elephant_activity_index) %>% 
+  select(-elephant_activity_index) %>% 
+  rename(elephant_activity = elephant_activity_name) %>% 
+  filter(is.na(action_index) == FALSE) %>% 
+  separate(elephant_activity, into = c('targeted_elephant','activity'), sep = '_', remove = T) %>% 
   mutate(targeted_elephant = paste0(targeted_elephant, '_e', pb_num)) %>% 
   left_join(ages[,c('subject','targeted_elephant','age_category','partner_age_category','age','partner_age')],
             by = c('subject','targeted_elephant')) %>% 
@@ -112,13 +151,13 @@ behav <- readRDS('../data_processed/behaviour_by_second_indexvariables.RDS') %>%
   left_join(stim_stops, by = 'pb_num') %>% 
   mutate(bda = ifelse(second < stim_start, 'before',
                       ifelse(second < stim_stop, 'during','after'))) %>% 
-  dplyr::select(pb_num,focal,partner,activity,action,
+  dplyr::select(pb_num,focal,partner,activity,action_name,action_index,
                 stim_num,stim_type,stim_start,stim_stop,second,bda,
                 f_age_cat,p_age_cat,f_age_num,p_age_num) %>% 
   mutate(f_age_num = as.factor(f_age_num),
          p_age_num = as.factor(p_age_num),
          age_combo = paste0(f_age_num,'_',p_age_num))
-rm(cols_of_interest, stim_starts, stim_stops, ages) ; gc()
+rm(cols_of_interest, cols_of_interest_name, cols_of_interest_index, stim_starts, stim_stops, ages) ; gc()
 
 saveRDS(behav, '../data_processed/behaviour_by_second_indexvariables_bda.RDS')
 
@@ -127,15 +166,19 @@ behav <- behav %>%
   filter(!is.na(f_age_num))
 
 ######## nearest neighbour ####
+pdf('../outputs/neighbour_binomial_model_bda/neighbour_binomial_modelchecks.pdf')
+
+#### create data ####
 ## select specific data
 nn <- behav %>%
   filter(activity == 'nn') %>%
   select(-activity, -stim_start, -stim_stop, -second) %>%
   mutate(prev = NA,
-         action = as.numeric(action),
+         action = as.numeric(action_name),
          f_age_num = as.factor(as.numeric(f_age_num)),
          p_age_num = as.factor(as.numeric(p_age_num))) %>%
-  filter(!is.na(p_age_num))
+  filter(!is.na(p_age_num)) %>% 
+  relocate(action, .after = action_index)
 
 ## fill in behaviour in previous second
 subjects <- unique(nn$focal)
@@ -194,176 +237,181 @@ priors <- c(
 ## prior predictive check
 num_chains <- 4
 num_iter <- 2000
-nn_prior <- brm(
+nbm_prior <- brm(
   formula = action ~ 1 + age_combo + stim_type + bda + prev +
     (1|focal) + (1|stim_num) + (1|pb_num),
   data = nn, family = bernoulli("logit"),
   prior = priors, chains = num_chains, cores = num_chains,
   iter = num_iter, warmup = num_iter/2, seed = 12345,
   sample_prior = 'only')
-pp_check(nn_prior) # huge variation in prior, but fairly on both sides so good
+pp_check(nbm_prior) # huge variation in prior, but fairly on both sides so good
 
 #### fit model ####
-nn_fit <- brm(
+nbm_fit <- brm(
   formula = action ~ 1 + age_combo + stim_type + bda + prev +
     (1|focal) + (1|stim_num) + (1|pb_num),
   data = nn, family = bernoulli("logit"),
   prior = priors, chains = num_chains, cores = num_chains,
   iter = num_iter, warmup = num_iter/2, seed = 12345)
-save.image('nearest_neighbour/neighbour_model_run_bda_prevbinom.RData')
+save.image('nearest_neighbour/neighbour_binomial_run.RData')
 
-# ## check model fit -- Rhat very good, ESS a bit crap, may need to run for more iterations
-# # load('nearest_neighbour/neighbour_model_run_bda.RData')
-# (summary <- summary(nn_fit))
-# par(mfrow = c(3,1))
-# hist(summary$fixed$Rhat, breaks = 50)
-# hist(summary$fixed$Bulk_ESS, breaks = 50)
-# hist(summary$fixed$Tail_ESS, breaks = 50)
-# par(mfrow = c(1,1))
-# 
-# ## extract posterior distribution
-# draws <- as_draws_df(nn_fit) %>%
-#   select(-lprior, -`lp__`)
-# parameters <- colnames(draws)[1:(ncol(draws)-3)]
-# draws <- draws  %>%
-#   pivot_longer(cols = all_of(parameters),
-#                names_to = 'parameter',
-#                values_to = 'draw') %>%
-#   rename(chain = `.chain`,
-#          position = `.iteration`,
-#          draw_id = `.draw`) %>%
-#   mutate(invlogit_draw = invlogit(draw))
-# 
-# # extract marginal effects
-# marg <- conditional_effects(nn_fit,
-#                             effects = c('age_combo','stim_type',
-#                                         'bda','prev'),
-#                             categorical = FALSE,
-#                             #spaghetti = TRUE,
-#                             method = 'posterior_epred')
-# names(marg)
-# age_effect <- marg[[1]]
-# stim_effect <- marg[[2]]
-# bda_effect <- marg[[3]]
-# prev_effect <- marg[[4]]
-# 
-# #### plot marginal effects ####
-# neighbour_labels <- c('neighbour age category 1',
-#                       'neighbour age category 2',
-#                       'neighbour age category 3',
-#                       'neighbour age category 4')
-# names(neighbour_labels) <- c(1:4)
-# (focal_age_plot <- age_effect %>%
-#    separate(col = age_combo, sep = '_', remove = F,
-#             into = c('focal_age','neighbour_age')) %>%
-#    mutate(agecombo = paste0(focal_age,'-',neighbour_age)) %>%
-#    ggplot()+
-#    geom_errorbar(aes(#x = agecombo,
-#                      x = focal_age,
-#                      colour = focal_age,
-#                      #linetype = neighbour_age,
-#                      ymax = upper__, ymin = lower__),
-#                  linewidth = 1, width = 0.2)+
-#    geom_point(aes(#x = agecombo,
-#                   x = focal_age,
-#                   colour = focal_age,
-#                   #shape = neighbour_age,
-#                   y = estimate__),
-#               cex = 3)+
-#    #xlab(label = 'combined age categories')+
-#    xlab(label = 'focal age category')+
-#    ylab('probability of being nearest neighbours:\nafter dove stimulus, not nearest neighbours in previous second')+
-#    scale_colour_viridis_d(name = 'focal age:')+
-#    #scale_linetype(name = 'neighbour age line type:')+
-#    #scale_shape_manual(name = 'neighbour age shape:', values = c(15:18))+
-#    facet_wrap(. ~ neighbour_age,
-#               labeller = labeller(neighbour_age = neighbour_labels))+
-#    theme(legend.direction = 'horizontal',
-#          legend.position = 'bottom',
-#          legend.box = 'vertical',
-#          legend.spacing.x = unit(0.2, 'cm'),
-#          legend.spacing.y = unit(2, 'mm'),
-#          axis.title = element_text(size = 16),
-#          axis.text.x = element_text(size = 12,
-#                                     #angle = 70,
-#                                     vjust = 0.5),
-#          axis.text.y = element_text(size = 12),
-#          legend.title = element_text(size = 12),
-#          legend.text = element_text(size = 10)) )
-# ggsave(plot = focal_age_plot, filename = '../outputs/nn_marginaleffects_focalage_bda.png',
-#        device = 'png', width = 8.3, height = 5.8)
-# 
-# (stim_plot <- stim_effect %>%
-#     ggplot()+
-#     geom_errorbar(aes(x = stim_type,
-#                       colour = stim_type,
-#                       ymax = upper__, ymin = lower__),
-#                   linewidth = 1, width = 0.2)+
-#     geom_point(aes(x = stim_type,
-#                    colour = stim_type,
-#                    shape = stim_type,
-#                    y = estimate__),
-#               cex = 3)+
-#     ylab('probability of being nearest neighbours after stimulus:\nage 1 with age 1, not neighbours in previous second')+
-#     scale_colour_viridis_d(name = 'stimulus type:')+
-#     scale_shape_manual(name = 'stimulus type:', values = c(15:18))+
-#     scale_x_discrete(name = 'stimulus type', breaks = c('ctd','l','h'),
-#                      labels = c('dove (control)', 'lion', 'human'),
-#                      limits = c('ctd','l','h'))+
-#     theme(legend.position = 'none',
-#           axis.title = element_text(size = 16),
-#           axis.text = element_text(size = 12),
-#           legend.title = element_text(size = 12),
-#           legend.text = element_text(size = 10)) )
-# ggsave(plot = stim_plot, filename = '../outputs/nn_marginaleffects_stimtype_bda.png', device = 'png',
-#        width = 8.3, height = 5.8)
-# 
-# (all_plots <- ggarrange(focal_age_plot, stim_plot, ncol=2, nrow=1, common.legend = FALSE, legend = "bottom"))
-# ggsave(plot = all_plots, filename = '../outputs/nn_marginaleffects_bda.png', device = 'png',
-#        width = (5.8*2), height = 8.3)
-# 
-# rm(all_plots,focal_age_plot,stim_plot,age_effect,prev_effect,stim_effect,bda_effect) ;gc()
-# 
-# #### posterior predictive check ####
-# pp_check(nn_fit, ndraws = 100) # perfect fit
-# 
-# #### plot traces ####
-# parameters_of_interest <- parameters[1:which(parameters == 'simo_moprev1[1]')]
-# draws %>%
-#   filter(parameter %in% parameters_of_interest) %>%
-#   ggplot(aes(x = position, y = draw, colour = as.factor(chain)))+
-#   geom_line()+
-#   facet_wrap(. ~ parameter, scales = 'free_y')+
-#   theme(legend.position = 'none') # mostly fine, but playback ID intercept has a weird unmixed bit
-#
-# #### plot density curves ####
-# draws %>%
-#   filter(parameter %in% parameters_of_interest) %>%
-#   ggplot(aes(x = draw, colour = as.factor(chain)))+
-#   geom_density()+
-#   facet_wrap(. ~ parameter, scales = 'free')+
-#   theme(legend.position = 'none')
-#
-# save.image('nearest_neighbour/neighbour_model_run_bda.RData')
-#
+## check model fit -- Rhat very good, ESS a bit crap, may need to run for more iterations
+# load('nearest_neighbour/neighbour_binomial_run.RData')
+(summary <- summary(nbm_fit))
+par(mfrow = c(3,1))
+hist(summary$fixed$Rhat, breaks = 50)
+hist(summary$fixed$Bulk_ESS, breaks = 50)
+hist(summary$fixed$Tail_ESS, breaks = 50)
+par(mfrow = c(1,1))
+
+## extract posterior distribution
+draws <- as_draws_df(nbm_fit) %>%
+  select(-lprior, -`lp__`)
+parameters <- colnames(draws)[1:(ncol(draws)-3)]
+draws <- draws  %>%
+  pivot_longer(cols = all_of(parameters),
+               names_to = 'parameter',
+               values_to = 'draw') %>%
+  rename(chain = `.chain`,
+         position = `.iteration`,
+         draw_id = `.draw`) %>%
+  mutate(invlogit_draw = invlogit(draw))
+
+# extract marginal effects
+marg <- conditional_effects(nbm_fit,
+                            effects = c('age_combo','stim_type',
+                                        'bda','prev'),
+                            categorical = FALSE,
+                            #spaghetti = TRUE,
+                            method = 'posterior_epred')
+names(marg)
+age_effect <- marg[[1]]
+stim_effect <- marg[[2]]
+bda_effect <- marg[[3]]
+prev_effect <- marg[[4]]
+
+#### plot marginal effects ####
+neighbour_labels <- c('neighbour age category 1',
+                      'neighbour age category 2',
+                      'neighbour age category 3',
+                      'neighbour age category 4')
+names(neighbour_labels) <- c(1:4)
+(focal_age_plot <- age_effect %>%
+   separate(col = age_combo, sep = '_', remove = F,
+            into = c('focal_age','neighbour_age')) %>%
+   mutate(agecombo = paste0(focal_age,'-',neighbour_age)) %>%
+   ggplot()+
+   geom_errorbar(aes(#x = agecombo,
+                     x = focal_age,
+                     colour = focal_age,
+                     #linetype = neighbour_age,
+                     ymax = upper__, ymin = lower__),
+                 linewidth = 1, width = 0.2)+
+   geom_point(aes(#x = agecombo,
+                  x = focal_age,
+                  colour = focal_age,
+                  #shape = neighbour_age,
+                  y = estimate__),
+              cex = 3)+
+   #xlab(label = 'combined age categories')+
+   xlab(label = 'focal age category')+
+   ylab('probability of being nearest neighbours:\nafter dove stimulus, not nearest neighbours in previous second')+
+   scale_colour_viridis_d(name = 'focal age:')+
+   #scale_linetype(name = 'neighbour age line type:')+
+   #scale_shape_manual(name = 'neighbour age shape:', values = c(15:18))+
+   facet_wrap(. ~ neighbour_age,
+              labeller = labeller(neighbour_age = neighbour_labels))+
+   theme(legend.direction = 'horizontal',
+         legend.position = 'bottom',
+         legend.box = 'vertical',
+         legend.spacing.x = unit(0.2, 'cm'),
+         legend.spacing.y = unit(2, 'mm'),
+         axis.title = element_text(size = 16),
+         axis.text.x = element_text(size = 12,
+                                    #angle = 70,
+                                    vjust = 0.5),
+         axis.text.y = element_text(size = 12),
+         legend.title = element_text(size = 12),
+         legend.text = element_text(size = 10)) )
+ggsave(plot = focal_age_plot, filename = '../outputs/neighbour_binomial_model_bda/neighbour_binomial_marginaleffects_focalage.png',
+       device = 'png', width = 8.3, height = 5.8)
+
+(stim_plot <- stim_effect %>%
+    ggplot()+
+    geom_errorbar(aes(x = stim_type,
+                      colour = stim_type,
+                      ymax = upper__, ymin = lower__),
+                  linewidth = 1, width = 0.2)+
+    geom_point(aes(x = stim_type,
+                   colour = stim_type,
+                   shape = stim_type,
+                   y = estimate__),
+              cex = 3)+
+    ylab('probability of being nearest neighbours after stimulus:\nage 1 with age 1, not neighbours in previous second')+
+    scale_colour_viridis_d(name = 'stimulus type:')+
+    scale_shape_manual(name = 'stimulus type:', values = c(15:18))+
+    scale_x_discrete(name = 'stimulus type', breaks = c('ctd','l','h'),
+                     labels = c('dove (control)', 'lion', 'human'),
+                     limits = c('ctd','l','h'))+
+    theme(legend.position = 'none',
+          axis.title = element_text(size = 16),
+          axis.text = element_text(size = 12),
+          legend.title = element_text(size = 12),
+          legend.text = element_text(size = 10)) )
+ggsave(plot = stim_plot, filename = '../outputs/neighbour_binomial_model_bda/neighbour_binomial_marginaleffects_stimtype.png', device = 'png',
+       width = 8.3, height = 5.8)
+
+(all_plots <- ggarrange(focal_age_plot, stim_plot, ncol=2, nrow=1, common.legend = FALSE, legend = "bottom"))
+ggsave(plot = all_plots, filename = '../outputs/neighbour_binomial_model_bda/neighbour_binomial_marginaleffects.png', device = 'png',
+       width = (5.8*2), height = 8.3)
+
+rm(all_plots,focal_age_plot,stim_plot,age_effect,prev_effect,stim_effect,bda_effect) ;gc()
+
+#### posterior predictive check ####
+pp_check(nbm_fit, ndraws = 100) # perfect fit
+
+#### plot traces ####
+parameters_of_interest <- parameters[1:which(parameters == 'simo_moprev1[1]')]
+draws %>%
+  filter(parameter %in% parameters_of_interest) %>%
+  ggplot(aes(x = position, y = draw, colour = as.factor(chain)))+
+  geom_line()+
+  facet_wrap(. ~ parameter, scales = 'free_y')+
+  theme(legend.position = 'none') # mostly fine, but playback ID intercept has a weird unmixed bit
+
+#### plot density curves ####
+draws %>%
+  filter(parameter %in% parameters_of_interest) %>%
+  ggplot(aes(x = draw, colour = as.factor(chain)))+
+  geom_density()+
+  facet_wrap(. ~ parameter, scales = 'free')+
+  theme(legend.position = 'none')
+
+save.image('nearest_neighbour/neighbour_model_run_bda.RData')
+
+## reset plotting
+dev.off()
+#pdf('../outputs/neighbour_binomial_model_bda/neighbour_binomial_modelpredictions.pdf')
+
 # #### predict from model ####
-# rm(list = ls()[! ls() %in% c('nn_fit','nn')])
+# rm(list = ls()[! ls() %in% c('nbm_fit','nn')])
 #
-# pred <- posterior_predict(object = nn_fit,
+# pred <- posterior_predict(object = nbm_fit,
 #                           newdata = nn)
 # save.image('nearest_neighbour/neighbour_model_predictions_bda.RData')
 #
 ######## looking direction ####
-rm(list = ls()[! ls() %in% 'behav'])
-pdf('../outputs/looking_bda_modelchecks.pdf')
+rm(list = ls()[! ls() %in% 'behav']) ; gc()
+pdf('../outputs/looking_ordinal_model_2bda/looking_ordinal_2bda_modelchecks.pdf')
 
+#### create data ####
 ## select specific data
 look <- behav %>%
   filter(activity == 'look') %>%
   select(-activity, -stim_start, -stim_stop, -second) %>%
-  mutate(look_index = ifelse(action == 'look at directly', 1,
-                             ifelse(action == 'side-on', 2, 3)),
-         prev_action = NA,
+  rename(action = action_name,
+         look_index = action_index) %>% 
+  mutate(prev_action = NA,
          prev_num = NA) %>%
   filter(!is.na(f_age_num)) %>%
   filter(!is.na(p_age_num))
@@ -423,28 +471,28 @@ priors <- c(
 ## prior predictive check
 num_chains <- 4
 num_iter <- 2000
-look_prior <- brm(
+lom2_prior <- brm(
   formula = look_index ~ mo(f_age_num) + age_combo + stim_type + bda + mo(prev_num) +
     (1|focal) + (1|stim_num) + (1|pb_num),
   data = look, family = cumulative("logit"),
   prior = priors, chains = num_chains, cores = num_chains,
   iter = num_iter, warmup = num_iter/2, seed = 12345,
   sample_prior = 'only')
-pp_check(look_prior) # huge variation in prior, but fairly on both sides so good
+pp_check(lom2_prior) # huge variation in prior, but fairly on both sides so good
 
 #### fit model ####
-look_fit <- brm(
+lom2_fit <- brm(
   formula = look_index ~ mo(f_age_num) + age_combo + stim_type + bda + mo(prev_num) +
     (1|focal) + (1|stim_num) + (1|pb_num),
   data = look, family = cumulative("logit"),
   prior = priors, chains = num_chains, cores = num_chains,
   iter = num_iter, warmup = num_iter/2, seed = 12345)
-save.image('looking_direction/look_model_run_bda.RData')
+save.image('looking_direction/looking_ordinal_2bda_run.RData')
 
 #### extract draws ####
-# load('looking_direction/look_model_run_bda.RData')
+# load('looking_direction/looking_ordinal_2bda_run.RData')
 ## check model diagnostics -- looks very good
-(summary <- summary(look_fit))
+(summary <- summary(lom2_fit))
 par(mfrow = c(3,1))
 hist(summary$fixed$Rhat, breaks = 50)
 hist(summary$fixed$Bulk_ESS, breaks = 50)
@@ -452,7 +500,7 @@ hist(summary$fixed$Tail_ESS, breaks = 50)
 par(mfrow = c(1,1))
 
 ## extract posterior distribution
-draws <- as_draws_df(look_fit) %>%
+draws <- as_draws_df(lom2_fit) %>%
   select(-lprior, -`lp__`)
 parameters <- colnames(draws)[1:(ncol(draws)-3)]
 draws <- draws  %>%
@@ -465,7 +513,7 @@ draws <- draws  %>%
   mutate(invlogit_draw = invlogit(draw))
 
 ## extract marginal effects
-marg <- conditional_effects(look_fit,
+marg <- conditional_effects(lom2_fit,
                             effects = c('f_age_num','age_combo','stim_type',
                                         'bda','prev_num'),
                             categorical = TRUE,
@@ -525,7 +573,7 @@ par(mfrow = c(1,1))
           axis.text = element_text(size = 12),
           legend.title = element_text(size = 12),
           legend.text = element_text(size = 10)))
-ggsave(plot = f_age_num_plot, filename = '../outputs/looking_marginaleffects_focalage_agecombo_bda.png', device = 'png',
+ggsave(plot = f_age_num_plot, filename = '../outputs/looking_ordinal_model_2bda/looking_ordinal_2bda_marginaleffects_agefocal.png', device = 'png',
        width = 8.3, height = 5.8)
 
 f_age_num_labels <- c('focal age category 1',
@@ -580,7 +628,7 @@ names(f_age_num_labels) <- 1:4
           axis.text = element_text(size = 12),
           legend.title = element_text(size = 12),
           legend.text = element_text(size = 10)) )
-ggsave(plot = agecombo_plot, filename = '../outputs/looking_marginaleffects_agepartner_agecombo_bda.png', device = 'png',
+ggsave(plot = agecombo_plot, filename = '../outputs/looking_ordinal_model_2bda/looking_ordinal_2bda_marginaleffects_agepartner.png', device = 'png',
        width = 8.3, height = 5.8)
 
 (stim_plot <- ggplot(stim_effect)+
@@ -604,18 +652,18 @@ ggsave(plot = agecombo_plot, filename = '../outputs/looking_marginaleffects_agep
           axis.text = element_text(size = 12),
           legend.title = element_text(size = 12),
           legend.text = element_text(size = 10)) )
-ggsave(plot = stim_plot, filename = '../outputs/looking_marginaleffects_stimtype_agecombo_bda.png',
+ggsave(plot = stim_plot, filename = '../outputs/looking_ordinal_model_2bda/looking_ordinal_2bda_marginaleffects_stimtype.png',
        device = 'png', width = 8.3, height = 5.8)
 
 (f_age_num_plot + agecombo_plot + stim_plot) +
   plot_annotation(tag_levels = 'a')
 ggsave(plot = last_plot(),
-       filename = '../outputs/looking_marginaleffects_bda.png',
+       filename = '../outputs/looking_ordinal_model_2bda/looking_ordinal_2bda_marginaleffects.png',
        device = 'png', width = (5.8*3), height = 8.3)
 print(paste0('marginal effects plotted at ',Sys.time()))
 
 #### posterior predictive check ####
-pp_check(look_fit, ndraws = 100) # really good fit
+pp_check(lom2_fit, ndraws = 100) # really good fit
 
 #### plot traces and density curves ####
 draws_cut <- draws %>%
@@ -781,16 +829,16 @@ look %>%
 print(paste0('raw data plotted at ',Sys.time()))
 
 ## reset plotting
-save.image('ele_playbacks/looking_direction/look_model_run_bda.RData') # save.image('looking_direction/look_model_run_bda.RData')
+save.image('ele_playbacks/looking_direction/looking_ordinal_2bda_run.RData') # save.image('looking_direction/looking_ordinal_2bda_run.RData')
 dev.off()
-#pdf('../outputs/looking_bda_modelpredictions.pdf')
+#pdf('../outputs/looking_ordinal_model_2bda/looking_ordinal_2bda_modelpredictions.pdf')
 
 #### predict from model -- raw data -- NOT ACTUALLY RUN AND CHECKED YET ####
 # load('ele_playbacks/looking_direction/look_model_run_bda.RData') # load('looking_direction/look_model_run_bda.RData')
-rm(list = ls()[ ! ls() %in% c('behav','draws','look','look_fit','priors','summary','num_chains','num_iter','age_labels','stim_labels') ]) ; gc()
+rm(list = ls()[ ! ls() %in% c('behav','draws','look','lom2_fit','priors','summary','num_chains','num_iter','age_labels','stim_labels') ]) ; gc()
 
 ## predict from raw data
-pred_mtx <- posterior_epred(object = look_fit, newdata = look)
+pred_mtx <- posterior_epred(object = lom2_fit, newdata = look)
 look$unique_data_combo <- 1:nrow(look)
 colnames(pred_mtx) <- look$unique_data_combo
 save.image('looking_direction/looking_bda_predictions.RData')
@@ -895,7 +943,7 @@ save.image('looking_direction/looking_bda_predictions.RData')
 #     theme(legend.position = 'bottom'))
 # (ctd_plot + lion_plot + human_plot)+
 #   plot_alookotation(tag_levels = 'a')
-# ggsave(plot = last_plot(), file = '../outputs/look_predictions_violin.png',
+# ggsave(plot = last_plot(), file = '../outputs/looking_ordinal_model_2bda/look_predictions_violin.png',
 #        device = 'png', height = 8, width = 24)
 #
 # ## graph contrasts from predictions and extract coefficients -- nn ####
@@ -910,7 +958,7 @@ save.image('looking_direction/looking_bda_predictions.RData')
 #                 focal_id, stim_id, playback_id) %>%
 #   mutate(stim_type = 'ctd',
 #          unique_data_combo = as.integer(as.factor(paste0(f_age_num, look_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
-# ctd_mtx <- posterior_epred(object = look_fit, newdata = ctd_look)
+# ctd_mtx <- posterior_epred(object = lom2_fit, newdata = ctd_look)
 # colnames(ctd_mtx) <- ctd_look$unique_data_combo
 # ctd_mtx <- ctd_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
 #
@@ -920,7 +968,7 @@ save.image('looking_direction/looking_bda_predictions.RData')
 #                 focal_id, stim_id, playback_id) %>%
 #   mutate(stim_type = 'l',
 #          unique_data_combo = as.integer(as.factor(paste0(f_age_num, look_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
-# lion_mtx <- posterior_epred(object = look_fit, newdata = lion_look)
+# lion_mtx <- posterior_epred(object = lom2_fit, newdata = lion_look)
 # colnames(lion_mtx) <- lion_look$unique_data_combo
 # lion_mtx <- lion_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
 #
@@ -930,7 +978,7 @@ save.image('looking_direction/looking_bda_predictions.RData')
 #                 focal_id, stim_id, playback_id) %>%
 #   mutate(stim_type = 'h',
 #          unique_data_combo = as.integer(as.factor(paste0(f_age_num, look_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
-# human_mtx <- posterior_epred(object = look_fit, newdata = human_look)
+# human_mtx <- posterior_epred(object = lom2_fit, newdata = human_look)
 # colnames(human_mtx) <- human_look$unique_data_combo
 # human_mtx <- human_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
 #
@@ -1074,7 +1122,7 @@ save.image('looking_direction/looking_bda_predictions.RData')
 #   dplyr::select(f_age_num, stim_type, look_tminus1_num, after_stim,
 #                 focal_id, stim_id, playback_id) %>%
 #   mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, look_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
-# age_mtx_org <- posterior_epred(object = look_fit, newdata = age_look_org)
+# age_mtx_org <- posterior_epred(object = lom2_fit, newdata = age_look_org)
 # colnames(age_mtx_org) <- age_look_org$unique_data_combo
 # age_mtx_org <- age_mtx_org[c(1:100,1001:1100,2001:2100,3001:3100),,]
 #
@@ -1086,7 +1134,7 @@ save.image('looking_direction/looking_bda_predictions.RData')
 #   mutate(f_age_num = ifelse(f_age_num == 4, 1, f_age_num + 1),
 #          unique_data_combo = as.integer(as.factor(paste0(f_age_num, look_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>%
 #   relocate(f_age_num_original)
-# age_mtx_alt <- posterior_epred(object = look_fit, newdata = age_look_alt)
+# age_mtx_alt <- posterior_epred(object = lom2_fit, newdata = age_look_alt)
 # colnames(age_mtx_alt) <- age_look_alt$unique_data_combo
 # age_mtx_alt <- age_mtx_alt[c(1:100,1001:1100,2001:2100,3001:3100),,]
 # save.image('looking_direction/looking_bda_agecontrasts_epred.RData')
@@ -1183,7 +1231,7 @@ save.image('looking_direction/looking_bda_predictions.RData')
 #                 focal_id, stim_id, playback_id) %>%
 #   mutate(look_tminus1_num = 1,
 #          unique_data_combo = as.integer(as.factor(paste0(f_age_num, look_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
-# young_mtx <- posterior_epred(object = look_fit, newdata = young_look)
+# young_mtx <- posterior_epred(object = lom2_fit, newdata = young_look)
 # colnames(young_mtx) <- young_look$unique_data_combo
 # young_mtx <- young_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
 #
@@ -1193,7 +1241,7 @@ save.image('looking_direction/looking_bda_predictions.RData')
 #                 focal_id, stim_id, playback_id) %>%
 #   mutate(look_tminus1_num = 2,
 #          unique_data_combo = as.integer(as.factor(paste0(f_age_num, look_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
-# match_mtx <- posterior_epred(object = look_fit, newdata = match_look)
+# match_mtx <- posterior_epred(object = lom2_fit, newdata = match_look)
 # colnames(match_mtx) <- match_look$unique_data_combo
 # match_mtx <- match_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
 #
@@ -1203,7 +1251,7 @@ save.image('looking_direction/looking_bda_predictions.RData')
 #                 focal_id, stim_id, playback_id) %>%
 #   mutate(look_tminus1_num = 3,
 #          unique_data_combo = as.integer(as.factor(paste0(f_age_num, look_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
-# older_mtx <- posterior_epred(object = look_fit, newdata = older_look)
+# older_mtx <- posterior_epred(object = lom2_fit, newdata = older_look)
 # colnames(older_mtx) <- older_look$unique_data_combo
 # older_mtx <- older_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
 #
@@ -1377,7 +1425,7 @@ save.image('looking_direction/looking_bda_predictions.RData')
 #   dplyr::select(f_age_num, stim_type, look_tminus1_num, after_stim,
 #                 focal_id, stim_id, playback_id) %>%
 #   mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, look_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
-# time_mtx_org <- posterior_epred(object = look_fit, newdata = time_look_org)
+# time_mtx_org <- posterior_epred(object = lom2_fit, newdata = time_look_org)
 # colnames(time_mtx_org) <- time_look_org$unique_data_combo
 # time_mtx_org <- time_mtx_org[c(1:100,1001:1100,2001:2100,3001:3100),,]
 #
@@ -1389,7 +1437,7 @@ save.image('looking_direction/looking_bda_predictions.RData')
 #   mutate(after_stim = after_stim + 1/4,
 #          unique_data_combo = as.integer(as.factor(paste0(f_age_num, look_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>%
 #   relocate(after_stim_org)
-# time_mtx_alt_0.25 <- posterior_epred(object = look_fit, newdata = time_look_alt_0.25)
+# time_mtx_alt_0.25 <- posterior_epred(object = lom2_fit, newdata = time_look_alt_0.25)
 # colnames(time_mtx_alt_0.25) <- time_look_alt_0.25$unique_data_combo
 # time_mtx_alt_0.25 <- time_mtx_alt_0.25[c(1:100,1001:1100,2001:2100,3001:3100),,]
 #
@@ -1401,7 +1449,7 @@ save.image('looking_direction/looking_bda_predictions.RData')
 #   mutate(after_stim = after_stim + 1/2,
 #          unique_data_combo = as.integer(as.factor(paste0(f_age_num, look_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>%
 #   relocate(after_stim_org)
-# time_mtx_alt_0.50 <- posterior_epred(object = look_fit, newdata = time_look_alt_0.50)
+# time_mtx_alt_0.50 <- posterior_epred(object = lom2_fit, newdata = time_look_alt_0.50)
 # colnames(time_mtx_alt_0.50) <- time_look_alt_0.50$unique_data_combo
 # time_mtx_alt_0.50 <- time_mtx_alt_0.50[c(1:100,1001:1100,2001:2100,3001:3100),,]
 #
@@ -1413,7 +1461,7 @@ save.image('looking_direction/looking_bda_predictions.RData')
 #   mutate(after_stim = after_stim + 3/4,
 #          unique_data_combo = as.integer(as.factor(paste0(f_age_num, look_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>%
 #   relocate(after_stim_org)
-# time_mtx_alt_0.75 <- posterior_epred(object = look_fit, newdata = time_look_alt_0.75)
+# time_mtx_alt_0.75 <- posterior_epred(object = lom2_fit, newdata = time_look_alt_0.75)
 # colnames(time_mtx_alt_0.75) <- time_look_alt_0.75$unique_data_combo
 # time_mtx_alt_0.75 <- time_mtx_alt_0.75[c(1:100,1001:1100,2001:2100,3001:3100),,]
 #
@@ -1425,7 +1473,7 @@ save.image('looking_direction/looking_bda_predictions.RData')
 #   mutate(after_stim = after_stim + 1,
 #          unique_data_combo = as.integer(as.factor(paste0(f_age_num, look_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>%
 #   relocate(after_stim_org)
-# time_mtx_alt_1.00 <- posterior_epred(object = look_fit, newdata = time_look_alt_1.00)
+# time_mtx_alt_1.00 <- posterior_epred(object = lom2_fit, newdata = time_look_alt_1.00)
 # colnames(time_mtx_alt_1.00) <- time_look_alt_1.00$unique_data_combo
 # time_mtx_alt_1.00 <- time_mtx_alt_1.00[c(1:100,1001:1100,2001:2100,3001:3100),,]
 #
@@ -1567,92 +1615,473 @@ save.image('looking_direction/looking_bda_predictions.RData')
 #   facet_grid(pred_type ~ contrast, scales = 'free')
 # save.image('looking_direction/looking_bda_timecontrasts_epred.RData')
 #
-# ######## movement direction ####
-# rm(list = ls()[! ls() %in% 'behav'])
-# 
-# ## select specific data
-# move <- behav %>% 
-#   filter(activity == 'move') %>% 
-#   filter(action != 'not_moving') %>% 
-#   select(-activity, -stim_start, -stim_stop, -second) %>% 
-#   mutate(move_index = ifelse(action == 'approach directly', 1,
-#                              ifelse(action == 'approach at an angle', 2,
-#                                     ifelse(action == 'move directly with', 3,
-#                                            ifelse(action == 'move away at an angle', 4, 5)))),
-#          prev_action = NA,
-#          prev_num = NA) %>% 
-#   filter(!is.na(f_age_num)) %>% 
-#   filter(!is.na(p_age_num))
-# 
-# ## fill in behaviour in previous second
-# subjects <- unique(move$focal)
-# for(i in 1:length(subjects)){
-#   focal <- move %>% filter(focal == subjects[i])
-#   move <- move %>% anti_join(focal, by = 'focal')
-#   for(j in 2:nrow(focal)){
-#     focal$prev_action[j] <- focal$action[j-1]
-#     focal$prev_num[j] <- focal$move_index[j-1]
-#   }
-#   move <- rbind(move, focal)
-# }
-# rm(focal, i, j, subjects) ; gc()
-# 
-# ## remove observations where move in previous second was unknown
-# move <- move %>% 
-#   filter(!is.na(prev_action)) %>% 
-#   mutate(f_age_num = as.integer(f_age_num))
-# 
-# #### set prior ####
-# get_prior(formula = move_index ~ mo(f_age_num) + age_combo + stim_type + bda + mo(prev_num) +  
-#             (1|focal) + (1|stim_num) + (1|pb_num), 
-#           data = move, family = cumulative("logit"))
-# priors <- c(
-#   # focal age
-#   prior(normal(0,1),      class = b,    coef = mof_age_num),
-#   prior(dirichlet(2,2,2), class = simo, coef = mof_age_num1),
-#   # interaction
-#   prior(normal(0,1),      class = b,    coef = age_combo1_2),
-#   prior(normal(0,1),      class = b,    coef = age_combo1_3),
-#   prior(normal(0,1),      class = b,    coef = age_combo1_4),
-#   prior(normal(0,1),      class = b,    coef = age_combo2_1),
-#   prior(normal(0,1),      class = b,    coef = age_combo2_2),
-#   prior(normal(0,1),      class = b,    coef = age_combo2_3),
-#   prior(normal(0,1),      class = b,    coef = age_combo2_4),
-#   prior(normal(0,1),      class = b,    coef = age_combo3_1),
-#   prior(normal(0,1),      class = b,    coef = age_combo3_2),
-#   prior(normal(0,1),      class = b,    coef = age_combo3_3),
-#   prior(normal(0,1),      class = b,    coef = age_combo3_4),
-#   prior(normal(0,1),      class = b,    coef = age_combo4_1),
-#   prior(normal(0,1),      class = b,    coef = age_combo4_2),
-#   prior(normal(0,1),      class = b,    coef = age_combo4_3),
-#   prior(normal(0,1),      class = b,    coef = age_combo4_4),
-#   # stim type
-#   prior(normal(0,1),      class = b,    coef = stim_typeh),
-#   prior(normal(0,1),      class = b,    coef = stim_typel),
-#   # before/during/after
-#   prior(normal(0,1),      class = b,    coef = bdabefore),
-#   prior(normal(0,1),      class = b,    coef = bdaduring),
-#   # action in previous second
-#   prior(normal(0,1),      class = b,    coef = moprev_num),
-#   prior(dirichlet(2),     class = simo, coef = moprev_num1))
-# 
-# ## prior predictive check
-# num_chains <- 4
-# num_iter <- 2000
-# move_prior <- brm(
-#   formula = move_index ~ mo(f_age_num) + age_combo + stim_type + bda + mo(prev_num) +  
-#     (1|focal) + (1|stim_num) + (1|pb_num), 
-#   data = move, family = cumulative("logit"),
-#   prior = priors, chains = num_chains, cores = num_chains,
-#   iter = num_iter, warmup = num_iter/2, seed = 12345,
-#   sample_prior = 'only')
-# pp_check(move_prior) # huge variation in prior, but fairly on both sides so good
-# 
-# #### fit model ####
-# move_fit <- brm(
-#   formula = move_index ~ mo(f_age_num) + age_combo + stim_type + bda + mo(prev_num) +  
-#     (1|focal) + (1|stim_num) + (1|pb_num), 
-#   data = move, family = cumulative("logit"),
-#   prior = priors, chains = num_chains, cores = num_chains,
-#   iter = num_iter, warmup = num_iter/2, seed = 12345)
-# save.image('movement_direction/move_model_run_bda.RData')
+######## movement direction ####
+rm(list = ls()[! ls() %in% 'behav']) ; gc()
+pdf('../outputs/movement_ordinal_model_2bda/movement_ordinal_2bda_modelchecks.pdf')
+
+#### create data ####
+## select specific data
+move <- behav %>%
+  filter(activity == 'move') %>%
+  filter(action_name != 'not_moving') %>%
+  rename(action = action_name,
+         move_index = action_index) %>% 
+  select(-activity, -stim_start, -stim_stop, -second) %>%
+  mutate(prev_action = NA,
+         prev_num = NA) %>%
+  filter(!is.na(f_age_num)) %>%
+  filter(!is.na(p_age_num))
+
+## fill in behaviour in previous second
+subjects <- unique(move$focal)
+for(i in 1:length(subjects)){
+  focal <- move %>% filter(focal == subjects[i])
+  move <- move %>% anti_join(focal, by = 'focal')
+  for(j in 2:nrow(focal)){
+    focal$prev_action[j] <- focal$action[j-1]
+    focal$prev_num[j] <- focal$move_index[j-1]
+  }
+  move <- rbind(move, focal)
+}
+rm(focal, i, j, subjects) ; gc()
+
+## remove observations where move in previous second was unknown
+move <- move %>%
+  filter(!is.na(prev_action)) %>%
+  mutate(f_age_num = as.integer(f_age_num))
+
+#### set prior ####
+get_prior(formula = move_index ~ mo(f_age_num) + age_combo + stim_type + bda + mo(prev_num) +
+            (1|focal) + (1|stim_num) + (1|pb_num),
+          data = move, family = cumulative("logit"))
+priors <- c(
+  # focal age
+  prior(normal(0,1),      class = b,    coef = mof_age_num),
+  prior(dirichlet(2,2,2), class = simo, coef = mof_age_num1),
+  # interaction
+  prior(normal(0,1),      class = b,    coef = age_combo1_2),
+  prior(normal(0,1),      class = b,    coef = age_combo1_3),
+  prior(normal(0,1),      class = b,    coef = age_combo1_4),
+  prior(normal(0,1),      class = b,    coef = age_combo2_1),
+  prior(normal(0,1),      class = b,    coef = age_combo2_2),
+  prior(normal(0,1),      class = b,    coef = age_combo2_3),
+  prior(normal(0,1),      class = b,    coef = age_combo2_4),
+  prior(normal(0,1),      class = b,    coef = age_combo3_1),
+  prior(normal(0,1),      class = b,    coef = age_combo3_2),
+  prior(normal(0,1),      class = b,    coef = age_combo3_3),
+  prior(normal(0,1),      class = b,    coef = age_combo3_4),
+  prior(normal(0,1),      class = b,    coef = age_combo4_1),
+  prior(normal(0,1),      class = b,    coef = age_combo4_2),
+  prior(normal(0,1),      class = b,    coef = age_combo4_3),
+  prior(normal(0,1),      class = b,    coef = age_combo4_4),
+  # stim type
+  prior(normal(0,1),      class = b,    coef = stim_typeh),
+  prior(normal(0,1),      class = b,    coef = stim_typel),
+  # before/during/after
+  prior(normal(0,1),      class = b,    coef = bdabefore),
+  prior(normal(0,1),      class = b,    coef = bdaduring),
+  # action in previous second
+  prior(normal(0,1),      class = b,    coef = moprev_num),
+  prior(dirichlet(2),     class = simo, coef = moprev_num1))
+
+## prior predictive check
+num_chains <- 4
+num_iter <- 2000
+mom2_prior <- brm(
+  formula = move_index ~ mo(f_age_num) + age_combo + stim_type + bda + mo(prev_num) +
+    (1|focal) + (1|stim_num) + (1|pb_num),
+  data = move, family = cumulative("logit"),
+  prior = priors, chains = num_chains, cores = num_chains,
+  iter = num_iter, warmup = num_iter/2, seed = 12345,
+  sample_prior = 'only')
+pp_check(move_prior) # huge variation in prior, but fairly on both sides so good
+
+#### fit model ####
+mom2_fit <- brm(
+  formula = move_index ~ mo(f_age_num) + age_combo + stim_type + bda + mo(prev_num) +
+    (1|focal) + (1|stim_num) + (1|pb_num),
+  data = move, family = cumulative("logit"),
+  prior = priors, chains = num_chains, cores = num_chains,
+  iter = num_iter, warmup = num_iter/2, seed = 12345)
+save.image('movement_direction/moving_ordinal_2bda_run.RData')
+
+#### extract draws ####
+# load('moving_direction/moving_ordinal_2bda_run.RData')
+## check model diagnostics -- moves very good
+(summary <- summary(mom2_fit))
+par(mfrow = c(3,1))
+hist(summary$fixed$Rhat, breaks = 50)
+hist(summary$fixed$Bulk_ESS, breaks = 50)
+hist(summary$fixed$Tail_ESS, breaks = 50)
+par(mfrow = c(1,1))
+
+## extract posterior distribution
+draws <- as_draws_df(mom2_fit) %>%
+  select(-lprior, -`lp__`)
+parameters <- colnames(draws)[1:(ncol(draws)-3)]
+draws <- draws  %>%
+  pivot_longer(cols = all_of(parameters),
+               names_to = 'parameter',
+               values_to = 'draw') %>%
+  rename(chain = `.chain`,
+         position = `.iteration`,
+         draw_id = `.draw`) %>%
+  mutate(invlogit_draw = invlogit(draw))
+
+## extract marginal effects
+marg <- conditional_effects(mom2_fit,
+                            effects = c('f_age_num','age_combo','stim_type',
+                                        'bda','prev_num'),
+                            categorical = TRUE,
+                            #spaghetti = TRUE,
+                            method = 'posterior_epred')
+names(marg)
+agefocal_effect <- marg[[1]]
+agecombo_effect <- marg[[2]]
+stim_effect <- marg[[3]]
+bda_effect <- marg[[4]]
+prev_effect <- marg[[5]]
+
+## move at intercepts (estimates of cutpoints between categories on linear model scale)
+b_int1 <- draws %>% filter(parameter == 'b_Intercept[1]')
+b_int2 <- draws %>% filter(parameter == 'b_Intercept[2]')
+par(mfrow = c(2,2))
+hist(b_int1$draw) ; hist(b_int2$draw) ; hist(b_int1$invlogit_draw) ; hist(b_int2$invlogit_draw)
+par(mfrow = c(1,1))
+
+#### calculate log cumulative odds ####
+(prop <- table(move$move_index) / nrow(move))
+(cum_prop <- cumsum(prop))
+(log_cum_odds <- logit(cum_prop))
+
+#### plot marginal effects ####
+(f_age_num_plot <- ggplot(agefocal_effect)+
+   # geom_ribbon(aes(x = f_age_num,
+   #                 ymax = upper__, ymin = lower__,
+   #                 fill = cats__),
+   #             alpha = 0.4)+
+   # geom_line(aes(x = f_age_num,
+   #               y = estimate__,
+   #               colour = cats__),
+   #           linewidth = 1)+
+   geom_errorbar(aes(x = f_age_num,
+                     ymax = upper__, ymin = lower__,
+                     colour = cats__),
+                 linewidth = 1, width = 0.2)+
+   geom_point(aes(x = f_age_num,
+                  y = estimate__,
+                  colour = cats__),
+              size = 3)+ # cex = 3?
+   xlab(label = 'focal age')+
+   ylab('probability of moving direction')+
+   scale_colour_viridis_d(name = 'moving direction:',
+                          breaks = c('1','2','3','4','5'),
+                          labels = c('move away directly',
+                                     'move away at an angle',
+                                     'move neither towards or away',
+                                     'approach at an angle',
+                                     'approach directly'))+
+   scale_fill_viridis_d(name = 'moving direction:',
+                        breaks = c('1','2','3','4','5'),
+                        labels = c('move away directly',
+                                   'move away at an angle',
+                                   'move neither towards or away',
+                                   'approach at an angle',
+                                   'approach directly'))+
+   theme(legend.position = 'bottom',
+         axis.title = element_text(size = 16),
+         axis.text = element_text(size = 12),
+         legend.title = element_text(size = 12),
+         legend.text = element_text(size = 10)))
+ggsave(plot = f_age_num_plot, filename = '../outputs/movement_ordinal_model_2bda/moving_ordinal_2bda_marginaleffects_agefocal.png', device = 'png',
+       width = 8.3, height = 5.8)
+
+f_age_num_labels <- c('focal age category 1',
+                      'focal age category 2',
+                      'focal age category 3',
+                      'focal age category 4')
+names(f_age_num_labels) <- 1:4
+(agecombo_plot <- agecombo_effect %>%
+    separate(col = age_combo, sep = '_', remove = F,
+             into = c('f_age_num','partner_age')) %>%
+    mutate(agecombo = paste0(f_age_num,'-',partner_age)) %>%
+    ggplot()+
+    geom_errorbar(aes(#x = agecombo,
+      x = partner_age,
+      colour = as.factor(cats__), # moving direction?
+      ymax = upper__, ymin = lower__),
+      linewidth = 1,
+      width = 0.4)+
+    geom_point(aes(#x = agecombo,
+      x = partner_age,
+      colour = as.factor(cats__),    # moving direction?
+      #shape = f_age_num,
+      y = estimate__),
+      size = 3)+
+    # geom_ribbon(aes(#x = agecombo,
+    #                 x = as.numeric(partner_age),
+    #                 fill = as.factor(cats__),     # moving direction?
+    #                 ymax = upper__, ymin = lower__),
+    #             alpha = 0.4)+
+    # geom_line(aes(#x = agecombo,
+    #               x = as.numeric(partner_age),
+    #               colour = as.factor(cats__),     # moving direction?
+    #               y = estimate__),
+    #           linewidth = 1)+
+    facet_wrap(. ~ f_age_num,
+               labeller = labeller(f_age_num = f_age_num_labels))+
+    ylab('probability of moving direction')+
+    scale_colour_viridis_d(name = 'moving direction:',
+                           breaks = c('1','2','3','4','5'),
+                           labels = c('move away directly',
+                                      'move away at an angle',
+                                      'move neither towards or away',
+                                      'approach at an angle',
+                                      'approach directly'))+
+    # scale_fill_viridis_d(name = 'moving direction:',
+    #                      breaks = c('1','2','3','4','5'),
+    #                      labels = c('move away directly',
+    #                                 'move away at an angle',
+    #                                 'move neither towards or away',
+    #                                 'approach at an angle',
+    #                                 'approach directly'))+
+    scale_x_discrete(name = 'partner age category')+
+    #scale_x_continuous(name = 'partner age category')+
+    theme(legend.position = 'bottom',
+          axis.title = element_text(size = 16),
+          axis.text = element_text(size = 12),
+          legend.title = element_text(size = 12),
+          legend.text = element_text(size = 10)) )
+ggsave(plot = agecombo_plot, filename = '../outputs/movement_ordinal_model_2bda/moving_ordinal_2bda_marginaleffects_agepartner.png', device = 'png',
+       width = 8.3, height = 5.8)
+
+(stim_plot <- ggplot(stim_effect)+
+    geom_errorbar(aes(x = stim_type,
+                      ymin = lower__, ymax = upper__,
+                      colour = cats__),
+                  linewidth = 1, width = 0.2)+
+    geom_point(aes(x = stim_type,
+                   y = estimate__,
+                   colour = cats__),
+               cex = 3)+ # size = 3?
+    xlab(label = 'stimulus type') + ylab('probability of moving direction')+
+    scale_colour_viridis_d(name = 'moving direction:',
+                           breaks = c('1','2','3','4','5'),
+                           labels = c('move away directly',
+                                      'move away at an angle',
+                                      'move neither towards or away',
+                                      'approach at an angle',
+                                      'approach directly'))+
+    scale_x_discrete(breaks = c('ctd','l','h'),
+                     labels = c('dove (control)', 'lion', 'human'),
+                     limits = c('ctd','l','h'))+
+    theme(legend.position = 'bottom',
+          axis.title = element_text(size = 16),
+          axis.text = element_text(size = 12),
+          legend.title = element_text(size = 12),
+          legend.text = element_text(size = 10)) )
+ggsave(plot = stim_plot, filename = '../outputs/movement_ordinal_model_2bda/moving_ordinal_2bda_marginaleffects_stimtype.png',
+       device = 'png', width = 8.3, height = 5.8)
+
+(f_age_num_plot + agecombo_plot + stim_plot) +
+  plot_annotation(tag_levels = 'a')
+ggsave(plot = last_plot(),
+       filename = '../outputs/movement_ordinal_model_2bda/moving_ordinal_2bda_marginaleffects.png',
+       device = 'png', width = (5.8*3), height = 8.3)
+print(paste0('marginal effects plotted at ',Sys.time()))
+
+#### posterior predictive check ####
+pp_check(mom2_fit, ndraws = 100) # really good fit
+
+#### plot traces and density curves ####
+draws_cut <- draws %>%
+  filter(parameter %in% c("b_Intercept[1]","b_Intercept[2]",
+                          "b_stim_typeh","b_stim_typel",
+                          "b_bdabefore","b_bdaduring",
+                          "b_age_combo1_2","b_age_combo1_3","b_age_combo1_4",
+                          "b_age_combo2_1","b_age_combo2_2","b_age_combo2_3","b_age_combo2_4",
+                          "b_age_combo3_1","b_age_combo3_2","b_age_combo3_3","b_age_combo3_4",
+                          "b_age_combo4_1","b_age_combo4_2","b_age_combo4_3","b_age_combo4_4",
+                          "sd_focal_id__Intercept","sd_playback_id__Intercept","sd_stim_id__Intercept",
+                          "bsp_mof_age_num",
+                          "simo_mof_age_num1[1]","simo_mof_age_num1[2]","simo_mof_age_num1[3]",
+                          "bsp_moprev_num","simo_moprev_num1[1]","simo_moprev_num1[2]"))
+ggplot(data = draws_cut,
+       aes(x = position, y = draw, colour = as.factor(chain)))+
+  geom_line()+
+  facet_wrap(. ~ parameter, scales = 'free_y')+
+  theme(legend.position = 'none') # mixing generally moves very good, though a couple of age combo ones are a touch wandery
+
+## move at intercepts (estimates of cutpoints between categories on linear model scale)
+b_int1 <- draws_cut %>% filter(parameter == 'b_Intercept[1]')
+b_int2 <- draws_cut %>% filter(parameter == 'b_Intercept[2]')
+par(mfrow = c(2,1))
+hist(b_int1$draw, main = 'b_int1') ; hist(b_int2$draw, main = 'b_int2')
+hist(b_int1$invlogit_draw, main = 'invlogit b_int1') ; hist(b_int2$invlogit_draw, main = 'invlogit b_int2')
+
+## stim type
+lion <- draws_cut %>% filter(parameter == 'b_stim_typel')
+human <- draws_cut %>% filter(parameter == 'b_stim_typeh')
+plot(density(lion$draw), main = 'lion vs dove') ; abline(v = 0, lty = 2)
+plot(density(human$draw), main = 'human vs dove') ; abline(v = 0, lty = 2)
+
+## focal age
+age1 <- draws_cut %>% filter(parameter == 'bsp_mof_age_num')
+age2 <- draws_cut %>% filter(parameter == 'simo_mof_age_num1[1]')
+age3 <- draws_cut %>% filter(parameter == 'simo_mof_age_num1[2]')
+age4 <- draws_cut %>% filter(parameter == 'simo_mof_age_num1[3]')
+par(mfrow = c(2,2))
+plot(density(age1$draw), main = 'age intercept') ; abline(v = 0, lty = 2)
+plot(density(age2$draw), main = 'age2 vs age1') ; abline(v = 0, lty = 2)
+plot(density(age3$draw), main = 'age3 vs age1') ; abline(v = 0, lty = 2)
+plot(density(age4$draw), main = 'age4 vs age1') ; abline(v = 0, lty = 2)
+
+## moving direction in previous second
+prevsec_slope <- draws_cut %>% filter(parameter == 'bsp_moprev_num')
+prevsec2 <- draws_cut %>% filter(parameter == 'simo_moprev_num1[1]')
+prevsec3 <- draws_cut %>% filter(parameter == 'simo_moprev_num1[2]')
+par(mfrow = c(3,1))
+plot(density(prevsec_slope$draw), main = 'slope of prevsec') ; abline(v = 0, lty = 2)
+plot(density(prevsec2$draw), main = 't-1 matched vs younger') ; abline(v = 0, lty = 2)
+plot(density(prevsec3$draw), main = 't-1 older vs younger') ; abline(v = 0, lty = 2)
+
+## time since stimulus -- come back to this!
+before <- draws_cut %>% filter(parameter == 'b_bdabefore')
+during <- draws_cut %>% filter(parameter == 'b_bdaduring')
+par(mfrow = c(2,1))
+plot(density(before$draw), main = 'after --> before') ; abline(v = 0, lty = 2)
+plot(density(during$draw), main = 'after --> during') ; abline(v = 0, lty = 2)
+
+print(paste0('posterior predictive check and traceplots completed at ',Sys.time()))
+
+#### plot raw ####
+## define labels for plotting
+age_labels <- c('10-15 years','16-20 years','21-25 years','26-35 years')
+names(age_labels) <- c(1,2,3,4)
+stim_labels <- c('dove (control)','human','lion')
+names(stim_labels) <- c('ctd','h','l')
+
+# ## plot overall
+# ggplot(move,aes(x = f_age_num, y = move_index,
+#                 colour = age_combo))+
+#   geom_jitter(alpha = 0.1)+
+#   facet_wrap(. ~ stim_type,
+#              labeller = labeller(stim_type = stim_labels))+
+#   scale_y_continuous(name = 'focal moving direction relative to target',
+#                      breaks = c(1,2,3),
+#                      labels = c('move directly at','side-on','move directly away'))+
+#   labs(colour = 'age difference')
+
+## plot control data
+move %>%
+  mutate(bda = factor(bda, levels = c('before','during','after'))) %>% 
+  filter(stim_type == 'ctd') %>%
+  ggplot(aes(x = bda, y = move_index,
+             group = focal))+
+  geom_jitter(colour = rgb(0,0,1,0.01))+
+  facet_grid(f_age_num ~ p_age_num,
+             labeller = labeller(f_age_num = age_labels))+
+  scale_y_continuous(name = 'focal moving direction relative to target',
+                     breaks = c('1','2','3','4','5'),
+                     labels = c('move away directly',
+                                'move away at an angle',
+                                'move neither towards or away',
+                                'approach at an angle',
+                                'approach directly'))+
+  scale_x_discrete(name = 'time relative to stimulus')
+
+move %>%
+  mutate(bda = factor(bda, levels = c('before','during','after'))) %>% 
+  filter(stim_type == 'ctd') %>%
+  ggplot(aes(x = move_index, fill = bda))+
+  geom_bar(colour = rgb(0,0,1,0.01), position = 'dodge')+
+  facet_grid(f_age_num ~ p_age_num,
+             labeller = labeller(f_age_num = age_labels,
+                                 p_age_num = age_labels))+
+  scale_x_continuous(name = 'focal moving direction relative to target',
+                     breaks = c('1','2','3','4','5'),
+                     labels = c('move away directly',
+                                'move away at an angle',
+                                'move neither towards or away',
+                                'approach at an angle',
+                                'approach directly'))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
+## plot lion data
+move %>%
+  mutate(bda = factor(bda, levels = c('before','during','after'))) %>% 
+  filter(stim_type == 'l') %>%
+  ggplot(aes(x = bda, y = move_index,
+             group = focal))+
+  geom_jitter(colour = rgb(0,0,1,0.01))+
+  facet_grid(f_age_num ~ p_age_num,
+             labeller = labeller(f_age_num = age_labels))+
+  scale_y_continuous(name = 'focal moving direction relative to target',
+                     breaks = c('1','2','3','4','5'),
+                     labels = c('move away directly',
+                                'move away at an angle',
+                                'move neither towards or away',
+                                'approach at an angle',
+                                'approach directly'))+
+  scale_x_discrete(name = 'time relative to stimulus')
+
+move %>%
+  mutate(bda = factor(bda, levels = c('before','during','after'))) %>% 
+  filter(stim_type == 'l') %>%
+  ggplot(aes(x = move_index, fill = bda))+
+  geom_bar(colour = rgb(0,0,1,0.01), position = 'dodge')+
+  facet_grid(f_age_num ~ p_age_num,
+             labeller = labeller(f_age_num = age_labels,
+                                 p_age_num = age_labels))+
+  scale_x_continuous(name = 'focal moving direction relative to target',
+                     breaks = c('1','2','3','4','5'),
+                     labels = c('move away directly',
+                                'move away at an angle',
+                                'move neither towards or away',
+                                'approach at an angle',
+                                'approach directly'))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
+## plot human data
+move %>%
+  mutate(bda = factor(bda, levels = c('before','during','after'))) %>% 
+  filter(stim_type == 'h') %>%
+  ggplot(aes(x = bda, y = move_index,
+             group = focal))+
+  geom_jitter(colour = rgb(0,0,1,0.01))+
+  facet_grid(f_age_num ~ p_age_num,
+             labeller = labeller(f_age_num = age_labels))+
+  scale_y_continuous(name = 'focal moving direction relative to target',
+                     breaks = c('1','2','3','4','5'),
+                     labels = c('move away directly',
+                                'move away at an angle',
+                                'move neither towards or away',
+                                'approach at an angle',
+                                'approach directly'))+
+  scale_x_discrete(name = 'time relative to stimulus')
+
+move %>%
+  mutate(bda = factor(bda, levels = c('before','during','after'))) %>% 
+  filter(stim_type == 'h') %>%
+  ggplot(aes(x = move_index, fill = bda))+
+  geom_bar(colour = rgb(0,0,1,0.01), position = 'dodge')+
+  facet_grid(f_age_num ~ p_age_num,
+             labeller = labeller(f_age_num = age_labels,
+                                 p_age_num = age_labels))+
+  scale_x_continuous(name = 'focal moving direction relative to target',
+                     breaks = c('1','2','3','4','5'),
+                     labels = c('move away directly',
+                                'move away at an angle',
+                                'move neither towards or away',
+                                'approach at an angle',
+                                'approach directly'))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
+
+print(paste0('raw data plotted at ',Sys.time()))
+
+## reset plotting
+save.image('ele_playbacks/moving_direction/moving_ordinal_2bda_run.RData') # save.image('moving_direction/moving_ordinal_2bda_run.RData')
+dev.off()
+#pdf('../outputs/movement_ordinal_model_2bda/moving_ordinal_2bda_modelpredictions.pdf')
+
