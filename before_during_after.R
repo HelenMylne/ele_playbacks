@@ -172,7 +172,7 @@ pdf('../outputs/neighbour_binomial_model_bda/neighbour_binomial_modelchecks.pdf'
 ## select specific data
 nn <- behav %>%
   filter(activity == 'nn') %>%
-  select(-activity, -stim_start, -stim_stop, -second) %>%
+  select(-activity, -stim_start, -stim_stop) %>%
   mutate(prev = NA,
          action = as.numeric(action_name),
          f_age_num = as.factor(as.numeric(f_age_num)),
@@ -180,17 +180,23 @@ nn <- behav %>%
   filter(!is.na(p_age_num)) %>% 
   relocate(action, .after = action_index)
 
-## fill in behaviour in previous second
-subjects <- unique(nn$focal)
-for(i in 1:length(subjects)){
-  focal <- nn %>% filter(focal == subjects[i])
+# create variable for nearest neighbour at time t-1
+focals <- unique(nn$focal)
+for(f in 1:length(focals)){
+  focal <- nn %>% filter(focal == focals[f])
   nn <- nn %>% anti_join(focal, by = 'focal')
-  for(j in 2:nrow(focal)){
-    focal$prev[j] <- focal$action[j-1]
+  partners <- unique(focal$partner)
+  for(p in 1:length(partners)){
+    focal_partner <- focal %>% filter(partner == partners[p])
+    focal <- focal %>% anti_join(focal_partner, by = 'partner')
+    for(i in 2:nrow(focal_partner)){
+      focal_partner$prev[i] <- focal_partner$action[i-1]
+    }
+    focal <- rbind(focal, focal_partner)
   }
   nn <- rbind(nn, focal)
 }
-rm(focal, i, j, subjects) ; gc()
+rm(focal, focals, focal_partner, f, p, i, partners) ; gc()
 
 ## remove observations where nearest neighbour in previous second was unknown
 nn <- nn %>%
@@ -232,7 +238,7 @@ priors <- c(
   # action in previous second
   # prior(normal(0,1),      class = b,    coef = moprev),
   # prior(dirichlet(2),   class = simo, coef = moprev1))
-  prior(normal(0,1),      class = b,    coef = prev))
+  prior(normal(1,1),      class = b,    coef = prev))
 
 ## prior predictive check
 num_chains <- 4
@@ -244,7 +250,7 @@ nbm_prior <- brm(
   prior = priors, chains = num_chains, cores = num_chains,
   iter = num_iter, warmup = num_iter/2, seed = 12345,
   sample_prior = 'only')
-pp_check(nbm_prior) # huge variation in prior, but fairly on both sides so good
+pp_check(nbm_prior) # y is quite skewed, prior is mostly symmetrical, but data still fall within it
 
 #### fit model ####
 nbm_fit <- brm(
@@ -408,7 +414,7 @@ pdf('../outputs/looking_ordinal_model_2bda/looking_ordinal_2bda_modelchecks.pdf'
 ## select specific data
 look <- behav %>%
   filter(activity == 'look') %>%
-  select(-activity, -stim_start, -stim_stop, -second) %>%
+  select(-activity, -stim_start, -stim_stop) %>%
   rename(action = action_name,
          look_index = action_index) %>% 
   mutate(prev_action = NA,
@@ -416,18 +422,24 @@ look <- behav %>%
   filter(!is.na(f_age_num)) %>%
   filter(!is.na(p_age_num))
 
-## fill in behaviour in previous second
-subjects <- unique(look$focal)
-for(i in 1:length(subjects)){
-  focal <- look %>% filter(focal == subjects[i])
+# create variable for looking direction at time t-1
+focals <- unique(look$focal)
+for(f in 1:length(focals)){
+  focal <- look %>% filter(focal == focals[f])
   look <- look %>% anti_join(focal, by = 'focal')
-  for(j in 2:nrow(focal)){
-    focal$prev_action[j] <- focal$action[j-1]
-    focal$prev_num[j] <- focal$look_index[j-1]
+  partners <- unique(focal$partner)
+  for(p in 1:length(partners)){
+    focal_partner <- focal %>% filter(partner == partners[p])
+    focal <- focal %>% anti_join(focal_partner, by = 'partner')
+    for(i in 2:nrow(focal_partner)){
+      focal_partner$prev_action[i] <- focal_partner$action[i-1]
+      focal_partner$prev_num[i] <- focal_partner$look_index[i-1]
+    }
+    focal <- rbind(focal, focal_partner)
   }
   look <- rbind(look, focal)
 }
-rm(focal, i, j, subjects) ; gc()
+rm(focal, focals, focal_partner, f, p, i, partners) ; gc()
 
 ## remove observations where look in previous second was unknown
 look <- look %>%
@@ -465,7 +477,7 @@ priors <- c(
   prior(normal(0,1),      class = b,    coef = bdabefore),
   prior(normal(0,1),      class = b,    coef = bdaduring),
   # action in previous second
-  prior(normal(0,1),      class = b,    coef = moprev_num),
+  prior(normal(1,1),      class = b,    coef = moprev_num),
   prior(dirichlet(2),     class = simo, coef = moprev_num1))
 
 ## prior predictive check
@@ -1623,30 +1635,37 @@ pdf('../outputs/movement_ordinal_model_2bda/movement_ordinal_2bda_modelchecks.pd
 ## select specific data
 move <- behav %>%
   filter(activity == 'move') %>%
-  filter(action_name != 'not_moving') %>%
   rename(action = action_name,
          move_index = action_index) %>% 
-  select(-activity, -stim_start, -stim_stop, -second) %>%
+  select(-activity, -stim_start, -stim_stop) %>%
   mutate(prev_action = NA,
          prev_num = NA) %>%
   filter(!is.na(f_age_num)) %>%
   filter(!is.na(p_age_num))
 
-## fill in behaviour in previous second
-subjects <- unique(move$focal)
-for(i in 1:length(subjects)){
-  focal <- move %>% filter(focal == subjects[i])
+# create variable for movement direction at time t-1
+focals <- unique(move$focal)
+for(f in 1:length(focals)){
+  focal <- move %>% filter(focal == focals[f])
   move <- move %>% anti_join(focal, by = 'focal')
-  for(j in 2:nrow(focal)){
-    focal$prev_action[j] <- focal$action[j-1]
-    focal$prev_num[j] <- focal$move_index[j-1]
+  partners <- unique(focal$partner)
+  for(p in 1:length(partners)){
+    focal_partner <- focal %>% filter(partner == partners[p])
+    focal <- focal %>% anti_join(focal_partner, by = 'partner')
+    for(i in 2:nrow(focal_partner)){
+      focal_partner$prev_action[i] <- focal_partner$action[i-1]
+      focal_partner$prev_num[i] <- focal_partner$move_index[i-1]
+    }
+    focal <- rbind(focal, focal_partner)
   }
   move <- rbind(move, focal)
 }
-rm(focal, i, j, subjects) ; gc()
+rm(focal, focals, focal_partner, f, p, i, partners) ; gc()
 
-## remove observations where move in previous second was unknown
+## remove observations where not moving currently or in previous second
 move <- move %>%
+  filter(action != 'not_moving') %>%
+  filter(prev_action != 'not_moving') %>% 
   filter(!is.na(prev_action)) %>%
   mutate(f_age_num = as.integer(f_age_num))
 
@@ -1681,7 +1700,7 @@ priors <- c(
   prior(normal(0,1),      class = b,    coef = bdabefore),
   prior(normal(0,1),      class = b,    coef = bdaduring),
   # action in previous second
-  prior(normal(0,1),      class = b,    coef = moprev_num),
+  prior(normal(1,1),      class = b,    coef = moprev_num),
   prior(dirichlet(2),     class = simo, coef = moprev_num1))
 
 ## prior predictive check
@@ -1694,7 +1713,7 @@ mom2_prior <- brm(
   prior = priors, chains = num_chains, cores = num_chains,
   iter = num_iter, warmup = num_iter/2, seed = 12345,
   sample_prior = 'only')
-pp_check(move_prior) # huge variation in prior, but fairly on both sides so good
+pp_check(mom2_prior) # huge variation in prior, but fairly on both sides so good
 
 #### fit model ####
 mom2_fit <- brm(

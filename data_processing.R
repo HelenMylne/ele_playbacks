@@ -3116,7 +3116,8 @@ rm(list = ls()[!ls() %in% c('by_sec', 'videos')]) ; gc()
 rm(list = ls() [ !ls() %in% c('by_sec','videos') ])
 
 by_sec_long <- by_sec %>% 
-  pivot_longer(cols = 6:46, names_to = 'behaviour_type', values_to = 'action') %>% 
+  pivot_longer(cols = 6:37, # 6:46 when include social behaviour
+               names_to = 'behaviour_type', values_to = 'action') %>% 
   filter(action != 'impossible_partner') %>% 
   separate(behaviour_type, into = c('target','type'), remove = F) %>% 
   mutate(type = ifelse(target == 'ears' | target == 'trunk' | target == 'tail', 'stress',
@@ -3241,7 +3242,7 @@ for( j in 5:45 ){
 
 # combine to single data frame so have both index variable and name together
 by_sec_index2 <- by_sec_index %>% 
-  cbind(by_sec_wide[,5:46])
+  cbind(by_sec_wide[,5:37])#46])
 
 # reorder columns
 colnames(by_sec_index2) <- c("subject","bull","pb_num","second",
@@ -3255,14 +3256,12 @@ colnames(by_sec_index2) <- c("subject","bull","pb_num","second",
                              "neighbour_index",
                              "b1_nn_index","b2_nn_index","b3_nn_index","b4_nn_index",
                              "b5_nn_index","b6_nn_index","b7_nn_index","b8_nn_index",
-                             "social_index",
-                             "b1_social_index","b2_social_index","b3_social_index","b4_social_index",
-                             "b5_social_index","b6_social_index","b7_social_index","b8_social_index",
+                             # "social_index",
+                             # "b1_social_index","b2_social_index","b3_social_index","b4_social_index",
+                             # "b5_social_index","b6_social_index","b7_social_index","b8_social_index",
                              "b1_present_index","b2_present_index","b3_present_index","b4_present_index",
                              "b5_present_index","b6_present_index","b7_present_index","b8_present_index",
-                             #"unique_index",
-                             "out_frame_name",
-                             "ears_name","trunk_name","tail_name",
+                             "out_frame_name","ears_name","trunk_name","tail_name",
                              "speaker_look_name","vehicle_look_name",
                              "speaker_move_name","vehicle_move_name",
                              "b1_look_name","b2_look_name","b3_look_name","b4_look_name",
@@ -3271,10 +3270,11 @@ colnames(by_sec_index2) <- c("subject","bull","pb_num","second",
                              "b5_move_name","b6_move_name","b7_move_name","b8_move_name",
                              "neighbour_name",
                              "b1_nn_name","b2_nn_name","b3_nn_name","b4_nn_name",
-                             "b5_nn_name","b6_nn_name","b7_nn_name","b8_nn_name",
-                             "social_name",
-                             "b1_social_name","b2_social_name","b3_social_name","b4_social_name",
-                             "b5_social_name","b6_social_name","b7_social_name","b8_social_name")
+                             "b5_nn_name","b6_nn_name","b7_nn_name","b8_nn_name"#,
+                             # "social_name",
+                             # "b1_social_name","b2_social_name","b3_social_name","b4_social_name",
+                             # "b5_social_name","b6_social_name","b7_social_name","b8_social_name"
+                             )
 col_order <- c("subject","bull","pb_num","second",
                "out_frame_name","out_frame_index",
                "ears_name","ears_index","trunk_name","trunk_index","tail_name","tail_index",
@@ -3293,11 +3293,11 @@ col_order <- c("subject","bull","pb_num","second",
                "b3_nn_name","b3_nn_index","b4_nn_name","b4_nn_index",
                "b5_nn_name","b5_nn_index","b6_nn_name","b6_nn_index",
                "b7_nn_name","b7_nn_index","b8_nn_name","b8_nn_index",
-               "social_name","social_index",
-               "b1_social_name","b1_social_index","b2_social_name","b2_social_index",
-               "b3_social_name","b3_social_index","b4_social_name","b4_social_index",
-               "b5_social_name","b5_social_index","b6_social_name","b6_social_index",
-               "b7_social_name","b7_social_index","b8_social_name","b8_social_index",
+               # "social_name","social_index",
+               # "b1_social_name","b1_social_index","b2_social_name","b2_social_index",
+               # "b3_social_name","b3_social_index","b4_social_name","b4_social_index",
+               # "b5_social_name","b5_social_index","b6_social_name","b6_social_index",
+               # "b7_social_name","b7_social_index","b8_social_name","b8_social_index",
                "b1_present_index","b2_present_index","b3_present_index","b4_present_index",
                "b5_present_index","b6_present_index","b7_present_index","b8_present_index")
 by_sec_index2 <- by_sec_index2 %>% 

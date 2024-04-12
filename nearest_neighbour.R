@@ -56,109 +56,125 @@ stim_starts <- stim_starts %>%
   mutate(stim_start = round(time, 0)) %>%
   select(pb_num,stim_start,stim_num,stim_type,group_size)
 
+## nearest neighbour data
+cols_of_interest <- c('b1_nn','b2_nn','b3_nn','b4_nn',
+                      'b5_nn','b6_nn','b7_nn','b8_nn')
+cols_of_interest_name <- c('b1_nn_name','b2_nn_name','b3_nn_name','b4_nn_name',
+                           'b5_nn_name','b6_nn_name','b7_nn_name','b8_nn_name')
+cols_of_interest_index <- c('b1_nn_index','b2_nn_index','b3_nn_index','b4_nn_index',
+                            'b5_nn_index','b6_nn_index','b7_nn_index','b8_nn_index')
 nn_all <- readRDS('data_processed/behaviour_by_second_indexvariables.RDS') %>%
   # nn_all <- readRDS('../data_processed/behaviour_by_second_indexvariables.RDS') %>%
-  filter(out_frame_name != 'out_of_sight') %>%
+  filter(out_frame_name == 'in_frame') %>% 
   select(subject,pb_num,second,
-         b1_nn_name,#b1_nn_index,
-         b2_nn_name,#b2_nn_index,
-         b3_nn_name,#b3_nn_index,
-         b4_nn_name,#b4_nn_index,
-         b5_nn_name,#b5_nn_index,
-         b6_nn_name,#b6_nn_index,
-         b7_nn_name,#b7_nn_index,
-         b8_nn_name#,b8_nn_index,
-  ) %>%
-  pivot_longer(cols = c('b1_nn_name','b2_nn_name','b3_nn_name','b4_nn_name',
-                        'b5_nn_name','b6_nn_name','b7_nn_name','b8_nn_name'),
-               names_to = 'elephant_nn', values_to = 'neighbour') %>%
-  filter(is.na(neighbour) == FALSE) %>%
-  filter(neighbour != 'impossible_partner') %>%
-  separate(elephant_nn, into = c('partner_bull','nn_name'), sep = 2, remove = F) %>%
-  select(-nn_name) %>%
-  rename(focal = subject) %>% 
-  mutate(partner = paste0(partner_bull, '_e', pb_num)) %>%
-  left_join(ages[,c('focal','f_age_cat','f_age_num')], by = 'focal') %>%
-  left_join(ages[,c('partner','p_age_cat','p_age_num')], by = 'partner') %>%
-  # rename(f_subject = subject,
-  #        f_bull = bull,
-  #        p_subject = targeted_elephant,
-  #        p_bull = partner_bull,
-  #        nn_binom = neighbour,
-  #        age_diff_cat = age_difference) %>%
-  mutate(pb_num = as.numeric(pb_num),
+         all_of(cols_of_interest_name),all_of(cols_of_interest_index)) %>%
+  rename(b1_nn = b1_nn_name, b2_nn = b2_nn_name,
+         b3_nn = b3_nn_name, b4_nn = b4_nn_name,
+         b5_nn = b5_nn_name, b6_nn = b6_nn_name,
+         b7_nn = b7_nn_name, b8_nn = b8_nn_name) %>% 
+  pivot_longer(cols = all_of(cols_of_interest),
+               names_to = 'elephant_activity_name', values_to = 'neighbour') %>% 
+  rename(b1_nn = b1_nn_index, b2_nn = b2_nn_index,
+         b3_nn = b3_nn_index, b4_nn = b4_nn_index,
+         b5_nn = b5_nn_index, b6_nn = b6_nn_index,
+         b7_nn = b7_nn_index, b8_nn = b8_nn_index) %>% 
+  pivot_longer(cols = all_of(cols_of_interest),
+               names_to = 'elephant_activity_index', values_to = 'nn_index') %>% 
+  filter(elephant_activity_name == elephant_activity_index) %>% 
+  select(-elephant_activity_index) %>% 
+  rename(elephant_activity = elephant_activity_name,
+         focal = subject) %>% 
+  filter(is.na(nn_index) == FALSE) %>% 
+  separate(elephant_activity, into = c('partner','activity'), sep = '_', remove = T) %>% 
+  mutate(partner = paste0(partner, '_e', pb_num),
+         pb_num = as.numeric(pb_num)) %>% 
+  left_join(ages[,c('focal','f_age_cat','f_age_num')], by = 'focal') %>% 
+  left_join(ages[,c('partner','p_age_cat','p_age_num')], by = 'partner') %>% 
+  left_join(stim_starts, by = 'pb_num') %>% 
+  mutate(time_since_stim = second - stim_start,
+         after_stim = ifelse(time_since_stim < 0, 0, time_since_stim/60),
          age_difference = ifelse(as.numeric(f_age_num) > as.numeric(p_age_num),
                                  'partner_younger',
                                  ifelse(as.numeric(f_age_num) == as.numeric(p_age_num),
                                         'matched',
                                         'partner_older'))) %>%
-  left_join(stim_starts, by = 'pb_num') %>%
-  mutate(time_since_stim = second - stim_start,
-         after_stim = ifelse(time_since_stim < 0, 0, time_since_stim/60))
+  select(pb_num,focal,partner,
+         activity,neighbour,
+         stim_num,stim_type,
+         time_since_stim, after_stim,
+         f_age_cat,p_age_cat,f_age_num,p_age_num,
+         age_difference) %>% 
+  mutate(f_age_num = as.factor(f_age_num),
+         p_age_num = as.factor(p_age_num),
+         age_combo = paste0(f_age_num,'_',p_age_num),
+         nn_tminus1 = NA,
+         nn_tminus1_num = NA)
+rm(list = ls() [ ! ls() %in% 'nn_all']) ; gc()
+
+unique(nn_all$focal[is.na(nn_all$f_age_num)])   # b6_e7 = unknown age
+unique(nn_all$partner[is.na(nn_all$p_age_num)]) # b2_e13 + b2_e34 = unknown age
+length(which(is.na(nn_all$neighbour) == TRUE))
 
 nn <- nn_all %>%
   filter(neighbour == 1) %>%
-  filter(group_size > 2) %>%
-  select(-elephant_nn,-partner_bull,-neighbour,-group_size,-stim_start) %>%
-  mutate(nn_tminus1 = NA)
+  filter(is.na(f_age_num) == FALSE) %>%
+  filter(is.na(p_age_num) == FALSE) %>% 
+  select(-neighbour, -nn_index) %>% 
+  rename(neighbour = partner) %>% 
+  mutate(age_difference = factor(age_difference,
+                                 levels = c('partner_younger',
+                                            'matched',
+                                            'partner_older'))) %>%
+  mutate(age_diff_num = as.integer(age_difference),
+         f_age_num = as.integer(f_age_num),
+         p_age_num = as.integer(p_age_num)) %>% 
+  relocate(age_diff_num, .after = age_difference)
 
 # create variable for nearest neighbour at time t-1
-subjects <- unique(nn$focal)
-for(i in 1:length(subjects)){
-  focal <- nn %>% filter(focal == subjects[i])
+focals <- unique(nn$focal)
+for(f in 1:length(focals)){
+  focal <- nn %>% filter(focal == focals[f])
   nn <- nn %>% anti_join(focal, by = 'focal')
-  for(j in 2:nrow(focal)){
-    focal$nn_tminus1[j] <- focal$age_difference[j-1]
+  for(i in 2:nrow(focal)){
+    focal$nn_tminus1[i] <- as.character(focal$age_difference[i-1])
+    focal$nn_tminus1_num[i] <- focal$age_diff_num[i-1]
   }
   nn <- rbind(nn, focal)
 }
-rm(check, x, i, j, multiple_starts, focal) ; gc()
+rm(list = ls() [! ls() %in% c('nn','nn_all')]) ; gc()
 
 # filter to remove elephants with unknown ages
 nn_no_na <- nn %>%
-  mutate(age_difference = factor(age_difference,
-                               levels = c('partner_younger',
-                                          'matched',
-                                          'partner_older'))) %>%
-  mutate(age_diff_num = as.integer(age_difference),
-         f_age_num = as.integer(f_age_num),
-         p_age_num = as.integer(p_age_num)) %>%
   filter(is.na(age_diff_num) == FALSE) %>%
-  filter(is.na(f_age_num) == FALSE) %>%
-  filter(is.na(p_age_num) == FALSE) %>%
   filter(is.na(nn_tminus1) == FALSE) %>%
   mutate(focal_id = as.integer(as.factor(focal)),
-         stim_num = as.integer(as.factor(stim_num))) %>%
-  rename(stim_id = stim_num,
-         playback_id = pb_num)
+         stim_id = as.integer(as.factor(stim_num)),
+         nn_tminus1 = factor(nn_tminus1, levels = c('partner_younger',
+                                                    'matched',
+                                                    'partner_older'))) %>%
+  rename(playback_id = pb_num)
 str(nn_no_na)
-# $ focal          : chr [1:36838] "b1_e1" "b1_e1" "b1_e1" "b1_e1" ...
-# $ playback_id    : num [1:36838] 1 1 1 1 1 1 1 1 1 1 ...
-# $ second         : num [1:36838] 1 2 3 4 5 6 7 8 9 10 ...
-# $ partner        : chr [1:36838] "b3_e1" "b3_e1" "b3_e1" "b3_e1" ...
-# $ f_age_cat      : chr [1:36838] "26-35" "26-35" "26-35" "26-35" ...
-# $ f_age_num      : int [1:36838] 4 4 4 4 4 4 4 4 4 4 ...
-# $ p_age_cat      : chr [1:36838] "26-35" "26-35" "26-35" "26-35" ...
-# $ p_age_num      : int [1:36838] 4 4 4 4 4 4 4 4 4 4 ...
+# $ playback_id    : num [1:50349] 1 1 1 1 1 1 1 1 1 1 ...
+# $ focal          : chr [1:50349] "b1_e1" "b1_e1" "b1_e1" "b1_e1" ...
+# $ neighbour      : chr [1:50349] "b3_e1" "b3_e1" "b3_e1" "b3_e1" ...
+# $ activity       : chr [1:50349] "nn" "nn" "nn" "nn" ...
+# $ stim_num       : chr [1:50349] "14" "14" "14" "14" ...
+# $ stim_type      : chr [1:50349] "ctd" "ctd" "ctd" "ctd" ...
+# $ time_since_stim: num [1:50349] -81 -80 -79 -78 -77 -76 -75 -74 -73 -72 ...
+# $ after_stim     : num [1:50349] 0 0 0 0 0 0 0 0 0 0 ...
+# $ f_age_cat      : chr [1:50349] "26-35" "26-35" "26-35" "26-35" ...
+# $ p_age_cat      : chr [1:50349] "26-35" "26-35" "26-35" "26-35" ...
+# $ f_age_num      : int [1:50349] 4 4 4 4 4 4 4 4 4 4 ...
+# $ p_age_num      : int [1:50349] 4 4 4 4 4 4 4 4 4 4 ...
 # $ age_difference : Factor w/ 3 levels "partner_younger",..: 2 2 2 2 2 2 2 2 2 2 ...
-# $ stim_id        : int [1:36838] 4 4 4 4 4 4 4 4 4 4 ...
-# $ stim_type      : chr [1:36838] "ctd" "ctd" "ctd" "ctd" ...
-# $ time_since_stim: num [1:36838] -81 -80 -79 -78 -77 -76 -75 -74 -73 -72 ...
-# $ after_stim     : num [1:36838] 0 0 0 0 0 0 0 0 0 0 ...
-# $ nn_tminus1     : chr [1:36838] "matched" "matched" "matched" "matched" ...
-# $ age_diff_num   : int [1:36838] 2 2 2 2 2 2 2 2 2 2 ...
-# $ focal_id       : int [1:36838] 1 1 1 1 1 1 1 1 1 1 ...
-
-## clean up
-rm(ages, stim_starts, subjects) ; gc()
+# $ age_diff_num   : int [1:50349] 2 2 2 2 2 2 2 2 2 2 ...
+# $ age_combo      : chr [1:50349] "4_4" "4_4" "4_4" "4_4" ...
+# $ nn_tminus1     : Factor w/ 3 levels "partner_younger",..: 2 2 2 2 2 2 2 2 2 2 ...
+# $ nn_tminus1_num : int [1:50349] 2 2 2 2 2 2 2 2 2 2 ...
+# $ focal_id       : int [1:50349] 1 1 1 1 1 1 1 1 1 1 ...
+# $ stim_id        : int [1:50349] 5 5 5 5 5 5 5 5 5 5 ...
 
 # set priors -- prior predictive: I think all age categories should have equal priors, as while we would probably expect there to be the biggest difference between oldest and youngest, that's not something we're certain of.
-nn_no_na <- nn_no_na %>%
-  mutate(nn_tminus1_num = ifelse(nn_tminus1 == 'partner_younger', 1,
-                                 ifelse(nn_tminus1 == 'matched', 2,
-                                        ifelse(nn_tminus1 == 'partner_older', 3, NA)))) %>%
-  mutate(nn_tminus1_num = as.integer(nn_tminus1_num))
-
 get_prior(formula = age_diff_num ~ 1 + mo(f_age_num) + stim_type +     # fixed effects
             s(after_stim) + mo(nn_tminus1_num) +                       # controls
             (1|focal_id) + (1|stim_id) + (1|playback_id),              # random effects
@@ -175,7 +191,8 @@ priors <- c(
   prior(normal(0,1),        class = b,    coef = safter_stim_1),
   #prior(student_t(3,0,2.5), class = sds,  coef = s(after_stim)),
   # action in previous second
-  prior(normal(0,0.333),    class = b,    coef = monn_tminus1_num),
+  prior(normal(1,1), # normal(0,0.333),
+        class = b, coef = monn_tminus1_num),
   prior(dirichlet(2,2),     class = simo, coef = monn_tminus1_num1))
 
 ## prior predictive check

@@ -52,67 +52,87 @@ stim_starts <- stim_starts %>%
   mutate(stim_start = round(time, 0)) %>%
   select(pb_num,stim_start,stim_num,stim_type,group_size)
 
+## movement data
+cols_of_interest <- c('b1_move','b2_move','b3_move','b4_move',
+                      'b5_move','b6_move','b7_move','b8_move')
+cols_of_interest_name <- c('b1_move_name','b2_move_name','b3_move_name','b4_move_name',
+                           'b5_move_name','b6_move_name','b7_move_name','b8_move_name')
+cols_of_interest_index <- c('b1_move_index','b2_move_index','b3_move_index','b4_move_index',
+                            'b5_move_index','b6_move_index','b7_move_index','b8_move_index')
 move <- readRDS('../data_processed/behaviour_by_second_indexvariables.RDS') %>%
   filter(out_frame_name == 'in_frame') %>%
   select(subject,pb_num,second,
-         b1_move_name,#b1_move_index,
-         b2_move_name,#b2_move_index,
-         b3_move_name,#b3_move_index,
-         b4_move_name,#b4_move_index,
-         b5_move_name,#b5_move_index,
-         b6_move_name,#b6_move_index,
-         b7_move_name,#b7_move_index,
-         b8_move_name#,b8_move_index,
-  ) %>%
-  pivot_longer(cols = c('b1_move_name','b2_move_name','b3_move_name','b4_move_name',
-                        'b5_move_name','b6_move_name','b7_move_name','b8_move_name'),
-               names_to = 'elephant_move', values_to = 'moving_direction') %>%
-  filter(is.na(moving_direction) == FALSE) %>%
-  filter(moving_direction != 'impossible_partner') %>%
-  filter(moving_direction != 'out_of_sight') %>%
-  separate(elephant_move, into = c('partner_bull','move_name'), sep = 2, remove = F) %>%
-  select(-move_name) %>%
-  rename(focal = subject) %>%
-  mutate(partner = paste0(partner_bull, '_e', pb_num)) %>%
-  left_join(ages[,c('focal','f_age_cat','f_age_num')], by = 'focal') %>%
-  left_join(ages[,c('partner','p_age_cat','p_age_num')], by = 'partner') %>%
-  # rename(f_subject = subject,
-  #        f_bull = bull,
-  #        p_subject = targeted_elephant,
-  #        p_bull = partner_bull,
-  #        move_binom = moving_direction,
-  #        age_diff_cat = age_difference) %>%
-  mutate(pb_num = as.numeric(pb_num),
+         all_of(cols_of_interest_name),all_of(cols_of_interest_index)) %>%
+  rename(b1_move = b1_move_name, b2_move = b2_move_name,
+         b3_move = b3_move_name, b4_move = b4_move_name,
+         b5_move = b5_move_name, b6_move = b6_move_name,
+         b7_move = b7_move_name, b8_move = b8_move_name) %>% 
+  pivot_longer(cols = all_of(cols_of_interest),
+               names_to = 'elephant_activity_name', values_to = 'moving_direction') %>% 
+  rename(b1_move = b1_move_index, b2_move = b2_move_index,
+         b3_move = b3_move_index, b4_move = b4_move_index,
+         b5_move = b5_move_index, b6_move = b6_move_index,
+         b7_move = b7_move_index, b8_move = b8_move_index) %>% 
+  pivot_longer(cols = all_of(cols_of_interest),
+               names_to = 'elephant_activity_index', values_to = 'move_index') %>% 
+  filter(elephant_activity_name == elephant_activity_index) %>% 
+  select(-elephant_activity_index) %>% 
+  rename(elephant_activity = elephant_activity_name,
+         focal = subject) %>% 
+  filter(is.na(move_index) == FALSE) %>% 
+  separate(elephant_activity, into = c('partner','activity'), sep = '_', remove = T) %>% 
+  mutate(partner = paste0(partner, '_e', pb_num),
+         pb_num = as.numeric(pb_num)) %>% 
+  left_join(ages[,c('focal','f_age_cat','f_age_num')], by = 'focal') %>% 
+  left_join(ages[,c('partner','p_age_cat','p_age_num')], by = 'partner') %>% 
+  left_join(stim_starts, by = 'pb_num') %>% 
+  mutate(time_since_stim = second - stim_start,
+         after_stim = ifelse(time_since_stim < 0, 0, time_since_stim/60),
          age_difference = ifelse(as.numeric(f_age_num) > as.numeric(p_age_num),
                                  'partner_younger',
                                  ifelse(as.numeric(f_age_num) == as.numeric(p_age_num),
                                         'matched',
                                         'partner_older'))) %>%
-  left_join(stim_starts, by = 'pb_num') %>%
-  mutate(time_since_stim = second - stim_start,
-         after_stim = ifelse(time_since_stim < 0, 0, time_since_stim/60)) %>%
-  select(-elephant_move,-partner_bull,-group_size,-stim_start) %>%
-  mutate(move_tminus1 = NA)
+  select(pb_num,focal,partner,
+         activity,moving_direction,move_index,
+         stim_num,stim_type,
+         time_since_stim, after_stim,
+         f_age_cat,p_age_cat,f_age_num,p_age_num,
+         age_difference) %>% 
+  mutate(f_age_num = as.factor(f_age_num),
+         p_age_num = as.factor(p_age_num),
+         age_combo = paste0(f_age_num,'_',p_age_num),
+         move_tminus1 = NA,
+         move_tminus1_num = NA)
+rm(list = ls() [ ! ls() %in% 'move']) ; gc()
 
-unique(move$partner[is.na(move$p_age_num)]) # b2_e13, b2_e34 and b6_e7 = unknown ages
+unique(move$focal[is.na(move$f_age_num)])   # b6_e7 = unknown age
+unique(move$partner[is.na(move$p_age_num)]) # b2_e13 + b2_e34 = unknown age
 length(which(is.na(move$moving_direction) == TRUE))
-
-# create variable for nearest moving_direction at time t-1
-subjects <- unique(move$focal)
-for(i in 1:length(subjects)){
-  focal <- move %>% filter(focal == subjects[i])
-  move <- move %>% anti_join(focal, by = 'focal')
-  for(j in 2:nrow(focal)){
-    focal$move_tminus1[j] <- focal$moving_direction[j-1]
-  }
-  move <- rbind(move, focal)
-}
-rm(list = ls()[ ! ls() %in% c('move', 'subjects')]) ; gc()
 
 ## remove all records of b2_e34 as never visible
 move <- move %>%
   filter(focal != 'b2_e34') %>% 
   filter(partner != 'b2_e34')
+
+# create variable for moving_direction at time t-1
+focals <- unique(move$focal)
+for(f in 1:length(focals)){
+  focal <- move %>% filter(focal == focals[f])
+  move <- move %>% anti_join(focal, by = 'focal')
+  partners <- unique(focal$partner)
+  for(p in 1:length(partners)){
+    focal_partner <- focal %>% filter(partner == partners[p])
+    focal <- focal %>% anti_join(focal_partner, by = 'partner')
+    for(i in 2:nrow(focal_partner)){
+      focal_partner$move_tminus1[i] <- focal_partner$moving_direction[i-1]
+      focal_partner$move_tminus1_num[i] <- focal_partner$move_index[i-1]
+    }
+    focal <- rbind(focal, focal_partner)
+  }
+  move <- rbind(move, focal)
+}
+rm(list = ls()[ ! ls() %in% c('move', 'focals')]) ; gc()
 
 ############### Probability of moving ###############
 pdf('../outputs/movement_binomial_model/movement_binomial_modelprep.pdf')
@@ -121,10 +141,10 @@ pdf('../outputs/movement_binomial_model/movement_binomial_modelprep.pdf')
 move_no_na <- move %>%
   filter(is.na(f_age_num) == FALSE) %>%
   filter(is.na(move_tminus1) == FALSE) %>%
-  mutate(move_index = ifelse(moving_direction == 'not_moving', 0, 1),
+  mutate(move_index = ifelse(move_index == 0, 0, 1),
          moving_direction = ifelse(moving_direction == 'not_moving',
                                    'not_moving', 'moving'),
-         move_tminus1_num = ifelse(move_tminus1 == 'not_moving', 0, 1),
+         move_tminus1_num = ifelse(move_tminus1_num == 0, 0, 1),
          move_tminus1 = ifelse(move_tminus1 == 'not_moving',
                                    'not_moving', 'moving')) %>%
   mutate(f_age_num = as.integer(f_age_num)) %>%
@@ -139,47 +159,6 @@ move_no_na <- move %>%
          focal_id, stim_id, playback_id) %>%
   distinct()
 str(move_no_na)
-
-check <- move_no_na %>%
-  select(focal, move_index,
-         time_since_stim, stim_type, move_tminus1_num,
-         focal_id, stim_id, playback_id) %>%
-  distinct()
-check_tmin1 <- table(check$focal, check$time_since_stim, check$move_tminus1_num) %>% 
-  as.data.frame() %>% 
-  filter(Freq > 0) %>% 
-  mutate(Var1 = as.character(Var1),
-         Var2 = as.numeric(as.character(Var2)),
-         Var3 = as.numeric(as.character(Var3))) %>% 
-  rename(focal = Var1,
-         time_since_stim = Var2,
-         move_tminus1_num = Var3)
-
-move_check <- move_no_na %>% 
-  left_join(check_tmin1, by = c('focal','time_since_stim','move_tminus1_num')) %>% 
-  filter(Freq > 1)
-
-unique(move_check$unique)
-
-move_check <- move_check %>% 
-  mutate(unique = paste0(focal, '_', time_since_stim))
-
-move_wrong <- move %>% 
-  mutate(unique = paste0(focal, '_', time_since_stim)) %>% 
-  filter(unique %in% unique(move_check$unique))
-
-move_wrong <- move_wrong %>% 
-  filter(focal != 'b2_e1') %>% 
-  filter(focal != 'b2_e10') %>% 
-  filter(focal != 'b2_e4') %>% 
-  filter(focal != 'b2_e6') %>% 
-  filter(focal != 'b3_e6') %>% 
-  filter(focal != 'b5_e6') %>% 
-  filter(focal != 'b7_e6') %>% 
-  filter(focal != 'b8_e6') %>% 
-  filter(focal != 'b1_e7') %>% 
-  filter(focal != 'b2_e7') %>% 
-  filter(focal != 'b5_e7')
 
 #### set priors ####
 # set priors -- prior predictive: I think all age categories should have equal priors, as while we would probably expect there to be the biggest difference between oldest and youngest, that's not something we're certain of.
@@ -206,7 +185,7 @@ priors <- c(
 #### prior predictive check ####
 num_chains <- 4
 num_iter <- 2000
-direction_move_prior <- brm(
+mbm_prior <- brm(
   formula = move_index ~ 0 + mo(f_age_num) + stim_type + s(after_stim) + move_tminus1_num +
     (1|focal_id) + (1|stim_id) + (1|playback_id),
   data = move_no_na,
@@ -214,14 +193,13 @@ direction_move_prior <- brm(
   prior = priors, chains = num_chains, cores = num_chains,
   iter = num_iter, warmup = num_iter/2, seed = 12345,
   sample_prior = 'only')
-
-pp_check(direction_move_prior)
+pp_check(mbm_prior)
 
 print(paste0('priors set and checked at ', Sys.time()))
 
 ## reset plotting
 dev.off()
-pdf('../outputs/movement_binomial_model/movement_direction_binomialmodelchecks.pdf')
+pdf('../outputs/movement_binomial_model/movement_binomial_modelchecks.pdf')
 
 #### fit model ####
 direction_move_fit <- brm(
@@ -516,7 +494,7 @@ save.image('movement_direction/movement_binomial_run.RData') # save.image('ele_p
 dev.off()
 
 #### predict from model ####
-#pdf('../outputs/movement_binomial_model/movement_direction_binomialmodelpredictions.pdf')
+#pdf('../outputs/movement_binomial_model/movement_binomial_modelpredictions.pdf')
 #load('movement_direction/movement_binomial_run.RData')
 rm(list = ls()[! ls() %in% c('direction_move_fit','move_no_na')]) ; gc()
 
@@ -527,7 +505,7 @@ save.image('movement_direction/movement_binomial_predictions.RData')
 rm(list = ls()) ; gc()
 
 # ############### Probability of different directions once moving ###############
-# pdf('../outputs/movement_ordinal_model_1/movement_direction_modelprep.pdf')
+# pdf('../outputs/movement_ordinal_model_1/movement_ordinal_model1_modelprep.pdf')
 # 
 # #### filter data ####
 # move_no_na <- move %>%
@@ -624,7 +602,7 @@ rm(list = ls()) ; gc()
 # 
 # ## reset plotting
 # dev.off()
-# pdf('../outputs/movement_ordinal_model_1/looking_direction_modelchecks.pdf')
+# pdf('../outputs/movement_ordinal_model_1/movement_ordinal_model1_modelchecks.pdf')
 # 
 # #### fit model ####
 # direction_move_fit <- brm(
@@ -637,14 +615,14 @@ rm(list = ls()) ; gc()
 #   iter = num_iter, warmup = num_iter/2, seed = 12345)
 # 
 # # save workspace
-# save.image('movement_direction/moving_direction_model_run.RData') # save.image('ele_playbacks/movement_direction/moving_direction_model_run.RData')
+# save.image('movement_direction/movement_ordinal_model1_run.RData') # save.image('ele_playbacks/movement_direction/movement_ordinal_model1_run.RData')
 # 
 # # inspect model
 # summary(direction_move_fit)
 # print(paste0('model fitted at ', Sys.time()))
 # 
 # #### check outputs ####
-# load('movement_direction/moving_direction_model_run.RData') # load('ele_playbacks/movement_direction/moving_direction_model_run.RData')
+# load('movement_direction/movement_ordinal_model1_run.RData') # load('ele_playbacks/movement_direction/movement_ordinal_model1_run.RData')
 # ## check Stan code
 # direction_move_fit$model
 # direction_move_fit$formula
@@ -737,7 +715,7 @@ rm(list = ls()) ; gc()
 #           axis.text = element_text(size = 12),
 #           legend.title = element_text(size = 12),
 #           legend.text = element_text(size = 10)))
-# ggsave(plot = focal_age_plot, filename = '../outputs/movement_ordinal_model_1/movement_marginaleffects_focalage_agecombo.png', device = 'png',
+# ggsave(plot = focal_age_plot, filename = '../outputs/movement_ordinal_model_1/movement_ordinal_model1_marginaleffects_focalage_agecombo.png', device = 'png',
 #        width = 8.3, height = 5.8)
 # 
 # focal_age_labels <- c('focal age category 1',
@@ -796,7 +774,7 @@ rm(list = ls()) ; gc()
 #           axis.text = element_text(size = 12),
 #           legend.title = element_text(size = 12),
 #           legend.text = element_text(size = 10)) )
-# ggsave(plot = agecombo_plot, filename = '../outputs/movement_ordinal_model_1/movement_marginaleffects_agepartner_agecombo.png', device = 'png',
+# ggsave(plot = agecombo_plot, filename = '../outputs/movement_ordinal_model_1/movement_ordinal_model1_marginaleffects_agepartner_agecombo.png', device = 'png',
 #        width = 8.3, height = 5.8)
 # 
 # (stim_plot <- ggplot(stim_effect)+
@@ -824,13 +802,13 @@ rm(list = ls()) ; gc()
 #           axis.text = element_text(size = 12),
 #           legend.title = element_text(size = 12),
 #           legend.text = element_text(size = 10)) )
-# ggsave(plot = stim_plot, filename = '../outputs/movement_ordinal_model_1/movement_marginaleffects_stimtype_agecombo.png', device = 'png',
+# ggsave(plot = stim_plot, filename = '../outputs/movement_ordinal_model_1/movement_ordinal_model1_marginaleffects_stimtype_agecombo.png', device = 'png',
 #        width = 8.3, height = 5.8)
 # 
 # (focal_age_plot + agecombo_plot + stim_plot) +
 #   plot_annotation(tag_levels = 'a')
 # ggsave(plot = last_plot(),
-#        filename = '../outputs/movement_ordinal_model_1/movement_marginaleffects.png',
+#        filename = '../outputs/movement_ordinal_model_1/movement_ordinal_model1_marginaleffects.png',
 #        device = 'png', width = (5.8*3), height = 8.3)
 # print(paste0('marginal effects plotted at ',Sys.time()))
 # 
@@ -918,7 +896,7 @@ rm(list = ls()) ; gc()
 # # plot(density(time8$draw), main = 'time spline 8') ; abline(v = 0, lty = 2)
 # 
 # print(paste0('posterior predictive check and traceplots completed at ',Sys.time()))
-# save.image('movement_direction/moving_direction_model_run.RData')
+# save.image('movement_direction/movement_ordinal_model1_run.RData')
 # 
 # #### plot raw ####
 # ## define labels for plotting
@@ -984,24 +962,24 @@ rm(list = ls()) ; gc()
 # print(paste0('raw data plotted at ',Sys.time()))
 # 
 # ## reset plotting
-# save.image('movement_direction/moving_direction_model_run.RData') # save.image('ele_playbacks/movement_direction/moving_direction_model_run.RData')
+# save.image('movement_direction/movement_ordinal_model1_run.RData') # save.image('ele_playbacks/movement_direction/movement_ordinal_model1_run.RData')
 # dev.off()
 # 
 #### predict from model ####
-pdf('../outputs/movement_ordinal_model_1/movement_direction_modelpredictions.pdf')
-load('movement_direction/moving_direction_model_run.RData')
+pdf('../outputs/movement_ordinal_model_1/movement_ordinal_model1_modelpredictions.pdf')
+load('movement_direction/movement_ordinal_model1_run.RData')
 rm(list = ls()[! ls() %in% c('direction_move_fit','move_no_na')]) ; gc()
 
 pred <- posterior_epred(object = direction_move_fit,
                         newdata = move_no_na)
-save.image('movement_direction/moving_direction_model_predictions.RData')
+save.image('movement_direction/movement_ordinal_model1_predictions.RData.RData')
 
 ## convert to data frame
 pred1 <- as.data.frame(pred[,,1])
 colnames(pred1) <- 1:nrow(move_no_na)
 pred2 <- as.data.frame(pred[,,2])
 colnames(pred2) <- 1:nrow(move_no_na)
-save.image('movement_direction/moving_direction_model_predictions.RData')
+save.image('movement_direction/movement_ordinal_model1_predictions.RData.RData')
 
 move_no_na$data_row <- 1:nrow(move_no_na)
 pred1 <- pred1 %>%
@@ -1018,12 +996,12 @@ pred2 <- pred2 %>%
          pred_type_num = 1)
 
 pred <- rbind(pred1, pred2)
-save.image('movement_direction/moving_direction_model_predictions.RData')
+save.image('movement_direction/movement_ordinal_model1_predictions.RData.RData')
 
 print(paste0('predictions calculated at ',Sys.time()))
 
 # ## plot predictions ####
-# #load('movement_direction/moving_direction_model_predictions.RData')  #load('ele_playbacks/movement_direction/moving_direction_model_predictions.RData')
+# #load('movement_direction/movement_ordinal_model1_predictions.RData.RData')  #load('ele_playbacks/movement_direction/movement_ordinal_model1_predictions.RData.RData')
 # 
 # ## make labels for prediction type move nice
 # pred_all <- pred_all %>%
@@ -1096,7 +1074,7 @@ print(paste0('predictions calculated at ',Sys.time()))
 #     theme(legend.position = 'bottom'))
 # (ctd_plot + lion_plot + human_plot)+
 #   plot_amoveotation(tag_levels = 'a')
-# ggsave(plot = last_plot(), file = '../outputs/movement_ordinal_model_1/move_predictions_violin.png',
+# ggsave(plot = last_plot(), file = '../outputs/movement_ordinal_model_1/movement_ordinal_model1_predictions_violin.png',
 #        device = 'png', height = 8, width = 24)
 # 
 # ## graph contrasts from predictions and extract coefficients -- nn ####

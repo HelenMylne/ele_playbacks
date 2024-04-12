@@ -22,6 +22,7 @@ pdf('outputs/looking_ordinal_model_1/looking_ordinal_model1_modelprep.pdf')
 # https://dagitty.net/dags.html?id=dw8twK
 # read in data
 ages <- readRDS('data_processed/behaviour_by_second_indexvariables_bda.RDS') %>% 
+  # ages <- readRDS('../data_processed/behaviour_by_second_indexvariables_bda.RDS') %>% 
   select(focal, f_age_cat, f_age_num) %>% 
   distinct() %>% 
   filter(!is.na(f_age_cat)) %>% 
@@ -30,6 +31,7 @@ ages <- readRDS('data_processed/behaviour_by_second_indexvariables_bda.RDS') %>%
          p_age_num = f_age_num)
 
 stim_starts <- readRDS('data_processed/stimuli.RDS') %>%
+  # stim_starts <- readRDS('../data_processed/stimuli.RDS') %>%
   filter(status == 'START' & behavior == 'STIMULUS') %>%
   select(pb_num,time,stim_num,stim_type,group_size,comment)
 table(stim_starts$pb_num)
@@ -54,63 +56,83 @@ stim_starts <- stim_starts %>%
   mutate(stim_start = round(time, 0)) %>%
   select(pb_num,stim_start,stim_num,stim_type,group_size)
 
-look <- readRDS('data_processed/behaviour_by_second_indexvariables.RDS') %>%
-  filter(out_frame_name == 'in_frame') %>%
+## looking direction data
+cols_of_interest <- c('b1_look','b2_look','b3_look','b4_look',
+                      'b5_look','b6_look','b7_look','b8_look')
+cols_of_interest_name <- c('b1_look_name','b2_look_name','b3_look_name','b4_look_name',
+                           'b5_look_name','b6_look_name','b7_look_name','b8_look_name')
+cols_of_interest_index <- c('b1_look_index','b2_look_index','b3_look_index','b4_look_index',
+                            'b5_look_index','b6_look_index','b7_look_index','b8_look_index')
+look <- readRDS('data_processed/behaviour_by_second_indexvariables.RDS') %>% 
+  # look <- readRDS('../data_processed/behaviour_by_second_indexvariables.RDS') %>%
+  filter(out_frame_name == 'in_frame') %>% 
   select(subject,pb_num,second,
-         b1_look_name,#b1_look_index,
-         b2_look_name,#b2_look_index,
-         b3_look_name,#b3_look_index,
-         b4_look_name,#b4_look_index,
-         b5_look_name,#b5_look_index,
-         b6_look_name,#b6_look_index,
-         b7_look_name,#b7_look_index,
-         b8_look_name#,b8_look_index,
-  ) %>%
-  pivot_longer(cols = c('b1_look_name','b2_look_name','b3_look_name','b4_look_name',
-                        'b5_look_name','b6_look_name','b7_look_name','b8_look_name'),
-               names_to = 'elephant_look', values_to = 'looking_direction') %>%
-  filter(is.na(looking_direction) == FALSE) %>%
-  filter(looking_direction != 'impossible_partner') %>%
-  filter(looking_direction != 'out_of_sight') %>%
-  separate(elephant_look, into = c('partner_bull','look_name'), sep = 2, remove = F) %>%
-  select(-look_name) %>%
-  rename(focal = subject) %>% 
-  mutate(partner = paste0(partner_bull, '_e', pb_num)) %>%
-  left_join(ages[,c('focal','f_age_cat','f_age_num')], by = 'focal') %>%
-  left_join(ages[,c('partner','p_age_cat','p_age_num')], by = 'partner') %>%
-  # rename(f_subject = subject,
-  #        f_bull = bull,
-  #        p_subject = targeted_elephant,
-  #        p_bull = partner_bull,
-  #        look_binom = looking_direction,
-  #        age_diff_cat = age_difference) %>%
-  mutate(pb_num = as.numeric(pb_num),
+         all_of(cols_of_interest_name),all_of(cols_of_interest_index)) %>%
+  rename(b1_look = b1_look_name, b2_look = b2_look_name,
+         b3_look = b3_look_name, b4_look = b4_look_name,
+         b5_look = b5_look_name, b6_look = b6_look_name,
+         b7_look = b7_look_name, b8_look = b8_look_name) %>% 
+  pivot_longer(cols = all_of(cols_of_interest),
+               names_to = 'elephant_activity_name', values_to = 'looking_direction') %>% 
+  rename(b1_look = b1_look_index, b2_look = b2_look_index,
+         b3_look = b3_look_index, b4_look = b4_look_index,
+         b5_look = b5_look_index, b6_look = b6_look_index,
+         b7_look = b7_look_index, b8_look = b8_look_index) %>% 
+  pivot_longer(cols = all_of(cols_of_interest),
+               names_to = 'elephant_activity_index', values_to = 'look_index') %>% 
+  filter(elephant_activity_name == elephant_activity_index) %>% 
+  select(-elephant_activity_index) %>% 
+  rename(elephant_activity = elephant_activity_name,
+         focal = subject) %>% 
+  filter(is.na(look_index) == FALSE) %>% 
+  separate(elephant_activity, into = c('partner','activity'), sep = '_', remove = T) %>% 
+  mutate(partner = paste0(partner, '_e', pb_num),
+         pb_num = as.numeric(pb_num)) %>% 
+  left_join(ages[,c('focal','f_age_cat','f_age_num')], by = 'focal') %>% 
+  left_join(ages[,c('partner','p_age_cat','p_age_num')], by = 'partner') %>% 
+  left_join(stim_starts, by = 'pb_num') %>% 
+  mutate(time_since_stim = second - stim_start,
+         after_stim = ifelse(time_since_stim < 0, 0, time_since_stim/60),
          age_difference = ifelse(as.numeric(f_age_num) > as.numeric(p_age_num),
                                  'partner_younger',
                                  ifelse(as.numeric(f_age_num) == as.numeric(p_age_num),
                                         'matched',
                                         'partner_older'))) %>%
-  left_join(stim_starts, by = 'pb_num') %>%
-  mutate(time_since_stim = second - stim_start,
-         after_stim = ifelse(time_since_stim < 0, 0, time_since_stim/60)) %>%
-  select(-elephant_look,-partner_bull,-group_size,-stim_start) %>%
-  mutate(look_tminus1 = NA)
+  select(pb_num,focal,partner,
+         activity,looking_direction,look_index,
+         stim_num,stim_type,
+         time_since_stim, after_stim,
+         f_age_cat,p_age_cat,f_age_num,p_age_num,
+         age_difference) %>% 
+  mutate(f_age_num = as.factor(f_age_num),
+         p_age_num = as.factor(p_age_num),
+         age_combo = paste0(f_age_num,'_',p_age_num),
+         look_tminus1 = NA,
+         look_tminus1_num = NA)
+rm(list = ls() [ ! ls() %in% 'look']) ; gc()
 
 unique(look$focal[is.na(look$f_age_num)])   # b6_e7 = unknown age
 unique(look$partner[is.na(look$p_age_num)]) # b2_e13 = unknown age
 length(which(is.na(look$looking_direction) == TRUE))
 
-# create variable for nearest looking_direction at time t-1
-subjects <- unique(look$focal)
-for(i in 1:length(subjects)){
-  focal <- look %>% filter(focal == subjects[i])
+# create variable for looking direction at time t-1
+focals <- unique(look$focal)
+for(f in 1:length(focals)){
+  focal <- look %>% filter(focal == focals[f])
   look <- look %>% anti_join(focal, by = 'focal')
-  for(j in 2:nrow(focal)){
-    focal$look_tminus1[j] <- focal$looking_direction[j-1]
+  partners <- unique(focal$partner)
+  for(p in 1:length(partners)){
+    focal_partner <- focal %>% filter(partner == partners[p])
+    focal <- focal %>% anti_join(focal_partner, by = 'partner')
+    for(i in 2:nrow(focal_partner)){
+      focal_partner$look_tminus1[i] <- focal_partner$looking_direction[i-1]
+      focal_partner$look_tminus1_num[i] <- focal_partner$look_index[i-1]
+    }
+    focal <- rbind(focal, focal_partner)
   }
   look <- rbind(look, focal)
 }
-rm(check, x, i, j, multiple_starts, focal) ; gc()
+rm(focal, focals, focal_partner, f, p, i, partners) ; gc()
 
 # filter to remove elephants with unknown ages
 look_no_na <- look %>%
@@ -118,22 +140,14 @@ look_no_na <- look %>%
                                  levels = c('partner_younger',
                                             'matched',
                                             'partner_older')),
-         look_index = ifelse(looking_direction == 'look at directly', 1,
-                             ifelse(looking_direction == 'side-on', 2, 3)),
-         look_tminus1_num = ifelse(look_tminus1 == 'look at directly', 1,
-                                   ifelse(look_tminus1 == 'side-on', 2, 3))) %>%
-  mutate(age_diff_num = as.integer(age_difference),
+         age_diff_num = as.integer(age_difference),
          f_age_num = as.integer(f_age_num),
          p_age_num = as.integer(p_age_num)) %>%
-  mutate(age_combo = paste0(f_age_num, '_', p_age_num)) %>% 
   filter(is.na(age_diff_num) == FALSE) %>%
-  filter(is.na(f_age_num) == FALSE) %>%
-  filter(is.na(p_age_num) == FALSE) %>%
   filter(is.na(look_tminus1) == FALSE) %>%
   mutate(focal_id = as.integer(as.factor(focal)),
-         stim_num = as.integer(as.factor(stim_num))) %>%
-  rename(stim_id = stim_num,
-         playback_id = pb_num) %>% 
+         stim_id = as.integer(as.factor(stim_num))) %>%
+  rename(playback_id = pb_num) %>% 
   select(focal, partner, looking_direction, look_index,
          f_age_cat, p_age_cat, f_age_num, p_age_num,
          age_difference, age_diff_num, age_combo,
@@ -181,13 +195,14 @@ priors <- c(
   prior(normal(0,1),     class = b,    coef = safter_stim_1),
   #prior(student_t(3,0,2.5), class = sds, coef = s(after_stim)), # not sure why this is in get_prior() but not model but it's not needed
   # action in previous second
-  prior(normal(0,0.333), class = b,    coef = molook_tminus1_num),
+  prior(normal(1,1), # normal(0,0.333),
+        class = b,    coef = molook_tminus1_num),
   prior(dirichlet(2,2),    class = simo, coef = molook_tminus1_num1))
 
 #### prior predictive check ####
 num_chains <- 4
 num_iter <- 2000
-direction_look_prior <- brm(
+lom1_prior <- brm(
   formula = look_index ~ 1 + mo(f_age_num) + age_combo + stim_type + # fixed effects
     s(after_stim) + mo(look_tminus1_num) +                           # controls, treat time as a spline
     (1|focal_id) + (1|stim_id) + (1|playback_id),                    # random effects
@@ -197,7 +212,7 @@ direction_look_prior <- brm(
   iter = num_iter, warmup = num_iter/2, seed = 12345,
   sample_prior = 'only')
 
-pp_check(direction_look_prior) # prior expects 1 and 3 most likely, 2 least likely. data show 1 least likely, 2 middle, 3 most.
+pp_check(lom1_prior) # prior expects 1 and 3 most likely, 2 least likely. data show 1 least likely, 2 middle, 3 most.
 
 print(paste0('priors set at ',Sys.time()))
 
@@ -206,7 +221,7 @@ dev.off()
 pdf('outputs/looking_ordinal_model_1/looking_ordinal_model1_modelchecks.pdf')
 
 #### fit model ####
-direction_look_fit <- brm(
+lom1_fit <- brm(
   formula = look_index ~ 1 + mo(f_age_num) + age_combo + stim_type +   # fixed effects
     s(after_stim) + mo(look_tminus1_num) +                             # controls, treat time as a spline
     (1|focal_id) + (1|stim_id) + (1|playback_id),                      # random effects
@@ -219,19 +234,19 @@ direction_look_fit <- brm(
 save.image('ele_playbacks/looking_direction/looking_ordinal_model1_run_agecombo.RData') # save.image('ele_playbacks/looking_direction/looking_ordinal_model1_run_agecombo.RData')
 
 # inspect model
-summary(direction_look_fit)
+summary(lom1_fit)
 print(paste0('model run at ',Sys.time()))
 
 #### check outputs ####
 #load('looking_direction/looking_ordinal_model1_run_agecombo.RData') # rm(biologylibs, homedrive, homelibs, homelibsprofile, rlibs, Rversion) ; gc()
-summary(direction_look_fit)
+summary(lom1_fit)
 
 ## check Stan code
-direction_look_fit$model
-direction_look_fit$formula
+lom1_fit$model
+lom1_fit$formula
 
 ## extract posterior distribution
-draws <- as_draws_df(direction_look_fit) %>%
+draws <- as_draws_df(lom1_fit) %>%
   select(-lprior, -`lp__`)
 parameters <- colnames(draws)[1:(ncol(draws)-3)]
 draws <- draws  %>%
@@ -269,7 +284,7 @@ log_cum_odds <- logit(cum_prop)
 
 #### plot marginal effects ####
 ## extract marginal effects
-marg <- conditional_effects(direction_look_fit,
+marg <- conditional_effects(lom1_fit,
                             categorical = TRUE,
                             method = 'posterior_epred')
 names(marg)
@@ -404,7 +419,7 @@ ggsave(plot = last_plot(),
 print(paste0('marginal effects plotted at ',Sys.time()))
 
 #### posterior predictive check ####
-pp_check(direction_look_fit, ndraws = 100) # really good fit
+pp_check(lom1_fit, ndraws = 100) # really good fit
 
 #### plot traces and density curves ####
 draws_cut <- draws %>%
