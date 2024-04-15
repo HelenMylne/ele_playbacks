@@ -21,11 +21,11 @@ pdf('outputs/looking_ordinal_model_1/looking_ordinal_model1_modelprep.pdf')
 #### data prep ####
 # https://dagitty.net/dags.html?id=dw8twK
 # read in data
-ages <- readRDS('data_processed/behaviour_by_second_indexvariables_bda.RDS') %>% 
-  # ages <- readRDS('../data_processed/behaviour_by_second_indexvariables_bda.RDS') %>% 
-  select(focal, f_age_cat, f_age_num) %>% 
-  distinct() %>% 
-  filter(!is.na(f_age_cat)) %>% 
+ages <- readRDS('data_processed/behaviour_by_second_indexvariables_bda.RDS') %>%
+  # ages <- readRDS('../data_processed/behaviour_by_second_indexvariables_bda.RDS') %>%
+  select(focal, f_age_cat, f_age_num) %>%
+  distinct() %>%
+  filter(!is.na(f_age_cat)) %>%
   mutate(partner = focal,
          p_age_cat = f_age_cat,
          p_age_num = f_age_num)
@@ -63,34 +63,34 @@ cols_of_interest_name <- c('b1_look_name','b2_look_name','b3_look_name','b4_look
                            'b5_look_name','b6_look_name','b7_look_name','b8_look_name')
 cols_of_interest_index <- c('b1_look_index','b2_look_index','b3_look_index','b4_look_index',
                             'b5_look_index','b6_look_index','b7_look_index','b8_look_index')
-look <- readRDS('data_processed/behaviour_by_second_indexvariables.RDS') %>% 
+look <- readRDS('data_processed/behaviour_by_second_indexvariables.RDS') %>%
   # look <- readRDS('../data_processed/behaviour_by_second_indexvariables.RDS') %>%
-  filter(out_frame_name == 'in_frame') %>% 
+  filter(out_frame_name == 'in_frame') %>%
   select(subject,pb_num,second,
          all_of(cols_of_interest_name),all_of(cols_of_interest_index)) %>%
   rename(b1_look = b1_look_name, b2_look = b2_look_name,
          b3_look = b3_look_name, b4_look = b4_look_name,
          b5_look = b5_look_name, b6_look = b6_look_name,
-         b7_look = b7_look_name, b8_look = b8_look_name) %>% 
+         b7_look = b7_look_name, b8_look = b8_look_name) %>%
   pivot_longer(cols = all_of(cols_of_interest),
-               names_to = 'elephant_activity_name', values_to = 'looking_direction') %>% 
+               names_to = 'elephant_activity_name', values_to = 'looking_direction') %>%
   rename(b1_look = b1_look_index, b2_look = b2_look_index,
          b3_look = b3_look_index, b4_look = b4_look_index,
          b5_look = b5_look_index, b6_look = b6_look_index,
-         b7_look = b7_look_index, b8_look = b8_look_index) %>% 
+         b7_look = b7_look_index, b8_look = b8_look_index) %>%
   pivot_longer(cols = all_of(cols_of_interest),
-               names_to = 'elephant_activity_index', values_to = 'look_index') %>% 
-  filter(elephant_activity_name == elephant_activity_index) %>% 
-  select(-elephant_activity_index) %>% 
+               names_to = 'elephant_activity_index', values_to = 'look_index') %>%
+  filter(elephant_activity_name == elephant_activity_index) %>%
+  select(-elephant_activity_index) %>%
   rename(elephant_activity = elephant_activity_name,
-         focal = subject) %>% 
-  filter(is.na(look_index) == FALSE) %>% 
-  separate(elephant_activity, into = c('partner','activity'), sep = '_', remove = T) %>% 
+         focal = subject) %>%
+  filter(is.na(look_index) == FALSE) %>%
+  separate(elephant_activity, into = c('partner','activity'), sep = '_', remove = T) %>%
   mutate(partner = paste0(partner, '_e', pb_num),
-         pb_num = as.numeric(pb_num)) %>% 
-  left_join(ages[,c('focal','f_age_cat','f_age_num')], by = 'focal') %>% 
-  left_join(ages[,c('partner','p_age_cat','p_age_num')], by = 'partner') %>% 
-  left_join(stim_starts, by = 'pb_num') %>% 
+         pb_num = as.numeric(pb_num)) %>%
+  left_join(ages[,c('focal','f_age_cat','f_age_num')], by = 'focal') %>%
+  left_join(ages[,c('partner','p_age_cat','p_age_num')], by = 'partner') %>%
+  left_join(stim_starts, by = 'pb_num') %>%
   mutate(time_since_stim = second - stim_start,
          after_stim = ifelse(time_since_stim < 0, 0, time_since_stim/60),
          age_difference = ifelse(as.numeric(f_age_num) > as.numeric(p_age_num),
@@ -103,7 +103,7 @@ look <- readRDS('data_processed/behaviour_by_second_indexvariables.RDS') %>%
          stim_num,stim_type,
          time_since_stim, after_stim,
          f_age_cat,p_age_cat,f_age_num,p_age_num,
-         age_difference) %>% 
+         age_difference) %>%
   mutate(f_age_num = as.factor(f_age_num),
          p_age_num = as.factor(p_age_num),
          age_combo = paste0(f_age_num,'_',p_age_num),
@@ -147,7 +147,7 @@ look_no_na <- look %>%
   filter(is.na(look_tminus1) == FALSE) %>%
   mutate(focal_id = as.integer(as.factor(focal)),
          stim_id = as.integer(as.factor(stim_num))) %>%
-  rename(playback_id = pb_num) %>% 
+  rename(playback_id = pb_num) %>%
   select(focal, partner, looking_direction, look_index,
          f_age_cat, p_age_cat, f_age_num, p_age_num,
          age_difference, age_diff_num, age_combo,
@@ -231,14 +231,14 @@ lom1_fit <- brm(
   iter = num_iter, warmup = num_iter/2, seed = 12345)
 
 # save workspace
-save.image('ele_playbacks/looking_direction/looking_ordinal_model1_run_agecombo.RData') # save.image('ele_playbacks/looking_direction/looking_ordinal_model1_run_agecombo.RData')
+save.image('ele_playbacks/looking_direction/looking_ordinal_model1_run_agecombo.RData') # save.image('looking_direction/looking_ordinal_model1_run_agecombo.RData')
 
 # inspect model
 summary(lom1_fit)
 print(paste0('model run at ',Sys.time()))
 
 #### check outputs ####
-#load('looking_direction/looking_ordinal_model1_run_agecombo.RData') # rm(biologylibs, homedrive, homelibs, homelibsprofile, rlibs, Rversion) ; gc()
+load('ele_playbacks/looking_direction/looking_ordinal_model1_run_agecombo.RData') # load('looking_direction/looking_ordinal_model1_run_agecombo.RData')
 summary(lom1_fit)
 
 ## check Stan code
@@ -258,9 +258,9 @@ draws <- draws  %>%
          draw_id = `.draw`) %>%
   mutate(invlogit_draw = invlogit(draw))
 # nearest neighbour version -- run with looking direction first but if it throws an error then come back to the nearest neighbour code to fix it
-# draws <- as_draws_df(nn_fit) %>% 
-#   select(-disc, -lprior, -lp__, -`.chain`, -`.iteration`, -`.draw`) %>% 
-#   pivot_longer(cols = everything(), names_to = 'parameter', values_to = 'draw') %>% 
+# draws <- as_draws_df(nn_fit) %>%
+#   select(-disc, -lprior, -lp__, -`.chain`, -`.iteration`, -`.draw`) %>%
+#   pivot_longer(cols = everything(), names_to = 'parameter', values_to = 'draw') %>%
 #   mutate(iteration = rep(rep(1:(num_iter/2),
 #                              each = length(unique(parameter))),
 #                          num_chains),
@@ -508,7 +508,7 @@ stim_labels <- c('dove (control)','human','lion')
 names(stim_labels) <- c('ctd','h','l')
 
 ## plot overall
-ggplot(look_no_na, aes(x = f_age_num, y = looking_direction,
+ggplot(look_no_na, aes(x = f_age_num, y = look_index,
                        colour = age_difference))+
   geom_jitter(alpha = 0.1)+
   facet_wrap(. ~ stim_type,
@@ -521,50 +521,62 @@ ggplot(look_no_na, aes(x = f_age_num, y = looking_direction,
 ## plot control data
 look_no_na %>%
   filter(stim_type == 'ctd') %>%
-  ggplot(aes(x = time_since_stim, y = looking_direction,
+  ggplot(aes(x = time_since_stim, y = look_index,
              group = focal_id))+
   geom_vline(aes(xintercept = 0))+
   geom_point(colour = rgb(0,0,1,0.01))+
   #geom_line()+
-  facet_grid(focal_age ~ factor(age_difference,
+  facet_grid(f_age_num ~ factor(age_difference,
                                 levels = c('partner_younger','matched','partner_older')),
-             labeller = labeller(focal_age = age_labels))+
+             labeller = labeller(f_age_num = age_labels))+
   scale_x_continuous(name = 'time since stimulus started (s)')+
   ggtitle('dove (raw data)')
 
 ## plot lion data
 look_no_na %>%
   filter(stim_type == 'l') %>%
-  ggplot(aes(x = time_since_stim, y = looking_direction,
+  ggplot(aes(x = time_since_stim, y = look_index,
              group = focal_id))+
   geom_vline(aes(xintercept = 0))+
   geom_point(colour = rgb(0,0,1,0.01))+
   #geom_line()+
-  facet_grid(focal_age ~ factor(age_difference,
+  facet_grid(f_age_num ~ factor(age_difference,
                                 levels = c('partner_younger','matched','partner_older')),
-             labeller = labeller(focal_age = age_labels))+
+             labeller = labeller(f_age_num = age_labels))+
   scale_x_continuous(name = 'time since stimulus started (s)')+
   ggtitle('lion (raw data)')
 
 ## plot human data
 look_no_na %>%
   filter(stim_type == 'h') %>%
-  ggplot(aes(x = time_since_stim, y = looking_direction,
+  ggplot(aes(x = time_since_stim, y = look_index,
              group = focal_id))+
   geom_vline(aes(xintercept = 0))+
   geom_point(colour = rgb(0,0,1,0.01))+
   #geom_line()+
-  facet_grid(focal_age ~ factor(age_difference,
+  facet_grid(f_age_num ~ factor(age_difference,
                                 levels = c('partner_younger','matched','partner_older')),
-             labeller = labeller(focal_age = age_labels))+
+             labeller = labeller(f_age_num = age_labels))+
   scale_x_continuous(name = 'time since stimulus started (s)')+
   ggtitle('human (raw data)')
 
 print(paste0('raw data plotted at ',Sys.time()))
 
 ## reset plotting
-save.image('ele_playbacks/looking_direction/looking_ordinal_model1_run_agecombo.RData') # save.image('ele_playbacks/looking_direction/looking_ordinal_model1_run_agecombo.RData')
+save.image('ele_playbacks/looking_direction/looking_ordinal_model1_run.RData') # save.image('looking_direction/looking_ordinal_model1_run.RData')
 dev.off()
 #pdf('outputs/looking_ordinal_model_1/looking_ordinal_model1predictions.pdf')
 
-#### predict from model -- TAKE THIS FROM MOVEMENT MODEL ONCE YOU'VE WORKED IT OUT FOR THAT ####
+#### predict from model ####
+pdf('../outputs/looking_ordinal_model_1/looking_ordinal_model1_modelpredictions.pdf')
+load('ele_playbacks/looking_direction/looking_ordinal_model1_run.RData') # load('looking_direction/looking_ordinal_model1_run.RData')
+rm(list = ls()[! ls() %in% c('direction_look_fit','look_no_na')]) ; gc()
+
+pred <- posterior_epred(object = direction_look_fit,
+                        newdata = look_no_na)
+save.image('ele_playbacks/looking_direction/looking_ordinal_model1_predictions.RData')
+
+
+
+
+
