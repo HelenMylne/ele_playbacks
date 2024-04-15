@@ -134,89 +134,89 @@ for(f in 1:length(focals)){
 }
 rm(list = ls()[ ! ls() %in% c('move', 'focals')]) ; gc()
 
-############### Probability of moving ###############
-pdf('../outputs/movement_binomial_model/movement_binomial_modelprep.pdf')
-
-#### filter data ####
-move_no_na <- move %>%
-  filter(is.na(f_age_num) == FALSE) %>%
-  filter(is.na(move_tminus1) == FALSE) %>%
-  mutate(move_index = ifelse(move_index == 0, 0, 1),
-         moving_direction = ifelse(moving_direction == 'not_moving',
-                                   'not_moving', 'moving'),
-         move_tminus1_num = ifelse(move_tminus1_num == 0, 0, 1),
-         move_tminus1 = ifelse(move_tminus1 == 'not_moving',
-                                   'not_moving', 'moving')) %>%
-  mutate(f_age_num = as.integer(f_age_num)) %>%
-  mutate(focal_id = as.integer(as.factor(focal)),
-         stim_num = as.integer(as.factor(stim_num))) %>%
-  rename(stim_id = stim_num,
-         playback_id = pb_num) %>%
-  select(focal, moving_direction, move_index,
-         f_age_cat, f_age_num,
-         time_since_stim, after_stim, stim_type,
-         move_tminus1, move_tminus1_num,
-         focal_id, stim_id, playback_id) %>%
-  distinct()
-str(move_no_na)
-
-#### set priors ####
-# set priors -- prior predictive: I think all age categories should have equal priors, as while we would probably expect there to be the biggest difference between oldest and youngest, that's not something we're certain of.
-get_prior(formula = move_index ~ 0 + mo(f_age_num) + stim_type +   # fixed effects
-            s(after_stim) + move_tminus1_num +                     # controls
-            (1|focal_id) + (1|stim_id) + (1|playback_id),          # random effects
-          data = move_no_na,
-          family = bernoulli("logit"))
-
-# centre on -1 (logit(0.25) approx. = -1, and more likely to be not moving than moving)
-priors <- c(
-  # focal age
-  prior(normal(-1,1),     class = b,    coef = mof_age_num),
-  prior(dirichlet(2,2,2), class = simo, coef = mof_age_num1),
-  # stimulus type
-  prior(normal(-1,1),     class = b,    coef = stim_typectd),
-  prior(normal(-1,1),     class = b,    coef = stim_typel),
-  prior(normal(-1,1),     class = b,    coef = stim_typeh),
-  # time spline
-  prior(normal(-1,1),     class = b,    coef = safter_stim_1),
-  # action in previous second
-  prior(normal(-1,1),     class = b,    coef = move_tminus1_num))
-
-#### prior predictive check ####
-num_chains <- 4
-num_iter <- 2000
-mbm_prior <- brm(
-  formula = move_index ~ 0 + mo(f_age_num) + stim_type + s(after_stim) + move_tminus1_num +
-    (1|focal_id) + (1|stim_id) + (1|playback_id),
-  data = move_no_na,
-  family = bernoulli("logit"),
-  prior = priors, chains = num_chains, cores = num_chains,
-  iter = num_iter, warmup = num_iter/2, seed = 12345,
-  sample_prior = 'only')
-pp_check(mbm_prior)
-
-print(paste0('priors set and checked at ', Sys.time()))
-
-## reset plotting
-dev.off()
+# ############### Probability of moving ###############
+# pdf('../outputs/movement_binomial_model/movement_binomial_modelprep.pdf')
+# 
+# #### filter data ####
+# move_no_na <- move %>%
+#   filter(is.na(f_age_num) == FALSE) %>%
+#   filter(is.na(move_tminus1) == FALSE) %>%
+#   mutate(move_index = ifelse(move_index == 0, 0, 1),
+#          moving_direction = ifelse(moving_direction == 'not_moving',
+#                                    'not_moving', 'moving'),
+#          move_tminus1_num = ifelse(move_tminus1_num == 0, 0, 1),
+#          move_tminus1 = ifelse(move_tminus1 == 'not_moving',
+#                                    'not_moving', 'moving')) %>%
+#   mutate(f_age_num = as.integer(f_age_num)) %>%
+#   mutate(focal_id = as.integer(as.factor(focal)),
+#          stim_num = as.integer(as.factor(stim_num))) %>%
+#   rename(stim_id = stim_num,
+#          playback_id = pb_num) %>%
+#   select(focal, moving_direction, move_index,
+#          f_age_cat, f_age_num,
+#          time_since_stim, after_stim, stim_type,
+#          move_tminus1, move_tminus1_num,
+#          focal_id, stim_id, playback_id) %>%
+#   distinct()
+# str(move_no_na)
+# 
+# #### set priors ####
+# # set priors -- prior predictive: I think all age categories should have equal priors, as while we would probably expect there to be the biggest difference between oldest and youngest, that's not something we're certain of.
+# get_prior(formula = move_index ~ 0 + mo(f_age_num) + stim_type +   # fixed effects
+#             s(after_stim) + move_tminus1_num +                     # controls
+#             (1|focal_id) + (1|stim_id) + (1|playback_id),          # random effects
+#           data = move_no_na,
+#           family = bernoulli("logit"))
+# 
+# # centre on -1 (logit(0.25) approx. = -1, and more likely to be not moving than moving)
+# priors <- c(
+#   # focal age
+#   prior(normal(-1,1),     class = b,    coef = mof_age_num),
+#   prior(dirichlet(2,2,2), class = simo, coef = mof_age_num1),
+#   # stimulus type
+#   prior(normal(-1,1),     class = b,    coef = stim_typectd),
+#   prior(normal(-1,1),     class = b,    coef = stim_typel),
+#   prior(normal(-1,1),     class = b,    coef = stim_typeh),
+#   # time spline
+#   prior(normal(-1,1),     class = b,    coef = safter_stim_1),
+#   # action in previous second
+#   prior(normal(-1,1),     class = b,    coef = move_tminus1_num))
+# 
+# #### prior predictive check ####
+# num_chains <- 4
+# num_iter <- 2000
+# mbm_prior <- brm(
+#   formula = move_index ~ 0 + mo(f_age_num) + stim_type + s(after_stim) + move_tminus1_num +
+#     (1|focal_id) + (1|stim_id) + (1|playback_id),
+#   data = move_no_na,
+#   family = bernoulli("logit"),
+#   prior = priors, chains = num_chains, cores = num_chains,
+#   iter = num_iter, warmup = num_iter/2, seed = 12345,
+#   sample_prior = 'only')
+# pp_check(mbm_prior)
+# 
+# print(paste0('priors set and checked at ', Sys.time()))
+# 
+# ## reset plotting
+# dev.off()
 pdf('../outputs/movement_binomial_model/movement_binomial_modelchecks.pdf')
-
-#### fit model ####
-direction_move_fit <- brm(
-  formula = move_index ~ 0 + mo(f_age_num) + stim_type + s(after_stim) + move_tminus1_num +
-    (1|focal_id) + (1|stim_id) + (1|playback_id),
-  data = move_no_na,
-  family = bernoulli("logit"),
-  prior = priors, chains = num_chains, cores = num_chains, threads = threading(4),
-  iter = num_iter, warmup = num_iter/2, seed = 12345)
-
-# save workspace
-save.image('movement_direction/movement_binomial_run.RData') # save.image('ele_playbacks/movement_direction/movement_binomial_run.RData')
-
-# inspect model
-summary(direction_move_fit)
-print(paste0('model fitted at ', Sys.time()))
-
+# 
+# #### fit model ####
+# direction_move_fit <- brm(
+#   formula = move_index ~ 0 + mo(f_age_num) + stim_type + s(after_stim) + move_tminus1_num +
+#     (1|focal_id) + (1|stim_id) + (1|playback_id),
+#   data = move_no_na,
+#   family = bernoulli("logit"),
+#   prior = priors, chains = num_chains, cores = num_chains, threads = threading(4),
+#   iter = num_iter, warmup = num_iter/2, seed = 12345)
+# 
+# # save workspace
+# save.image('movement_direction/movement_binomial_run.RData') # save.image('ele_playbacks/movement_direction/movement_binomial_run.RData')
+# 
+# # inspect model
+# summary(direction_move_fit)
+# print(paste0('model fitted at ', Sys.time()))
+# 
 #### check outputs ####
 load('movement_direction/movement_binomial_run.RData') # load('ele_playbacks/movement_direction/movement_binomial_run.RData')
 
@@ -248,7 +248,7 @@ print(paste0('posterior extracted at ',Sys.time()))
 ## extract marginal effects
 marg <- conditional_effects(direction_move_fit,
                             effects = c('f_age_num', 'stim_type', 'after_stim', 'move_tminus1_num'),
-                            categorical = TRUE,
+                            #categorical = TRUE,
                             method = 'posterior_epred')
 names(marg)
 agefocal_effect <- marg[[1]]
@@ -258,21 +258,13 @@ prevsec_effect <- marg[[4]]
 
 ## plot marginal effects
 (focal_age_plot <- ggplot(agefocal_effect)+
-    # geom_ribbon(aes(x = f_age_num,
-    #                 ymax = upper__, ymin = lower__,
-    #                 fill = cats__),
-    #             alpha = 0.4)+
-    # geom_line(aes(x = f_age_num,
-    #               y = estimate__,
-    #               colour = cats__),
-    #           linewidth = 1)+
     geom_errorbar(aes(x = f_age_num,
-                      ymax = upper__, ymin = lower__,
-                      colour = cats__),
+                      #colour = cats__,
+                      ymax = upper__, ymin = lower__),
                   linewidth = 1, width = 0.2)+
     geom_point(aes(x = f_age_num,
-                   y = estimate__,
-                   colour = cats__),
+                   #colour = cats__,
+                   y = estimate__),
                size = 3)+ # cex = 3?
     xlab(label = 'focal age')+
     ylab('probability of movement direction')+
@@ -306,12 +298,12 @@ names(focal_age_labels) <- 1:4
 
 (stim_plot <- ggplot(stim_effect)+
     geom_errorbar(aes(x = stim_type,
-                      ymin = lower__, ymax = upper__,
-                      colour = cats__),
+                      #colour = cats__,
+                      ymin = lower__, ymax = upper__),
                   linewidth = 1, width = 0.2)+
     geom_point(aes(x = stim_type,
-                   y = estimate__,
-                   colour = cats__),
+                   #colour = cats__,
+                   y = estimate__),
                cex = 3)+ # size = 3?
     xlab(label = 'stimulus type') + ylab('probability of movement direction')+
     scale_colour_viridis_d(name = 'movement direction:',
@@ -332,7 +324,7 @@ names(focal_age_labels) <- 1:4
 ggsave(plot = stim_plot, filename = '../outputs/movement_binomial_model/movement_marginaleffects_stimtype_agecombo.png', device = 'png',
        width = 8.3, height = 5.8)
 
-(focal_age_plot + agecombo_plot + stim_plot) +
+(focal_age_plot + stim_plot) +
   plot_annotation(tag_levels = 'a')
 ggsave(plot = last_plot(),
        filename = '../outputs/movement_binomial_model/movement_marginaleffects.png',
@@ -434,59 +426,16 @@ stim_labels <- c('dove (control)','human','lion')
 names(stim_labels) <- c('ctd','h','l')
 
 ## plot overall
-ggplot(move_no_na, aes(x = f_age_num, y = move_index,
-                       colour = age_difference))+
-  geom_jitter(alpha = 0.1)+
-  facet_wrap(. ~ stim_type,
-             labeller = labeller(stim_type = stim_labels))+
-  scale_y_discrete(name = 'focal movement direction relative to target',
-                   breaks = c(1,2,3,4,5),
-                   labels = c('approach directly','approach angle','move with',
-                              'retreat angle','retreat directly'))+
-  labs(colour = 'age difference')
-print('plot complete')
-
-## plot control data
 move_no_na %>%
-  filter(stim_type == 'ctd') %>%
   ggplot(aes(x = after_stim, y = move_index,
              group = focal_id))+
   geom_vline(aes(xintercept = 0))+
   geom_point(colour = rgb(0,0,1,0.01))+
   #geom_line()+
-  facet_grid(f_age_num ~ factor(age_difference,
-                                levels = c('partner younger','matched','partner older')),
-             labeller = labeller(f_age_num = age_labels))+
+  facet_grid(f_age_num ~ stim_type,
+             labeller = labeller(f_age_num = age_labels,
+                                 stim_type = stim_labels))+
   scale_x_continuous(name = 'time since stimulus started')
-print('plot complete')
-
-## plot lion data
-move_no_na %>%
-  filter(stim_type == 'l') %>%
-  ggplot(aes(x = after_stim, y = move_index,
-             group = focal_id))+
-  geom_vline(aes(xintercept = 0))+
-  geom_point(colour = rgb(0,0,1,0.01))+
-  #geom_line()+
-  facet_grid(f_age_num ~ factor(age_difference,
-                                levels = c('partner younger','matched','partner older')),
-             labeller = labeller(f_age_num = age_labels))+
-  scale_x_continuous(name = 'time since stimulus started')
-print('plot complete')
-
-## plot human data
-move_no_na %>%
-  filter(stim_type == 'h') %>%
-  ggplot(aes(x = after_stim, y = move_index,
-             group = focal_id))+
-  geom_vline(aes(xintercept = 0))+
-  geom_point(colour = rgb(0,0,1,0.01))+
-  #geom_line()+
-  facet_grid(f_age_num ~ factor(age_difference,
-                                levels = c('partner younger','matched','partner older')),
-             labeller = labeller(f_age_num = age_labels))+
-  scale_x_continuous(name = 'time since stimulus started')
-
 print(paste0('raw data plotted at ',Sys.time()))
 
 ## reset plotting
@@ -504,7 +453,7 @@ save.image('movement_direction/movement_binomial_predictions.RData')
 
 rm(list = ls()) ; gc()
 
-# ############### Probability of different directions once moving ###############
+# ############# Probability of different directions once moving ###############
 # pdf('../outputs/movement_ordinal_model_1/movement_ordinal_model1_modelprep.pdf')
 # 
 # #### filter data ####
@@ -965,41 +914,41 @@ rm(list = ls()) ; gc()
 # save.image('movement_direction/movement_ordinal_model1_run.RData') # save.image('ele_playbacks/movement_direction/movement_ordinal_model1_run.RData')
 # dev.off()
 # 
-#### predict from model ####
-pdf('../outputs/movement_ordinal_model_1/movement_ordinal_model1_modelpredictions.pdf')
-load('movement_direction/movement_ordinal_model1_run.RData')
-rm(list = ls()[! ls() %in% c('direction_move_fit','move_no_na')]) ; gc()
-
-pred <- posterior_epred(object = direction_move_fit,
-                        newdata = move_no_na)
-save.image('movement_direction/movement_ordinal_model1_predictions.RData.RData')
-
-## convert to data frame
-pred1 <- as.data.frame(pred[,,1])
-colnames(pred1) <- 1:nrow(move_no_na)
-pred2 <- as.data.frame(pred[,,2])
-colnames(pred2) <- 1:nrow(move_no_na)
-save.image('movement_direction/movement_ordinal_model1_predictions.RData.RData')
-
-move_no_na$data_row <- 1:nrow(move_no_na)
-pred1 <- pred1 %>%
-  pivot_longer(cols = everything(),
-               names_to = 'data_row', values_to = 'epred') %>% 
-  left_join(move_no_na, by = 'data_row') %>% 
-  mutate(pred_type = 'not_moving',
-         pred_type_num = 0)
-pred2 <- pred2 %>%
-  pivot_longer(cols = everything(),
-               names_to = 'data_row', values_to = 'epred') %>% 
-  left_join(move_no_na, by = 'data_row') %>% 
-  mutate(pred_type = 'moving',
-         pred_type_num = 1)
-
-pred <- rbind(pred1, pred2)
-save.image('movement_direction/movement_ordinal_model1_predictions.RData.RData')
-
-print(paste0('predictions calculated at ',Sys.time()))
-
+# #### predict from model ####
+# pdf('../outputs/movement_ordinal_model_1/movement_ordinal_model1_modelpredictions.pdf')
+# load('movement_direction/movement_ordinal_model1_run.RData')
+# rm(list = ls()[! ls() %in% c('direction_move_fit','move_no_na')]) ; gc()
+# 
+# pred <- posterior_epred(object = direction_move_fit,
+#                         newdata = move_no_na)
+# save.image('movement_direction/movement_ordinal_model1_predictions.RData.RData')
+# 
+# ## convert to data frame
+# pred1 <- as.data.frame(pred[,,1])
+# colnames(pred1) <- 1:nrow(move_no_na)
+# pred2 <- as.data.frame(pred[,,2])
+# colnames(pred2) <- 1:nrow(move_no_na)
+# save.image('movement_direction/movement_ordinal_model1_predictions.RData.RData')
+# 
+# move_no_na$data_row <- 1:nrow(move_no_na)
+# pred1 <- pred1 %>%
+#   pivot_longer(cols = everything(),
+#                names_to = 'data_row', values_to = 'epred') %>% 
+#   left_join(move_no_na, by = 'data_row') %>% 
+#   mutate(pred_type = 'not_moving',
+#          pred_type_num = 0)
+# pred2 <- pred2 %>%
+#   pivot_longer(cols = everything(),
+#                names_to = 'data_row', values_to = 'epred') %>% 
+#   left_join(move_no_na, by = 'data_row') %>% 
+#   mutate(pred_type = 'moving',
+#          pred_type_num = 1)
+# 
+# pred <- rbind(pred1, pred2)
+# save.image('movement_direction/movement_ordinal_model1_predictions.RData.RData')
+# 
+# print(paste0('predictions calculated at ',Sys.time()))
+# 
 # ## plot predictions ####
 # #load('movement_direction/movement_ordinal_model1_predictions.RData.RData')  #load('ele_playbacks/movement_direction/movement_ordinal_model1_predictions.RData.RData')
 # 
