@@ -119,7 +119,7 @@ nn <- nn_all %>%
   filter(neighbour == 1) %>%
   filter(is.na(f_age_num) == FALSE) %>%
   filter(is.na(p_age_num) == FALSE) %>% 
-  select(-neighbour, -nn_index) %>% 
+  select(-neighbour) %>% 
   rename(neighbour = partner) %>% 
   mutate(age_difference = factor(age_difference,
                                  levels = c('partner_younger',
@@ -222,7 +222,7 @@ save.image('ele_playbacks/nearest_neighbour/neighbour_ordinal_run.RData')
 dev.off()
 
 #### check outputs ####
-# load('ele_playbacks/nearest_neighbour/neighbour_ordinal_run.RData') # rm(biologylibs, homedrive, homelibs, homelibsprofile, rlibs, Rversion) ; gc()
+# load('ele_playbacks/nearest_neighbour/neighbour_ordinal_run.RData') # load('nearest_neighbour/neighbour_ordinal_run.RData')
 pdf('outputs/neighbour_ordinal_model/neighbour_ordinal_modelchecks.pdf')
 
 ## check Stan code
@@ -230,78 +230,79 @@ nn_fit$model
 
 ## check model fit
 summary(nn_fit)
-# Formula: age_diff_num ~ 1 + mo(f_age_num) + stim_type + s(after_stim) + mo(nn_tminus1_num) + (1 | stim_id) + (1 | stim_id:playback_id) + (1 | stim_id:playback_id:focal_id) 
-# Data: nn_no_na (Number of observations: 36838) 
+# Formula: age_diff_num ~ 1 + mo(f_age_num) + stim_type + s(after_stim) + mo(nn_tminus1_num) + (1 | stim_id) + (1 | stim_id:playback_id) + (1 | stim_id:playback_id:focal_id)
+# Data: nn_no_na (Number of observations: 50349)
 # Draws: 4 chains, each with iter = 2000; warmup = 1000; thin = 1; total post-warmup draws = 4000
-# 
-# Smooth Terms: 
+# Smooth Terms:
 #                    Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sds(safter_stim_1)     0.52      0.53     0.02     1.96 1.00     1933     2225
+# sds(safter_stim_1)     0.50      0.50     0.01     1.88 1.00     1850     2077
 # 
-# Group-Level Effects: 
-#   ~stim_id (Number of levels: 21) 
+# Group-Level Effects:
+#   ~stim_id (Number of levels: 30)
 #               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sd(Intercept)     0.46      0.33     0.02     1.23 1.01      663     1126
+# sd(Intercept)     0.22      0.16     0.01     0.59 1.00      711     1489
 # 
-# ~stim_id:playback_id (Number of levels: 30) 
+# ~stim_id:playback_id (Number of levels: 48)
 #               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sd(Intercept)     0.82      0.37     0.08     1.50 1.01      343      565
+# sd(Intercept)     0.31      0.18     0.02     0.68 1.01      470     1202
 # 
-# ~stim_id:playback_id:focal_id (Number of levels: 122) 
+# ~stim_id:playback_id:focal_id (Number of levels: 171)
 #               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sd(Intercept)     1.67      0.29     1.15     2.28 1.01      404     1160
+# sd(Intercept)     0.15      0.12     0.00     0.45 1.00      919     1103
 # 
-# Population-Level Effects: 
+# Population-Level Effects:
 #                  Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# Intercept[1]         1.58      0.52     0.55     2.58 1.00     1312     2171
-# Intercept[2]        11.67      0.53    10.60    12.68 1.00     1250     1993
-# stim_typeh           0.07      0.52    -0.96     1.08 1.00     2111     2753
-# stim_typel           0.03      0.56    -1.08     1.13 1.00     1696     2553
-# safter_stim_1       -0.18      0.75    -1.57     1.49 1.00     3386     2587
-# mof_age_num         -1.20      0.18    -1.54    -0.85 1.01      683     1507
-# monn_tminus1_num     8.51      0.11     8.29     8.73 1.00     2311     2575
+# Intercept[1]         4.26      0.43     3.35     5.00 1.01      720     1909
+# Intercept[2]        15.21      0.42    14.34    15.95 1.01      838     1992
+# stim_typeh           0.07      0.21    -0.34     0.50 1.00     3012     2455
+# stim_typel           0.02      0.24    -0.45     0.51 1.00     2885     2186
+# safter_stim_1       -0.06      0.76    -1.58     1.48 1.00     3725     2733
+# mof_age_num         -0.62      0.17    -0.96    -0.34 1.01      587     1859
+# monn_tminus1_num    10.62      0.15    10.34    10.90 1.00     1155     2082
 # 
-# Simplex Parameters: 
-#                    Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# mof_age_num1[1]        0.09      0.06     0.01     0.23 1.00     3258     1396
-# mof_age_num1[2]        0.74      0.09     0.55     0.91 1.00     2843     2826
-# mof_age_num1[3]        0.17      0.09     0.03     0.35 1.00     2012     2397
-# monn_tminus1_num1[1]   0.51      0.01     0.49     0.53 1.00     3366     2723
-# monn_tminus1_num1[2]   0.49      0.01     0.47     0.51 1.00     3366     2723
+# Simplex Parameters:
+#                      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# mof_age_num1[1]          0.20      0.10     0.03     0.40 1.00     4200     2424
+# mof_age_num1[2]          0.54      0.10     0.36     0.74 1.00     5187     2901
+# mof_age_num1[3]          0.26      0.09     0.09     0.44 1.00     3661     1638
+# monn_tminus1_num1[1]     0.51      0.01     0.50     0.53 1.00     5812     3358
+# monn_tminus1_num1[2]     0.49      0.01     0.47     0.50 1.00     5812     3358
 # 
-# Family Specific Parameters: 
-#      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# Family Specific Parameters:
+#   Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # disc     1.00      0.00     1.00     1.00   NA       NA       NA
 # 
-# Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS and Tail_ESS are effective sample size measures, and Rhat is the potential scale reduction factor on split chains (at convergence, Rhat = 1).
-# Warning message: There were 13 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
+# Draws were sampled using sampling(NUTS). For each parameter, and Tail_ESS are effective sample size measures, and Rhat is scale reduction factor on split chains (at convergence, Rhat
+# Warning message: There were 3 divergent transitions after warmup. Increasing a8 may help. See http://mc-stan.org/misc/warnings.html#diverger-warmup
+# Warning message: There were 3 divergent transitions after warmup. Increasing a8 may help. See http://mc-stan.org/misc/warnings.html#diverger-warmup
 
 ## check chain mixing
 summary <- summary(nn_fit)
 hist(summary$fixed$Rhat, breaks = 50)
 range(summary$fixed$Rhat)
-# 1.000444 1.007834
+# 1.001229 1.013411
 
 ## check effective sample size
 hist(summary$fixed$Bulk_ESS, breaks = 50)
 range(summary$fixed$Bulk_ESS)
-# 683.3667 3385.9355
+# 586.7052 3724.9700
+rownames(summary$fixed)[which(summary$fixed$Bulk_ESS == min(summary$fixed$Bulk_ESS))] # f_age_num has the lowest effective sample size
 hist(summary$fixed$Tail_ESS, breaks = 50)
 range(summary$fixed$Tail_ESS)
-# 1507.037 2753.075
+# 1858.512 2732.741
 
 summary$random
 # $stim_id
-#                Estimate Est.Error   l-95% CI u-95% CI     Rhat  Bulk_ESS  Tail_ESS
-# sd(Intercept) 0.4619142 0.3346158 0.02038823 1.229267 1.007116  663.3026  1125.687
+#                Estimate Est.Error    l-95% CI  u-95% CI     Rhat Bulk_ESS Tail_ESS
+# sd(Intercept) 0.2150773 0.1582964 0.009541558 0.5916455 1.003302 710.5277 1489.159
 # 
 # $`stim_id:playback_id`
-#                Estimate Est.Error   l-95% CI u-95% CI    Rhat  Bulk_ESS  Tail_ESS
-# sd(Intercept) 0.8152322 0.3662419 0.07937348 1.496995 1.01456  343.0073  564.5211
+#                  Estimate Est.Error   l-95% CI  u-95% CI    Rhat Bulk_ESS Tail_ESS
+# sd(Intercept)   0.3064286 0.1847595 0.01767821 0.6831676 1.01342 469.7863 1202.196
 # 
 # $`stim_id:playback_id:focal_id`
-#               Estimate Est.Error l-95% CI u-95% CI    Rhat  Bulk_ESS  Tail_ESS
-# sd(Intercept) 1.669163 0.2921028 1.150674  2.28331 1.01373  403.7323  1160.486
+#                Estimate Est.Error    l-95% CI  u-95% CI     Rhat Bulk_ESS Tail_ESS
+# sd(Intercept) 0.1462336 0.1194749 0.004368648 0.4512497 1.001519 918.7878 1102.701
 
 ## extract posterior distribution
 draws <- as_draws_df(nn_fit) %>%
@@ -430,7 +431,11 @@ hist(b_int1$draw, main = 'b_int1') ; hist(b_int2$draw, main = 'b_int2')
 lion <- draws_cut %>% filter(parameter == 'b_stim_typel')
 human <- draws_cut %>% filter(parameter == 'b_stim_typeh')
 plot(density(lion$draw), main = 'lion vs dove') ; abline(v = 0, lty = 2)
+mean(lion$draw) ; sd(lion$draw)
+# 0.01961241 ± 0.2350546
 plot(density(human$draw), main = 'human vs dove') ; abline(v = 0, lty = 2)
+mean(human$draw) ; sd(human$draw)
+# 0.07305522 ± 0.2121808
 
 ## focal age
 age1 <- draws_cut %>% filter(parameter == 'bsp_mof_age_num')
@@ -439,9 +444,17 @@ age3 <- draws_cut %>% filter(parameter == 'simo_mof_age_num1[2]')
 age4 <- draws_cut %>% filter(parameter == 'simo_mof_age_num1[3]')
 par(mfrow = c(2,2))
 plot(density(age1$draw), main = 'age intercept') ; abline(v = 0, lty = 2)
+mean(age1$draw) ; sd(age1$draw)
+# -0.6182791 ± 0.1664937
 plot(density(age2$draw), main = 'age2 vs age1') ; abline(v = 0, lty = 2)
+mean(age2$draw) ; sd(age2$draw)
+# 0.1953138 ± 0.09633965
 plot(density(age3$draw), main = 'age3 vs age1') ; abline(v = 0, lty = 2)
+mean(age3$draw) ; sd(age3$draw)
+# 0.5418168 ± 0.0995131
 plot(density(age4$draw), main = 'age4 vs age1') ; abline(v = 0, lty = 2)
+mean(age4$draw) ; sd(age4$draw)
+# 0.2628693 ± 0.08918488
 
 ## neighbour in previous second
 prevsec1 <- draws_cut %>% filter(parameter == 'bsp_monn_tminus1_num')
@@ -449,8 +462,14 @@ prevsec2 <- draws_cut %>% filter(parameter == 'simo_monn_tminus1_num1[1]')
 prevsec3 <- draws_cut %>% filter(parameter == 'simo_monn_tminus1_num1[2]')
 par(mfrow = c(3,1))
 plot(density(prevsec1$draw), main = 't-1 younger') ; abline(v = 0, lty = 2)
+mean(prevsec1$draw) ; sd(prevsec1$draw)
+# 10.61679 ± 0.1468672
 plot(density(prevsec2$draw), main = 't-1 matched') ; abline(v = 0, lty = 2)
+mean(prevsec2$draw) ; sd(prevsec2$draw)
+# 0.512553 ± 0.006696236
 plot(density(prevsec3$draw), main = 't-1 older') ; abline(v = 0, lty = 2)
+mean(prevsec3$draw) ; sd(prevsec3$draw)
+# 0.487447 ± 0.006696236
 
 ## time since stimulus
 timeb <- draws_cut %>% filter(parameter == 'bs_safter_stim_1')
@@ -465,15 +484,35 @@ time7 <- draws_cut %>% filter(parameter == 's_safter_stim_1[7]')
 time8 <- draws_cut %>% filter(parameter == 's_safter_stim_1[8]')
 par(mfrow = c(5,2))
 plot(density(timeb$draw), main = 'time slope') ; abline(v = 0, lty = 2)
+mean(timeb$draw) ; sd(timeb$draw)
+# -0.05578981 ± 0.7562788
 plot(density(times$draw), main = 'time intercept') ; abline(v = 0, lty = 2)
+mean(times$draw) ; sd(times$draw)
+# 0.5003595 ± 0.5041333
 plot(density(time1$draw), main = 'time spline 1') ; abline(v = 0, lty = 2)
+mean(time1$draw) ; sd(time1$draw)
+# -0.06217671 ± 0.7570976
 plot(density(time2$draw), main = 'time spline 2') ; abline(v = 0, lty = 2)
+mean(time2$draw) ; sd(time2$draw)
+# 0.04705627 ± 0.486139
 plot(density(time3$draw), main = 'time spline 3') ; abline(v = 0, lty = 2)
+mean(time3$draw) ; sd(time3$draw)
+# 0.02241826 ± 0.3337269
 plot(density(time4$draw), main = 'time spline 4') ; abline(v = 0, lty = 2)
+mean(time4$draw) ; sd(time4$draw)
+# -0.09282363 ± 0.488172
 plot(density(time5$draw), main = 'time spline 5') ; abline(v = 0, lty = 2)
+mean(time5$draw) ; sd(time5$draw)
+# 0.02672542 ± 0.6521429
 plot(density(time6$draw), main = 'time spline 6') ; abline(v = 0, lty = 2)
+mean(time6$draw) ; sd(time6$draw)
+# 0.01953563 ± 0.6604809
 plot(density(time7$draw), main = 'time spline 7') ; abline(v = 0, lty = 2)
+mean(time7$draw) ; sd(time7$draw)
+# 0.02226062 ± 0.6840069
 plot(density(time8$draw), main = 'time spline 8') ; abline(v = 0, lty = 2)
+mean(time8$draw) ; sd(time8$draw)
+# 0.01007547 ± 0.7118232
 
 #### plot raw ####
 par(mfrow = c(1,1))
@@ -788,31 +827,31 @@ lion_vs_human_age3 <- human_mtx[,,3] - lion_mtx[,,3]
 plot(density(ctd_vs_lion_age1), col = 'red', las = 1, xlim = c(-0.1, 0.1),
      main = 'contrasts between stim types:\nred = younger, purple = match, blue = older;\nsolid = ctd vs l, dashed = ctd vs h, dotted = l vs h')
 mean(ctd_vs_lion_age1) ; sd(ctd_vs_lion_age1)
-# -0.0002164913 ± 0.006336687
+# -3.6556e-05 ± 0.000885717
 lines(density(ctd_vs_lion_age2), col = 'purple')
 mean(ctd_vs_lion_age2) ; sd(ctd_vs_lion_age2)
-# 0.0001157238 ± 0.008796879
+# 8.888346e-06 ± 0.001068246
 lines(density(ctd_vs_lion_age3), col = 'blue')
 mean(ctd_vs_lion_age3) ; sd(ctd_vs_lion_age3)
-# 0.0001007675 ± 0.006776772
+# 2.766766e-05 ± 0.001021074
 lines(density(ctd_vs_human_age1), col = 'red', lty = 2)
 mean(ctd_vs_human_age1) ; sd(ctd_vs_human_age1)
-# -0.0002242824 ± 0.005650672
+# -0.0001763442 ± 0.0007313818
 lines(density(ctd_vs_human_age2), col = 'purple', lty = 2)
 mean(ctd_vs_human_age2) ; sd(ctd_vs_human_age2)
-# -0.000297644 ± 0.008083713
+# -3.051439e-05 ± 0.0009024247
 lines(density(ctd_vs_human_age3), col = 'blue', lty = 2)
 mean(ctd_vs_human_age3) ; sd(ctd_vs_human_age3)
-# 0.0005219263 ± 0.006415421
+# 0.0002068586 ± 0.0008494267
 lines(density(lion_vs_human_age1), col = 'red', lty = 3)
 mean(lion_vs_human_age1) ; sd(lion_vs_human_age1)
-# -7.79103e-06 ± 0.007634558
+# -0.0001397882 ± 0.0010269
 lines(density(lion_vs_human_age2), col = 'purple', lty = 3)
 mean(lion_vs_human_age2) ; sd(lion_vs_human_age2)
-# -0.0004133678 ± 0.01080005
+# -3.940274e-05 ± 0.001262442
 lines(density(lion_vs_human_age3), col = 'blue', lty = 3)
 mean(lion_vs_human_age3) ; sd(lion_vs_human_age3)
-# 0.0004211588 ± 0.008483265
+# 0.0001791909 ± 0.001200902
 
 ## summarise contrasts
 contrasts <- nn_no_na %>%
@@ -1003,13 +1042,13 @@ alt_vs_org_older <- age_mtx_alt[,which(nn_no_na$f_age_num != 4),3] - age_mtx_org
 plot(density(alt_vs_org_young), col = 'red', las = 1, xlim = c(-0.1, 0.1),
      main = 'contrasts between adjacent age category:\nred = younger, purple = match, blue = older')
 mean(alt_vs_org_young) ; sd(alt_vs_org_young)
-# original categories 1-3 only: 0.008424558 ± 0.02210265, Entire matrix: -0.004951402 ± 0.04987196
+# 0.001676816 ± 0.002277281
 lines(density(alt_vs_org_match), col = 'purple')
 mean(alt_vs_org_match) ; sd(alt_vs_org_match)
-# 0.004302089 ± 0.09081412
+# 0.001288262 ± 0.004495726
 lines(density(alt_vs_org_older), col = 'blue')
 mean(alt_vs_org_older) ; sd(alt_vs_org_older)
-# 0.0006493128 ± 0.07784338
+# -0.002965078 ± 0.003467282
 
 ## summarise contrasts
 contrasts <- nn_no_na %>%
@@ -1209,31 +1248,31 @@ match_vs_older_age3 <- older_mtx[,,3] - match_mtx[,,3]
 plot(density(young_vs_match_age1), col = 'red', las = 1, xlim = c(-1, 1), ylim = c(0,40),
      main = 'contrasts between t-1 neighbours:\nred = Pr(younger), purple = Pr(match), blue = Pr(older);\nsolid = young vs match, dashed = young vs older, dotted = match vs older')
 mean(young_vs_match_age1) ; sd(young_vs_match_age1)
-# -0.8425294 ± 0.2040871
+# -0.989369 ± 0.004120054
 lines(density(young_vs_match_age2), col = 'purple')
 mean(young_vs_match_age2) ; sd(young_vs_match_age2)
-# 0.7961065 ± 0.3054583
+# 0.9837748 ± 0.007480113
 lines(density(young_vs_match_age3), col = 'blue')
 mean(young_vs_match_age3) ; sd(young_vs_match_age3)
-# 0.04642289 ± 0.1146574
+# 0.005594218 ± 0.004150668
 lines(density(young_vs_older_age1), col = 'red', lty = 2)
 mean(young_vs_older_age1) ; sd(young_vs_older_age1)
-# -0.8894144 ± 0.1986614
+# -0.9940382 ± 0.004977479
 lines(density(young_vs_older_age2), col = 'purple', lty = 2)
 mean(young_vs_older_age2) ; sd(young_vs_older_age2)
-# 0.02082896 ± 0.3333747
+# 0.002520919 ± 0.009991569
 lines(density(young_vs_older_age3), col = 'blue', lty = 2)
 mean(young_vs_older_age3) ; sd(young_vs_older_age3)
-# 0.8685854 ± 0.2100632
+# 0.9915172 ± 0.006479285
 lines(density(match_vs_older_age1), col = 'red', lty = 3)
 mean(match_vs_older_age1) ; sd(match_vs_older_age1)
-# -0.04688498 ± 0.1105872
+# -0.004669165 ± 0.003245499
 lines(density(match_vs_older_age2), col = 'purple', lty = 3)
 mean(match_vs_older_age2) ; sd(match_vs_older_age2)
-# -0.7752776 ± 0.3100541
+# -0.9812539 ± 0.007781853
 lines(density(match_vs_older_age3), col = 'blue', lty = 3)
 mean(match_vs_older_age3) ; sd(match_vs_older_age3)
-# 0.8221626 ± 0.2132306
+# 0.985923 ± 0.005284724
 
 ## summarise contrasts
 contrasts <- nn_no_na %>%
@@ -1525,40 +1564,40 @@ alt1.00_vs_0.75_older <- time_mtx_alt_1.00[,,3] - time_mtx_alt_0.75[,,3]
 plot(density(alt0.25_vs_0.00_young), col = 'red', las = 1, xlim = c(-0.001, 0.001),
      main = 'contrasts between stim types:\nsolid = younger, dashed = match, dotted = older;\nred = 0-15s, blue = 15-30s, green = 30-45s, black = 45-60s')
 mean(alt0.25_vs_0.00_young) ; sd(alt0.25_vs_0.00_young)
-# 4.342812e-05 ± 0.000310953
+# 1.9754e-05 ± 0.0001278051
 lines(density(alt0.50_vs_0.25_young), col = 'blue')
 mean(alt0.50_vs_0.25_young) ; sd(alt0.50_vs_0.25_young)
-# 4.574861e-05 ± 0.0002955898
+# 1.816309e-05 ± 0.000121
 lines(density(alt0.75_vs_0.50_young), col = 'green')
 mean(alt0.75_vs_0.50_young) ; sd(alt0.75_vs_0.50_young)
-# 5.256342e-05 ± 0.0003034267
+# 1.675586e-05 ± 0.0001197705
 lines(density(alt1.00_vs_0.75_young), col = 'black')
 mean(alt1.00_vs_0.75_young) ; sd(alt1.00_vs_0.75_young)
-# 6.204836e-05 ± 0.0003189413
+# 1.569622e-05 ± 0.0001257571
 lines(density(alt0.25_vs_0.00_match), col = 'red', lty = 2)
 mean(alt0.25_vs_0.00_match) ; sd(alt0.25_vs_0.00_match)
-# 2.947249e-06 ± 0.000437141
+# 1.777214e-06 ± 0.0001531117
 lines(density(alt0.50_vs_0.25_match), col = 'blue', lty = 2)
 mean(alt0.50_vs_0.25_match) ; sd(alt0.50_vs_0.25_match)
-# 2.808559e-06 ± 0.000418051
+# 6.871919e-07 ± 0.0001458013
 lines(density(alt0.75_vs_0.50_match), col = 'green', lty = 2)
 mean(alt0.75_vs_0.50_match) ; sd(alt0.75_vs_0.50_match)
-# 3.055587e-06 ± 0.0004272815
+# -1.926899e-08 ± 0.0001459526
 lines(density(alt1.00_vs_0.75_match), col = 'black')
 mean(alt1.00_vs_0.75_match) ; sd(alt1.00_vs_0.75_match)
-# 3.482751e-06 ± 0.0004451155
+# -6.710725e-07 ± 0.0001554494
 lines(density(alt0.25_vs_0.00_older), col = 'red', lty = 3)
 mean(alt0.25_vs_0.00_older) ; sd(alt0.25_vs_0.00_older)
-# -4.637537e-05 ± 0.000352237
+# -2.153121e-05 ± 0.0001493238
 lines(density(alt0.50_vs_0.25_older), col = 'blue', lty = 3)
 mean(alt0.50_vs_0.25_older) ; sd(alt0.50_vs_0.25_older)
-# -4.855717e-05 ± 0.0003371717
+# -1.885028e-05 ± 0.0001416635
 lines(density(alt0.75_vs_0.50_older), col = 'green', lty = 3)
 mean(alt0.75_vs_0.50_older) ; sd(alt0.75_vs_0.50_older)
-# -5.5619e-05 ± 0.0003404904
+# -1.673659e-05 ± 0.0001412924
 lines(density(alt1.00_vs_0.75_older), col = 'black')
 mean(alt1.00_vs_0.75_older) ; sd(alt1.00_vs_0.75_older)
-# -6.553111e-05 ± 0.0003487694
+# -1.502515e-05 ± 0.0001497973
 
 ## summarise contrasts
 contrasts <- nn_no_na %>% 
