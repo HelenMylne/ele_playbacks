@@ -841,22 +841,22 @@ look %>%
 print(paste0('raw data plotted at ',Sys.time()))
 
 ## reset plotting
-save.image('ele_playbacks/looking_direction/looking_ordinal_2bda_run.RData') # save.image('looking_direction/looking_ordinal_2bda_run.RData')
+save.image('looking_direction/looking_ordinal_2bda_run.RData') # save.image('ele_playbacks/looking_direction/looking_ordinal_2bda_run.RData')
 dev.off()
 #pdf('../outputs/looking_ordinal_model_2bda/looking_ordinal_2bda_modelpredictions.pdf')
 
 #### predict from model -- raw data -- NOT ACTUALLY RUN AND CHECKED YET ####
-# load('ele_playbacks/looking_direction/look_model_run_bda.RData') # load('looking_direction/look_model_run_bda.RData')
+# load('looking_direction/look_model_run_bda.RData')
 rm(list = ls()[ ! ls() %in% c('behav','draws','look','lom2_fit','priors','summary','num_chains','num_iter','age_labels','stim_labels') ]) ; gc()
 
 ## predict from raw data
 pred_mtx <- posterior_epred(object = lom2_fit, newdata = look)
 look$unique_data_combo <- 1:nrow(look)
 colnames(pred_mtx) <- look$unique_data_combo
-save.image('looking_direction/looking_bda_predictions.RData')
+save.image('looking_direction/looking_ordinal_2bda_predictions.RData')
 
 ## convert predictions to long format data set, using only first 100 values per chain
-#load('looking_direction/looking_bda_predictions.RData')
+#load('looking_direction/looking_ordinal_2bda_predictions.RData')
 predictions1 <- pred_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,1] %>%
   as.data.frame() %>%
   pivot_longer(everything(), names_to = 'unique_data_combo', values_to = 'prediction') %>%
@@ -875,13 +875,13 @@ predictions3 <- pred_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,3] %>%
   mutate(unique_data_combo = as.integer(unique_data_combo),
          pred_type = 3) %>%
   left_join(look, by = 'unique_data_combo')
-save.image('looking_direction/looking_bda_predictions.RData')
+save.image('looking_direction/looking_ordinal_2bda_predictions.RData')
 
 predictions_all <- rbind(predictions1, predictions2, predictions3)
-save.image('looking_direction/looking_bda_predictions.RData')
+save.image('looking_direction/looking_ordinal_2bda_predictions.RData')
 
 # ## plot predictions -- posterior_epred() -- nn ####
-# #load('looking_direction/looking_bda_predictions.RData')  #load('ele_playbacks/looking_direction/looking_bda_predictions.RData')
+# #load('looking_direction/looking_ordinal_2bda_predictions.RData')  #load('ele_playbacks/looking_direction/looking_ordinal_2bda_predictions.RData')
 # rm(pred_mtx, predictions1, predictions2, predictions3) ; gc()
 #
 # ## make labels for prediction type look nice
