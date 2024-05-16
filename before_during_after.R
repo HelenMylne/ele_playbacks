@@ -136,12 +136,12 @@ behav <- readRDS('../data_processed/behaviour_by_second_indexvariables.RDS') %>%
   select(-elephant_activity_index) %>%
   # clean up
   rename(elephant_activity = elephant_activity_name) %>%
-  filter(action_name != 'impossible_partner') %>% 
+  filter(action_name != 'impossible_partner') %>%
   # fix out of sight variable
   mutate(action_name = ifelse(out_frame_name == 'out_of_sight',
                               'out_of_sight', action_name),
          action_index = ifelse(out_frame_name == 'out_of_sight',
-                               9, action_index)) %>% 
+                               9, action_index)) %>%
   # join on explanatory and random variables
   separate(elephant_activity, into = c('targeted_elephant','activity'), sep = '_', remove = T) %>%
   mutate(targeted_elephant = paste0(targeted_elephant, '_e', pb_num)) %>%
@@ -173,350 +173,350 @@ saveRDS(behav, '../data_processed/behaviour_by_second_indexvariables_bda.RDS')
 behav <- behav %>%
   filter(!is.na(f_age_num))
 
-# ######## nearest neighbour ####
-# pdf('../outputs/neighbour_binomial_model_bda/neighbour_binomial_modelchecks.pdf')
-# 
-# #### create data ####
-# ## select specific data
-# nn <- behav %>%
-#   filter(activity == 'nn') %>%
-#   select(-activity, -stim_start, -stim_stop) %>%
-#   mutate(prev = NA,
-#          action = ifelse(action_name == 'out_of_sight', 9,
-#                          action_index - 1),
-#          f_age_num = as.factor(as.numeric(f_age_num)),
-#          p_age_num = as.factor(as.numeric(p_age_num))) %>%
-#   filter(!is.na(p_age_num)) %>%
-#   relocate(action, .after = action_index)
-# 
-# # create variable for nearest neighbour at time t-1
-# focals <- unique(nn$focal)
-# for(f in 1:length(focals)){
-#   focal <- nn %>% filter(focal == focals[f])
-#   nn <- nn %>% anti_join(focal, by = 'focal')
-#   partners <- unique(focal$partner)
-#   for(p in 1:length(partners)){
-#     focal_partner <- focal %>% filter(partner == partners[p])
-#     focal <- focal %>% anti_join(focal_partner, by = 'partner')
-#     for(i in 2:nrow(focal_partner)){
-#       focal_partner$prev[i] <- focal_partner$action[i-1]
-#     }
-#     focal <- rbind(focal, focal_partner)
-#   }
-#   nn <- rbind(nn, focal)
-# }
-# rm(focal, focals, focal_partner, f, p, i, partners) ; gc()
-# 
-# ## remove observations with missing data
-# nn <- nn %>%
-#   filter(action != 9) %>% 
-#   filter(prev != 9) %>% 
-#   filter(!is.na(prev))
-# 
-# ## check numbers for current vs previous second
-# table(nn$action_name, nn$prev)
-# 
-# #### set prior ####
-# get_prior(formula = action ~ 1 + age_combo + stim_type + bda + prev +
-#             (1|focal) + (1|stim_num) + (1|pb_num),
-#           data = nn, family = bernoulli("logit"))
-# priors <- c(
-# #  # focal age
-# #  prior(normal(0,1),      class = b,    coef = mof_age_num),
-# #  prior(dirichlet(2,2,2), class = simo, coef = mof_age_num1),
-# #  # partner age
-# #  prior(normal(0,1),      class = b,    coef = mop_age_num),
-# #  prior(dirichlet(2,2,2), class = simo, coef = mop_age_num1),
-#   # interaction
-#   prior(normal(0,1),      class = b,    coef = age_combo1_2),
-#   prior(normal(0,1),      class = b,    coef = age_combo1_3),
-#   prior(normal(0,1),      class = b,    coef = age_combo1_4),
-#   prior(normal(0,1),      class = b,    coef = age_combo2_1),
-#   prior(normal(0,1),      class = b,    coef = age_combo2_2),
-#   prior(normal(0,1),      class = b,    coef = age_combo2_3),
-#   prior(normal(0,1),      class = b,    coef = age_combo2_4),
-#   prior(normal(0,1),      class = b,    coef = age_combo3_1),
-#   prior(normal(0,1),      class = b,    coef = age_combo3_2),
-#   prior(normal(0,1),      class = b,    coef = age_combo3_3),
-#   prior(normal(0,1),      class = b,    coef = age_combo3_4),
-#   prior(normal(0,1),      class = b,    coef = age_combo4_1),
-#   prior(normal(0,1),      class = b,    coef = age_combo4_2),
-#   prior(normal(0,1),      class = b,    coef = age_combo4_3),
-#   prior(normal(0,1),      class = b,    coef = age_combo4_4),
-#   # stim type
-#   prior(normal(0,1),      class = b,    coef = stim_typeh),
-#   prior(normal(0,1),      class = b,    coef = stim_typel),
-#   # before/during/after
-#   prior(normal(0,1),      class = b,    coef = bdabefore),
-#   prior(normal(0,1),      class = b,    coef = bdaduring),
-#   # action in previous second
-#   # prior(normal(0,1),      class = b,    coef = moprev),
-#   # prior(dirichlet(2),   class = simo, coef = moprev1))
-#   prior(normal(1,1),      class = b,    coef = prev))
-# 
-# ## prior predictive check
-# num_chains <- 4
-# num_iter <- 2000
-# nbm_prior <- brm(
-#   formula = action ~ 1 + age_combo + stim_type + bda + prev +
-#     (1|focal) + (1|stim_num) + (1|pb_num),
-#   data = nn, family = bernoulli("logit"),
-#   prior = priors, chains = num_chains, cores = num_chains,
-#   iter = num_iter, warmup = num_iter/2, seed = 12345,
-#   sample_prior = 'only')
-# 
-# pp_check(nbm_prior) # y is quite skewed, prior is mostly symmetrical, but data still fall within it
-# 
-# #### fit model ####
-# nbm_fit <- brm(
-#   formula = action ~ 1 + age_combo + stim_type + bda + prev +
-#     (1|focal) + (1|stim_num) + (1|pb_num),
-#   data = nn, family = bernoulli("logit"),
-#   prior = priors, chains = num_chains, cores = num_chains,
-#   iter = num_iter, warmup = num_iter/2, seed = 12345)
-# save.image('nearest_neighbour/neighbour_binomial_run.RData')
-# 
-# ## check model fit -- Rhat very good, ESS a bit crap, may need to run for more iterations
-# # load('nearest_neighbour/neighbour_binomial_run.RData')
-# (summary <- summary(nbm_fit))
-# par(mfrow = c(3,1))
-# hist(summary$fixed$Rhat, breaks = 50)
-# hist(summary$fixed$Bulk_ESS, breaks = 50)
-# hist(summary$fixed$Tail_ESS, breaks = 50)
-# par(mfrow = c(1,1))
-# 
-# ## extract posterior distribution
-# draws <- as_draws_df(nbm_fit) %>%
-#   select(-lprior, -`lp__`)
-# parameters <- colnames(draws)[1:(ncol(draws)-3)]
-# draws <- draws  %>%
-#   pivot_longer(cols = all_of(parameters),
-#                names_to = 'parameter',
-#                values_to = 'draw') %>%
-#   rename(chain = `.chain`,
-#          position = `.iteration`,
-#          draw_id = `.draw`) %>%
-#   mutate(invlogit_draw = invlogit(draw))
-# 
-# # extract marginal effects
-# marg <- conditional_effects(nbm_fit,
-#                             effects = c('age_combo','stim_type',
-#                                         'bda','prev'),
-#                             categorical = FALSE,
-#                             #spaghetti = TRUE,
-#                             method = 'posterior_epred')
-# names(marg)
-# age_effect <- marg[[1]]
-# stim_effect <- marg[[2]]
-# bda_effect <- marg[[3]]
-# prev_effect <- marg[[4]]
-# 
-# #### plot marginal effects ####
-# neighbour_labels <- c('neighbour age category 1',
-#                       'neighbour age category 2',
-#                       'neighbour age category 3',
-#                       'neighbour age category 4')
-# names(neighbour_labels) <- c(1:4)
-# (focal_age_plot <- age_effect %>%
-#    separate(col = age_combo, sep = '_', remove = F,
-#             into = c('focal_age','neighbour_age')) %>%
-#    mutate(agecombo = paste0(focal_age,'-',neighbour_age)) %>%
-#    ggplot()+
-#    geom_errorbar(aes(#x = agecombo,
-#                      x = focal_age,
-#                      colour = focal_age,
-#                      #linetype = neighbour_age,
-#                      ymax = upper__, ymin = lower__),
-#                  linewidth = 1, width = 0.2)+
-#    geom_point(aes(#x = agecombo,
-#                   x = focal_age,
-#                   colour = focal_age,
-#                   #shape = neighbour_age,
-#                   y = estimate__),
-#               cex = 3)+
-#    #xlab(label = 'combined age categories')+
-#    xlab(label = 'focal age category')+
-#    ylab('probability of being nearest neighbours:\nafter dove stimulus, not nearest neighbours in previous second')+
-#    scale_colour_viridis_d(name = 'focal age:')+
-#    #scale_linetype(name = 'neighbour age line type:')+
-#    #scale_shape_manual(name = 'neighbour age shape:', values = c(15:18))+
-#    facet_wrap(. ~ neighbour_age,
-#               labeller = labeller(neighbour_age = neighbour_labels))+
-#    theme(legend.direction = 'horizontal',
-#          legend.position = 'bottom',
-#          legend.box = 'vertical',
-#          legend.spacing.x = unit(0.2, 'cm'),
-#          legend.spacing.y = unit(2, 'mm'),
-#          axis.title = element_text(size = 16),
-#          axis.text.x = element_text(size = 12,
-#                                     #angle = 70,
-#                                     vjust = 0.5),
-#          axis.text.y = element_text(size = 12),
-#          legend.title = element_text(size = 12),
-#          legend.text = element_text(size = 10)) )
-# ggsave(plot = focal_age_plot, filename = '../outputs/neighbour_binomial_model_bda/neighbour_binomial_marginaleffects_focalage.png',
-#        device = 'png', width = 8.3, height = 5.8)
-# 
-# (stim_plot <- stim_effect %>%
-#     ggplot()+
-#     geom_errorbar(aes(x = stim_type,
-#                       colour = stim_type,
-#                       ymax = upper__, ymin = lower__),
-#                   linewidth = 1, width = 0.2)+
-#     geom_point(aes(x = stim_type,
-#                    colour = stim_type,
-#                    shape = stim_type,
-#                    y = estimate__),
-#               cex = 3)+
-#     ylab('probability of being nearest neighbours after stimulus:\nage 1 with age 1, not neighbours in previous second')+
-#     scale_colour_viridis_d(name = 'stimulus type:')+
-#     scale_shape_manual(name = 'stimulus type:', values = c(15:18))+
-#     scale_x_discrete(name = 'stimulus type', breaks = c('ctd','l','h'),
-#                      labels = c('dove (control)', 'lion', 'human'),
-#                      limits = c('ctd','l','h'))+
-#     theme(legend.position = 'none',
-#           axis.title = element_text(size = 16),
-#           axis.text = element_text(size = 12),
-#           legend.title = element_text(size = 12),
-#           legend.text = element_text(size = 10)) )
-# ggsave(plot = stim_plot, filename = '../outputs/neighbour_binomial_model_bda/neighbour_binomial_marginaleffects_stimtype.png', device = 'png',
-#        width = 8.3, height = 5.8)
-# 
-# (all_plots <- ggarrange(focal_age_plot, stim_plot, ncol=2, nrow=1, common.legend = FALSE, legend = "bottom"))
-# ggsave(plot = all_plots, filename = '../outputs/neighbour_binomial_model_bda/neighbour_binomial_marginaleffects.png', device = 'png',
-#        width = (5.8*2), height = 8.3)
-# 
-# rm(all_plots,focal_age_plot,stim_plot,age_effect,prev_effect,stim_effect,bda_effect) ;gc()
-# 
-# #### posterior predictive check ####
-# pp_check(nbm_fit, ndraws = 100) # perfect fit
-# 
-# #### plot traces ####
-# parameters_of_interest <- parameters[1:which(parameters == 'b_prev')]
-# draws %>%
-#   filter(parameter %in% parameters_of_interest) %>%
-#   ggplot(aes(x = position, y = draw, colour = as.factor(chain)))+
-#   geom_line()+
-#   facet_wrap(. ~ parameter, scales = 'free_y')+
-#   theme(legend.position = 'none') # mostly fine, but playback ID intercept has a weird unmixed bit
-# 
-# #### plot density curves ####
-# draws %>%
-#   filter(parameter %in% parameters_of_interest) %>%
-#   ggplot(aes(x = draw, colour = as.factor(chain)))+
-#   geom_density()+
-#   facet_wrap(. ~ parameter, scales = 'free')+
-#   theme(legend.position = 'none')
-# 
-# save.image('nearest_neighbour/neighbour_binomial_run.RData')
-# 
-# ## reset plotting
-# dev.off()
-# pdf('../outputs/neighbour_binomial_model_bda/neighbour_binomial_modelpredictions.pdf')
-# 
-# #### predict from model ####
-# # load('nearest_neighbour/neighbour_binomial_run.RData')
-# rm(list = ls()[! ls() %in% c('nbm_fit','nn')])
-# 
-# pred <- posterior_epred(object = nbm_fit,
-#                         newdata = nn)
-# save.image('nearest_neighbour/neighbour_binomial_predictions.RData')
-# 
-# ## convert to data frame
-# nn$data_row <- 1:nrow(nn)
-# predictions <- as.data.frame(pred)
-# colnames(predictions) <- 1:nrow(nn)
-# predictions <- predictions %>%
-#   pivot_longer(cols = everything(),
-#                names_to = 'data_row', values_to = 'epred') %>%
-#   mutate(data_row = as.integer(data_row)) %>%
-#   left_join(nn, by = 'data_row')
-# 
-# save.image('nearest_neighbour/neighbour_binomial_predictions.RData')
-# rm(pred) ; gc()
-# 
-# print(paste0('predictions calculated at ',Sys.time()))
-# 
-# #### plot predictions ####
-# #load('nearest_neighbour/neighbour_binomial_predictions.RData')
-# 
-# ## make labels for neighbour in previous second
-# prevsec_labels <- c('not neighbour at t-1',
-#                     'neighbour at t-1')
-# names(prevsec_labels) <- c(0,1)
-# 
-# ## plot in 3 sections -- split by stimulus type as the thing that I changed, each graph by age as the thing I'm interested in
-# (ctd_plot <- predictions %>%
-#     filter(stim_type == 'ctd') %>%
-#     ggplot()+
-#     geom_violin(aes(x = as.factor(f_age_num), y = epred,
-#                     # fill = factor(pred_type, levels = c('not neighbour', 'neighbour')),
-#                     # colour = factor(pred_type, levels = c('not neighbour', 'neighbour'))
-#                     colour = bda
-#                     )) +
-#     facet_grid(prev ~ .,
-#                labeller = labeller(prev = prevsec_labels))+
-#     scale_fill_viridis_d()+
-#     scale_colour_viridis_d()+
-#     labs(colour = 'predicted direction of neighbour relative to focal:',
-#          fill = 'predicted direction of neighbour relative to focal:',
-#          x = 'age category of focal elephant',
-#          y = 'proportion of predictions',
-#          title = 'cape turtle dove (control)')+
-#     theme(legend.position = 'bottom'))
-# print('ctd_plot completed')
-# 
-# (lion_plot <- predictions %>%
-#     filter(stim_type == 'l') %>%
-#     ggplot()+
-#     geom_violin(aes(x = as.factor(f_age_num), y = epred,
-#                     # fill = factor(pred_type, levels = c('not neighbour', 'neighbour')),
-#                     # colour = factor(pred_type, levels = c('not neighbour', 'neighbour'))
-#                     colour = bda
-#                     )) +
-#     facet_grid(prev ~ .,
-#                labeller = labeller(prev = prevsec_labels))+
-#     scale_fill_viridis_d()+
-#     scale_colour_viridis_d()+
-#     labs(colour = 'predicted direction of neighbour relative to focal:',
-#          fill = 'predicted direction of neighbour relative to focal:',
-#          x = 'age category of focal elephant',
-#          y = 'proportion of predictions',
-#          title = 'lion')+
-#     theme(legend.position = 'bottom'))
-# print('lion_plot completed')
-# 
-# (human_plot <- predictions %>%
-#     filter(stim_type == 'h') %>%
-#     ggplot()+
-#     geom_violin(aes(x = as.factor(f_age_num), y = epred,
-#                     # fill = factor(pred_type, levels = c('not neighbour', 'neighbour')),
-#                     # colour = factor(pred_type, levels = c('not neighbour', 'neighbour'))
-#                     colour = bda
-#                     )) +
-#     facet_grid(prev ~ .,
-#                labeller = labeller(prev = prevsec_labels))+
-#     scale_fill_viridis_d()+
-#     scale_colour_viridis_d()+
-#     labs(colour = 'predicted direction of neighbour relative to focal:',
-#          fill = 'predicted direction of neighbour relative to focal:',
-#          x = 'age category of focal elephant',
-#          y = 'proportion of predictions',
-#          title = 'human')+
-#     theme(legend.position = 'bottom'))
-# print('human_plot completed')
-# 
-# # (ctd_plot + lion_plot + human_plot)+
-# #   plot_annotation(tag_levels = 'a')
-# # ggsave(plot = last_plot(), file = '../outputs/neighbour_binomial_model/neighbour_binomial_predictions_violin.png',
-# #        device = 'png', height = 8, width = 48)
-# 
-# ## reset plotting
-# dev.off()
-# #pdf('../outputs/neighbour_binomial_model/neighbour_binomial_modelcontrasts.pdf')
-# 
-# print('neighbour completed')
-# 
+######## nearest neighbour ####
+pdf('../outputs/neighbour_binomial_model_bda/neighbour_binomial_modelchecks.pdf')
+
+#### create data ####
+## select specific data
+nn <- behav %>%
+  filter(activity == 'nn') %>%
+  select(-activity, -stim_start, -stim_stop) %>%
+  mutate(prev = NA,
+         action = ifelse(action_name == 'out_of_sight', 9,
+                         action_index - 1),
+         f_age_num = as.factor(as.numeric(f_age_num)),
+         p_age_num = as.factor(as.numeric(p_age_num))) %>%
+  filter(!is.na(p_age_num)) %>%
+  relocate(action, .after = action_index)
+
+# create variable for nearest neighbour at time t-1
+focals <- unique(nn$focal)
+for(f in 1:length(focals)){
+  focal <- nn %>% filter(focal == focals[f])
+  nn <- nn %>% anti_join(focal, by = 'focal')
+  partners <- unique(focal$partner)
+  for(p in 1:length(partners)){
+    focal_partner <- focal %>% filter(partner == partners[p])
+    focal <- focal %>% anti_join(focal_partner, by = 'partner')
+    for(i in 2:nrow(focal_partner)){
+      focal_partner$prev[i] <- focal_partner$action[i-1]
+    }
+    focal <- rbind(focal, focal_partner)
+  }
+  nn <- rbind(nn, focal)
+}
+rm(focal, focals, focal_partner, f, p, i, partners) ; gc()
+
+## remove observations with missing data
+nn <- nn %>%
+  filter(action != 9) %>%
+  filter(prev != 9) %>%
+  filter(!is.na(prev))
+
+## check numbers for current vs previous second
+table(nn$action_name, nn$prev)
+
+#### set prior ####
+get_prior(formula = action ~ 1 + age_combo + stim_type + bda + prev +
+            (1|focal) + (1|stim_num) + (1|pb_num),
+          data = nn, family = bernoulli("logit"))
+priors <- c(
+#  # focal age
+#  prior(normal(0,1),      class = b,    coef = mof_age_num),
+#  prior(dirichlet(2,2,2), class = simo, coef = mof_age_num1),
+#  # partner age
+#  prior(normal(0,1),      class = b,    coef = mop_age_num),
+#  prior(dirichlet(2,2,2), class = simo, coef = mop_age_num1),
+  # interaction
+  prior(normal(0,1),      class = b,    coef = age_combo1_2),
+  prior(normal(0,1),      class = b,    coef = age_combo1_3),
+  prior(normal(0,1),      class = b,    coef = age_combo1_4),
+  prior(normal(0,1),      class = b,    coef = age_combo2_1),
+  prior(normal(0,1),      class = b,    coef = age_combo2_2),
+  prior(normal(0,1),      class = b,    coef = age_combo2_3),
+  prior(normal(0,1),      class = b,    coef = age_combo2_4),
+  prior(normal(0,1),      class = b,    coef = age_combo3_1),
+  prior(normal(0,1),      class = b,    coef = age_combo3_2),
+  prior(normal(0,1),      class = b,    coef = age_combo3_3),
+  prior(normal(0,1),      class = b,    coef = age_combo3_4),
+  prior(normal(0,1),      class = b,    coef = age_combo4_1),
+  prior(normal(0,1),      class = b,    coef = age_combo4_2),
+  prior(normal(0,1),      class = b,    coef = age_combo4_3),
+  prior(normal(0,1),      class = b,    coef = age_combo4_4),
+  # stim type
+  prior(normal(0,1),      class = b,    coef = stim_typeh),
+  prior(normal(0,1),      class = b,    coef = stim_typel),
+  # before/during/after
+  prior(normal(0,1),      class = b,    coef = bdabefore),
+  prior(normal(0,1),      class = b,    coef = bdaduring),
+  # action in previous second
+  # prior(normal(0,1),      class = b,    coef = moprev),
+  # prior(dirichlet(2),   class = simo, coef = moprev1))
+  prior(normal(1,1),      class = b,    coef = prev))
+
+## prior predictive check
+num_chains <- 4
+num_iter <- 2000
+nbm_prior <- brm(
+  formula = action ~ 1 + age_combo + stim_type + bda + prev +
+    (1|focal) + (1|stim_num) + (1|pb_num),
+  data = nn, family = bernoulli("logit"),
+  prior = priors, chains = num_chains, cores = num_chains,
+  iter = num_iter, warmup = num_iter/2, seed = 12345,
+  sample_prior = 'only')
+
+pp_check(nbm_prior) # y is quite skewed, prior is mostly symmetrical, but data still fall within it
+
+#### fit model ####
+nbm_fit <- brm(
+  formula = action ~ 1 + age_combo + stim_type + bda + prev +
+    (1|focal) + (1|stim_num) + (1|pb_num),
+  data = nn, family = bernoulli("logit"),
+  prior = priors, chains = num_chains, cores = num_chains,
+  iter = num_iter, warmup = num_iter/2, seed = 12345)
+save.image('nearest_neighbour/neighbour_binomial_run.RData')
+
+## check model fit -- Rhat very good, ESS a bit crap, may need to run for more iterations
+# load('nearest_neighbour/neighbour_binomial_run.RData')
+(summary <- summary(nbm_fit))
+par(mfrow = c(3,1))
+hist(summary$fixed$Rhat, breaks = 50)
+hist(summary$fixed$Bulk_ESS, breaks = 50)
+hist(summary$fixed$Tail_ESS, breaks = 50)
+par(mfrow = c(1,1))
+
+## extract posterior distribution
+draws <- as_draws_df(nbm_fit) %>%
+  select(-lprior, -`lp__`)
+parameters <- colnames(draws)[1:(ncol(draws)-3)]
+draws <- draws  %>%
+  pivot_longer(cols = all_of(parameters),
+               names_to = 'parameter',
+               values_to = 'draw') %>%
+  rename(chain = `.chain`,
+         position = `.iteration`,
+         draw_id = `.draw`) %>%
+  mutate(invlogit_draw = invlogit(draw))
+
+# extract marginal effects
+marg <- conditional_effects(nbm_fit,
+                            effects = c('age_combo','stim_type',
+                                        'bda','prev'),
+                            categorical = FALSE,
+                            #spaghetti = TRUE,
+                            method = 'posterior_epred')
+names(marg)
+age_effect <- marg[[1]]
+stim_effect <- marg[[2]]
+bda_effect <- marg[[3]]
+prev_effect <- marg[[4]]
+
+#### plot marginal effects ####
+neighbour_labels <- c('neighbour age category 1',
+                      'neighbour age category 2',
+                      'neighbour age category 3',
+                      'neighbour age category 4')
+names(neighbour_labels) <- c(1:4)
+(focal_age_plot <- age_effect %>%
+   separate(col = age_combo, sep = '_', remove = F,
+            into = c('focal_age','neighbour_age')) %>%
+   mutate(agecombo = paste0(focal_age,'-',neighbour_age)) %>%
+   ggplot()+
+   geom_errorbar(aes(#x = agecombo,
+                     x = focal_age,
+                     colour = focal_age,
+                     #linetype = neighbour_age,
+                     ymax = upper__, ymin = lower__),
+                 linewidth = 1, width = 0.2)+
+   geom_point(aes(#x = agecombo,
+                  x = focal_age,
+                  colour = focal_age,
+                  #shape = neighbour_age,
+                  y = estimate__),
+              cex = 3)+
+   #xlab(label = 'combined age categories')+
+   xlab(label = 'focal age category')+
+   ylab('probability of being nearest neighbours:\nafter dove stimulus, not nearest neighbours in previous second')+
+   scale_colour_viridis_d(name = 'focal age:')+
+   #scale_linetype(name = 'neighbour age line type:')+
+   #scale_shape_manual(name = 'neighbour age shape:', values = c(15:18))+
+   facet_wrap(. ~ neighbour_age,
+              labeller = labeller(neighbour_age = neighbour_labels))+
+   theme(legend.direction = 'horizontal',
+         legend.position = 'bottom',
+         legend.box = 'vertical',
+         legend.spacing.x = unit(0.2, 'cm'),
+         legend.spacing.y = unit(2, 'mm'),
+         axis.title = element_text(size = 16),
+         axis.text.x = element_text(size = 12,
+                                    #angle = 70,
+                                    vjust = 0.5),
+         axis.text.y = element_text(size = 12),
+         legend.title = element_text(size = 12),
+         legend.text = element_text(size = 10)) )
+ggsave(plot = focal_age_plot, filename = '../outputs/neighbour_binomial_model_bda/neighbour_binomial_marginaleffects_focalage.png',
+       device = 'png', width = 8.3, height = 5.8)
+
+(stim_plot <- stim_effect %>%
+    ggplot()+
+    geom_errorbar(aes(x = stim_type,
+                      colour = stim_type,
+                      ymax = upper__, ymin = lower__),
+                  linewidth = 1, width = 0.2)+
+    geom_point(aes(x = stim_type,
+                   colour = stim_type,
+                   shape = stim_type,
+                   y = estimate__),
+              cex = 3)+
+    ylab('probability of being nearest neighbours after stimulus:\nage 1 with age 1, not neighbours in previous second')+
+    scale_colour_viridis_d(name = 'stimulus type:')+
+    scale_shape_manual(name = 'stimulus type:', values = c(15:18))+
+    scale_x_discrete(name = 'stimulus type', breaks = c('ctd','l','h'),
+                     labels = c('dove (control)', 'lion', 'human'),
+                     limits = c('ctd','l','h'))+
+    theme(legend.position = 'none',
+          axis.title = element_text(size = 16),
+          axis.text = element_text(size = 12),
+          legend.title = element_text(size = 12),
+          legend.text = element_text(size = 10)) )
+ggsave(plot = stim_plot, filename = '../outputs/neighbour_binomial_model_bda/neighbour_binomial_marginaleffects_stimtype.png', device = 'png',
+       width = 8.3, height = 5.8)
+
+(all_plots <- ggarrange(focal_age_plot, stim_plot, ncol=2, nrow=1, common.legend = FALSE, legend = "bottom"))
+ggsave(plot = all_plots, filename = '../outputs/neighbour_binomial_model_bda/neighbour_binomial_marginaleffects.png', device = 'png',
+       width = (5.8*2), height = 8.3)
+
+rm(all_plots,focal_age_plot,stim_plot,age_effect,prev_effect,stim_effect,bda_effect) ;gc()
+
+#### posterior predictive check ####
+pp_check(nbm_fit, ndraws = 100) # perfect fit
+
+#### plot traces ####
+parameters_of_interest <- parameters[1:which(parameters == 'b_prev')]
+draws %>%
+  filter(parameter %in% parameters_of_interest) %>%
+  ggplot(aes(x = position, y = draw, colour = as.factor(chain)))+
+  geom_line()+
+  facet_wrap(. ~ parameter, scales = 'free_y')+
+  theme(legend.position = 'none') # mostly fine, but playback ID intercept has a weird unmixed bit
+
+#### plot density curves ####
+draws %>%
+  filter(parameter %in% parameters_of_interest) %>%
+  ggplot(aes(x = draw, colour = as.factor(chain)))+
+  geom_density()+
+  facet_wrap(. ~ parameter, scales = 'free')+
+  theme(legend.position = 'none')
+
+save.image('nearest_neighbour/neighbour_binomial_run.RData')
+
+## reset plotting
+dev.off()
+pdf('../outputs/neighbour_binomial_model_bda/neighbour_binomial_modelpredictions.pdf')
+
+#### predict from model ####
+# load('nearest_neighbour/neighbour_binomial_run.RData')
+rm(list = ls()[! ls() %in% c('nbm_fit','nn')])
+
+pred <- posterior_epred(object = nbm_fit,
+                        newdata = nn)
+save.image('nearest_neighbour/neighbour_binomial_predictions.RData')
+
+## convert to data frame
+nn$data_row <- 1:nrow(nn)
+predictions <- as.data.frame(pred)
+colnames(predictions) <- 1:nrow(nn)
+predictions <- predictions %>%
+  pivot_longer(cols = everything(),
+               names_to = 'data_row', values_to = 'epred') %>%
+  mutate(data_row = as.integer(data_row)) %>%
+  left_join(nn, by = 'data_row')
+
+save.image('nearest_neighbour/neighbour_binomial_predictions.RData')
+rm(pred) ; gc()
+
+print(paste0('predictions calculated at ',Sys.time()))
+
+#### plot predictions ####
+#load('nearest_neighbour/neighbour_binomial_predictions.RData')
+
+## make labels for neighbour in previous second
+prevsec_labels <- c('not neighbour at t-1',
+                    'neighbour at t-1')
+names(prevsec_labels) <- c(0,1)
+
+## plot in 3 sections -- split by stimulus type as the thing that I changed, each graph by age as the thing I'm interested in
+(ctd_plot <- predictions %>%
+    filter(stim_type == 'ctd') %>%
+    ggplot()+
+    geom_violin(aes(x = as.factor(f_age_num), y = epred,
+                    # fill = factor(pred_type, levels = c('not neighbour', 'neighbour')),
+                    # colour = factor(pred_type, levels = c('not neighbour', 'neighbour'))
+                    colour = bda
+                    )) +
+    facet_grid(prev ~ .,
+               labeller = labeller(prev = prevsec_labels))+
+    scale_fill_viridis_d()+
+    scale_colour_viridis_d()+
+    labs(colour = 'predicted direction of neighbour relative to focal:',
+         fill = 'predicted direction of neighbour relative to focal:',
+         x = 'age category of focal elephant',
+         y = 'proportion of predictions',
+         title = 'cape turtle dove (control)')+
+    theme(legend.position = 'bottom'))
+print('ctd_plot completed')
+
+(lion_plot <- predictions %>%
+    filter(stim_type == 'l') %>%
+    ggplot()+
+    geom_violin(aes(x = as.factor(f_age_num), y = epred,
+                    # fill = factor(pred_type, levels = c('not neighbour', 'neighbour')),
+                    # colour = factor(pred_type, levels = c('not neighbour', 'neighbour'))
+                    colour = bda
+                    )) +
+    facet_grid(prev ~ .,
+               labeller = labeller(prev = prevsec_labels))+
+    scale_fill_viridis_d()+
+    scale_colour_viridis_d()+
+    labs(colour = 'predicted direction of neighbour relative to focal:',
+         fill = 'predicted direction of neighbour relative to focal:',
+         x = 'age category of focal elephant',
+         y = 'proportion of predictions',
+         title = 'lion')+
+    theme(legend.position = 'bottom'))
+print('lion_plot completed')
+
+(human_plot <- predictions %>%
+    filter(stim_type == 'h') %>%
+    ggplot()+
+    geom_violin(aes(x = as.factor(f_age_num), y = epred,
+                    # fill = factor(pred_type, levels = c('not neighbour', 'neighbour')),
+                    # colour = factor(pred_type, levels = c('not neighbour', 'neighbour'))
+                    colour = bda
+                    )) +
+    facet_grid(prev ~ .,
+               labeller = labeller(prev = prevsec_labels))+
+    scale_fill_viridis_d()+
+    scale_colour_viridis_d()+
+    labs(colour = 'predicted direction of neighbour relative to focal:',
+         fill = 'predicted direction of neighbour relative to focal:',
+         x = 'age category of focal elephant',
+         y = 'proportion of predictions',
+         title = 'human')+
+    theme(legend.position = 'bottom'))
+print('human_plot completed')
+
+# (ctd_plot + lion_plot + human_plot)+
+#   plot_annotation(tag_levels = 'a')
+# ggsave(plot = last_plot(), file = '../outputs/neighbour_binomial_model/neighbour_binomial_predictions_violin.png',
+#        device = 'png', height = 8, width = 48)
+
+## reset plotting
+dev.off()
+#pdf('../outputs/neighbour_binomial_model/neighbour_binomial_modelcontrasts.pdf')
+
+print('neighbour completed')
+
 ######## looking direction ####
 rm(list = ls()[! ls() %in% 'behav']) ; gc()
 set.seed(12345)
@@ -530,8 +530,8 @@ look <- behav %>%
   rename(look_index = action_index) %>%
   mutate(action = ifelse(action_name == 'out_of_sight', 9,
                          look_index - 1),
-         f_age_num = as.factor(as.numeric(f_age_num)),
-         p_age_num = as.factor(as.numeric(p_age_num)),
+         f_age_num = as.numeric(f_age_num),
+         p_age_num = as.numeric(p_age_num),
          prev_action = NA,
          prev_num = NA) %>%
   filter(!is.na(f_age_num)) %>%
@@ -558,8 +558,8 @@ rm(focal, focals, focal_partner, f, p, i, partners) ; gc()
 
 ## remove observations with missing data
 look <- look %>%
-  filter(look_index != 9) %>% 
-  filter(prev_num != 9) %>% 
+  filter(look_index != 9) %>%
+  filter(prev_num != 9) %>%
   filter(!is.na(prev_action))
 
 ## check numbers for current vs previous second
@@ -966,15 +966,15 @@ pdf('../outputs/looking_ordinal_model_2bda/looking_ordinal_2bda_modelpredictions
 
 #### predict from model ####
 # load('looking_direction/looking_ordinal_2bda_run.RData')
-# rm(list = ls()[! ls() %in% c('lom2_fit','look')]) ; gc()
-#
-# pred <- posterior_epred(object = lom2_fit,
-#                         newdata = look)
-# save.image('looking_direction/looking_ordinal_model2bda_predictions.RData')
-# print('looking direction predictions completed')
+rm(list = ls()[! ls() %in% c('lom2_fit','look')]) ; gc()
+
+pred <- posterior_epred(object = lom2_fit,
+                        newdata = look)
+save.image('looking_direction/looking_ordinal_model2bda_predictions.RData')
+print('looking direction predictions completed')
 
 ## convert to data frame
-load('looking_direction/looking_ordinal_model2bda_predictions.RData')
+# load('looking_direction/looking_ordinal_model2bda_predictions.RData')
 look$data_row <- 1:nrow(look)
 extract_predictions <- function(prediction_array, layer, df){
   predictions <- as.data.frame(prediction_array[,,layer])
@@ -1015,7 +1015,7 @@ names(prevsec_labels) <- 1:3
 (ctd_plot <- pred %>%
     filter(stim_type == 'ctd') %>%
     ggplot()+
-    geom_violin(aes(x = as.factor(f_age_num), y = prediction,
+    geom_violin(aes(x = as.factor(f_age_num), y = epred,
                     fill = factor(pred_type, levels = c('look directly away',
                                                         'side-on',
                                                         'look at directly')),
@@ -1023,8 +1023,8 @@ names(prevsec_labels) <- 1:3
                                                           'side-on',
                                                           'look at directly'))
     )) +
-    facet_grid(look_tminus1_num ~ bda,
-               labeller = labeller(look_tminus1_num = prevsec_labels))+
+    facet_grid(prev_num ~ bda,
+               labeller = labeller(prev_num = prevsec_labels))+
     scale_fill_viridis_d()+
     scale_colour_viridis_d()+
     labs(colour = 'predicted looking direction relative to focal:',
@@ -1033,10 +1033,10 @@ names(prevsec_labels) <- 1:3
          y = 'proportion of predictions',
          title = 'cape turtle dove (control)')+
     theme(legend.position = 'bottom'))
-(lion_plot <- predictions_all %>%
+(lion_plot <- pred %>%
     filter(stim_type == 'l') %>%
     ggplot()+
-    geom_violin(aes(x = as.factor(f_age_num), y = prediction,
+    geom_violin(aes(x = as.factor(f_age_num), y = epred,
                     fill = factor(pred_type, levels = c('look directly away',
                                                         'side-on',
                                                         'look at directly')),
@@ -1044,8 +1044,8 @@ names(prevsec_labels) <- 1:3
                                                           'side-on',
                                                           'look at directly'))
     )) +
-    facet_grid(look_tminus1_num ~ bda,
-               labeller = labeller(look_tminus1_num = prevsec_labels))+
+    facet_grid(prev_num ~ bda,
+               labeller = labeller(prev_num = prevsec_labels))+
     scale_fill_viridis_d()+
     scale_colour_viridis_d()+
     labs(colour = 'predicted looking direction relative to focal:',
@@ -1054,10 +1054,10 @@ names(prevsec_labels) <- 1:3
          y = 'proportion of predictions',
          title = 'lion')+
     theme(legend.position = 'bottom'))
-(human_plot <- predictions_all %>%
+(human_plot <- pred %>%
     filter(stim_type == 'h') %>%
     ggplot()+
-    geom_violin(aes(x = as.factor(f_age_num), y = prediction,
+    geom_violin(aes(x = as.factor(f_age_num), y = epred,
                     fill = factor(pred_type, levels = c('look directly away',
                                                         'side-on',
                                                         'look at directly')),
@@ -1065,8 +1065,8 @@ names(prevsec_labels) <- 1:3
                                                           'side-on',
                                                           'look at directly'))
     )) +
-    facet_grid(look_tminus1_num ~ bda,
-               labeller = labeller(look_tminus1_num = prevsec_labels))+
+    facet_grid(prev_num ~ bda,
+               labeller = labeller(prev_num = prevsec_labels))+
     scale_fill_viridis_d()+
     scale_colour_viridis_d()+
     labs(colour = 'predicted looking direction relative to focal:',
@@ -1573,8 +1573,7 @@ print(paste0('raw data plotted at ',Sys.time()))
 ## reset plotting
 save.image('movement_direction/moving_ordinal_2bda_run.RData')
 dev.off()
-#pdf('../outputs/movement_ordinal_model_2bda/moving_ordinal_2bda_modelpredictions.pdf')
-
+pdf('../outputs/movement_ordinal_model_2bda/moving_ordinal_2bda_modelpredictions.pdf')
 
 #### predict from model ####
 load('movement_direction/moving_ordinal_2bda_run.RData')
@@ -1585,14 +1584,14 @@ pred <- posterior_epred(object = mom2_fit,
 save.image('movement_direction/moving_ordinal_2bda_modelpredictions.RData')
 
 ## convert to data frame
-move_no_na$data_row <- 1:nrow(move_no_na)
+move$data_row <- 1:nrow(move)
 extract_predictions <- function(prediction_array, layer, df){
   predictions <- as.data.frame(prediction_array[,,layer])
   colnames(predictions) <- 1:nrow(df)
   predictions <- predictions %>%
     pivot_longer(cols = everything(),
                  names_to = 'data_row', values_to = 'epred') %>%
-    mutate(data_row = as.integer(data_row)) %>% 
+    mutate(data_row = as.integer(data_row)) %>%
     left_join(df, by = 'data_row') %>%
     mutate(pred_type = ifelse(layer == 1, 'move directly away',
                               ifelse(layer == 2, 'move away at an angle',
@@ -1603,20 +1602,20 @@ extract_predictions <- function(prediction_array, layer, df){
            pred_type_num = layer)
   return(predictions)
 }
-pred1 <- extract_predictions(prediction_array = pred, layer = 1, df = move_no_na)
-pred2 <- extract_predictions(prediction_array = pred, layer = 2, df = move_no_na)
-pred3 <- extract_predictions(prediction_array = pred, layer = 3, df = move_no_na)
-pred4 <- extract_predictions(prediction_array = pred, layer = 4, df = move_no_na)
-pred5 <- extract_predictions(prediction_array = pred, layer = 5, df = move_no_na)
+pred1 <- extract_predictions(prediction_array = pred, layer = 1, df = move)
+pred2 <- extract_predictions(prediction_array = pred, layer = 2, df = move)
+pred3 <- extract_predictions(prediction_array = pred, layer = 3, df = move)
+pred4 <- extract_predictions(prediction_array = pred, layer = 4, df = move)
+pred5 <- extract_predictions(prediction_array = pred, layer = 5, df = move)
 
 pred <- rbind(pred1, pred2, pred3, pred4, pred5)
-save.image('movement_direction/movement_ordinal_model1_predictions.RData')
+save.image('movement_direction/moving_ordinal_2bda_modelpredictions.RData')
 rm(pred1, pred2, pred3, pred4, pred5) ; gc()
 
 print(paste0('predictions calculated at ',Sys.time()))
 
 #### plot predictions ####
-#load('movement_direction/movement_ordinal_model2_predictions.RData')
+load('movement_direction/moving_ordinal_2bda_modelpredictions.RData')
 
 ## make labels for movement in previous second
 prevsec_labels <- c('directly away at t-1',
@@ -1630,7 +1629,7 @@ names(prevsec_labels) <- 1:5
 (ctd_plot <- pred %>%
     filter(stim_type == 'ctd') %>%
     ggplot()+
-    geom_violin(aes(x = as.factor(f_age_num), y = prediction,
+    geom_violin(aes(x = as.factor(f_age_num), y = epred,
                     fill = factor(pred_type, levels = c('move directly away',
                                                         'move away at an angle',
                                                         'move neither towards or away',
@@ -1642,8 +1641,8 @@ names(prevsec_labels) <- 1:5
                                                           'approach at an angle',
                                                           'approach directly'))
     )) +
-    facet_grid(move_tminus1_num ~ bda,
-               labeller = labeller(move_tminus1_num = prevsec_labels))+
+    facet_grid(prev_num ~ bda,
+               labeller = labeller(prev_num = prevsec_labels))+
     scale_fill_viridis_d()+
     scale_colour_viridis_d()+
     labs(colour = 'predicted direction of movement relative to focal:',
@@ -1652,10 +1651,10 @@ names(prevsec_labels) <- 1:5
          y = 'proportion of predictions',
          title = 'cape turtle dove (control)')+
     theme(legend.position = 'bottom'))
-(lion_plot <- predictions_all %>%
+(lion_plot <- pred %>%
     filter(stim_type == 'l') %>%
     ggplot()+
-    geom_violin(aes(x = as.factor(f_age_num), y = prediction,
+    geom_violin(aes(x = as.factor(f_age_num), y = epred,
                     fill = factor(pred_type, levels = c('move directly away',
                                                         'move away at an angle',
                                                         'move neither towards or away',
@@ -1667,8 +1666,8 @@ names(prevsec_labels) <- 1:5
                                                           'approach at an angle',
                                                           'approach directly'))
     )) +
-    facet_grid(move_tminus1_num ~ bda,
-               labeller = labeller(move_tminus1_num = prevsec_labels))+
+    facet_grid(prev_num ~ bda,
+               labeller = labeller(prev_num = prevsec_labels))+
     scale_fill_viridis_d()+
     scale_colour_viridis_d()+
     labs(colour = 'predicted direction of movement relative to focal:',
@@ -1677,10 +1676,10 @@ names(prevsec_labels) <- 1:5
          y = 'proportion of predictions',
          title = 'lion')+
     theme(legend.position = 'bottom'))
-(human_plot <- predictions_all %>%
+(human_plot <- pred %>%
     filter(stim_type == 'h') %>%
     ggplot()+
-    geom_violin(aes(x = as.factor(f_age_num), y = prediction,
+    geom_violin(aes(x = as.factor(f_age_num), y = epred,
                     fill = factor(pred_type, levels = c('move directly away',
                                                         'move away at an angle',
                                                         'move neither towards or away',
@@ -1692,8 +1691,8 @@ names(prevsec_labels) <- 1:5
                                                           'approach at an angle',
                                                           'approach directly'))
     )) +
-    facet_grid(move_tminus1_num ~ bda,
-               labeller = labeller(move_tminus1_num = prevsec_labels))+
+    facet_grid(prev_num ~ bda,
+               labeller = labeller(prev_num = prevsec_labels))+
     scale_fill_viridis_d()+
     scale_colour_viridis_d()+
     labs(colour = 'predicted direction of movement relative to focal:',
