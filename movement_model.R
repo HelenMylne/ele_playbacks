@@ -16,135 +16,135 @@ library(patchwork, lib.loc = '../../packages/')
 theme_set(theme_classic())
 set.seed(12345)
 
-#### import data for both models ####
-# https://dagitty.net/dags.html?id=dw8twK
-# read in data
-ages <- readRDS('../data_processed/behaviour_by_second_indexvariables_bda.RDS') %>%
-  select(focal, f_age_cat, f_age_num) %>%
-  distinct() %>%
-  filter(!is.na(f_age_cat)) %>%
-  mutate(partner = focal,
-         p_age_cat = f_age_cat,
-         p_age_num = f_age_num)
-
-stim_starts <- readRDS('../data_processed/stimuli.RDS') %>%
-  filter(status == 'START' & behavior == 'STIMULUS') %>%
-  select(pb_num,time,stim_num,stim_type,group_size,comment)
-table(stim_starts$pb_num)
-multiple_starts <- c(10, 24, 29, 32, 46, 53)
-check <- stim_starts %>%
-  filter(pb_num %in% multiple_starts) # for stim 10+29+46+53 take first time, for 24+32 use second.
-for(i in multiple_starts){
-  x <- check %>% filter(pb_num == i)
-  check <- anti_join(check, x)
-  if(i %in% c(10,29,46,53)){
-    x <- x[1,]
-  }
-  if(i %in% c(24,32)){
-    x <- x[2,]
-  }
-  check <- rbind(check, x)
-}
-stim_starts <- stim_starts %>%
-  filter(! pb_num %in% multiple_starts) %>%
-  rbind(check) %>%
-  mutate(time = as.numeric(time)) %>%
-  mutate(stim_start = round(time, 0)) %>%
-  select(pb_num,stim_start,stim_num,stim_type,group_size)
-
-## movement data
-cols_of_interest <- c('b1_move','b2_move','b3_move','b4_move',
-                      'b5_move','b6_move','b7_move','b8_move')
-cols_of_interest_name <- c('b1_move_name','b2_move_name','b3_move_name','b4_move_name',
-                           'b5_move_name','b6_move_name','b7_move_name','b8_move_name')
-cols_of_interest_index <- c('b1_move_index','b2_move_index','b3_move_index','b4_move_index',
-                            'b5_move_index','b6_move_index','b7_move_index','b8_move_index')
-move <- readRDS('../data_processed/behaviour_by_second_indexvariables.RDS') %>%
-  # select relevant variables
-  select(subject,pb_num,second,out_frame_name,
-         all_of(cols_of_interest_name),all_of(cols_of_interest_index)) %>%
-  # convert to tidy format
-  rename(b1_move = b1_move_name, b2_move = b2_move_name,
-         b3_move = b3_move_name, b4_move = b4_move_name,
-         b5_move = b5_move_name, b6_move = b6_move_name,
-         b7_move = b7_move_name, b8_move = b8_move_name) %>%
-  pivot_longer(cols = all_of(cols_of_interest),
-               names_to = 'elephant_activity_name', values_to = 'moving_direction') %>%
-  rename(b1_move = b1_move_index, b2_move = b2_move_index,
-         b3_move = b3_move_index, b4_move = b4_move_index,
-         b5_move = b5_move_index, b6_move = b6_move_index,
-         b7_move = b7_move_index, b8_move = b8_move_index) %>%
-  pivot_longer(cols = all_of(cols_of_interest),
-               names_to = 'elephant_activity_index', values_to = 'move_index') %>%
-  filter(elephant_activity_name == elephant_activity_index) %>%
-  select(-elephant_activity_index) %>%
-  # clean up
-  rename(elephant_activity = elephant_activity_name,
-         focal = subject) %>%
-  # remove non-existent elephants (e.g. elephants 5-8 in a 4-elephant group)
-  mutate(moving_direction = ifelse(out_frame_name == 'out_of_sight' &
-                                            is.na(moving_direction) == FALSE,
-                                   ifelse(moving_direction == 'impossible_partner',
-                                          'impossible_partner','out_of_sight'),
-                                   moving_direction),
-         move_index = ifelse(out_frame_name == 'out_of_sight' &
-                               is.na(moving_direction) == FALSE,
-                           9, move_index)) %>% 
-  filter(is.na(move_index) == FALSE) %>%
-  # remove movement relative to self
-  filter(moving_direction != 'impossible_partner') %>% 
-  # join with explanatory variables
-  separate(elephant_activity, into = c('partner','activity'),
-           sep = '_', remove = T) %>%
-  mutate(partner = paste0(partner, '_e', pb_num),
-         pb_num = as.numeric(pb_num)) %>%
-  left_join(ages[,c('focal','f_age_cat','f_age_num')], by = 'focal') %>%
-  left_join(ages[,c('partner','p_age_cat','p_age_num')], by = 'partner') %>%
-  left_join(stim_starts, by = 'pb_num') %>%
-  # remove elephants with unknown ages
-  filter(!is.na(f_age_num)) %>%  # b2_e13 + b2_e34 + b6_e7 = unknown age
-  # create additional variables
-  mutate(time_since_stim = second - stim_start,
-         after_stim = ifelse(time_since_stim < 0, 0, time_since_stim/60),
-         age_difference = ifelse(as.numeric(f_age_num) > as.numeric(p_age_num),
-                                 'partner_younger',
-                                 ifelse(as.numeric(f_age_num) == as.numeric(p_age_num),
-                                        'matched',
-                                        'partner_older'))) %>%
-  # clean up
-  select(pb_num,focal,partner,
-         activity,moving_direction,move_index,
-         stim_num,stim_type,
-         time_since_stim, after_stim,
-         f_age_cat,p_age_cat,f_age_num,p_age_num,
-         age_difference) %>%
-  mutate(f_age_num = as.factor(f_age_num),
-         p_age_num = as.factor(p_age_num),
-         age_combo = paste0(f_age_num,'_',p_age_num),
-         move_tminus1 = NA,
-         move_tminus1_num = NA)
-rm(list = ls() [ ! ls() %in% 'move']) ; gc()
-length(which(is.na(move$moving_direction) == TRUE))
-
-## create variable for moving_direction at time t-1
-focals <- unique(move$focal)
-for(f in 1:length(focals)){
-  focal <- move %>% filter(focal == focals[f])
-  move <- move %>% anti_join(focal, by = 'focal')
-  partners <- unique(focal$partner)
-  for(p in 1:length(partners)){
-    focal_partner <- focal %>% filter(partner == partners[p])
-    focal <- focal %>% anti_join(focal_partner, by = 'partner')
-    for(i in 2:nrow(focal_partner)){
-      focal_partner$move_tminus1[i] <- focal_partner$moving_direction[i-1]
-      focal_partner$move_tminus1_num[i] <- focal_partner$move_index[i-1]
-    }
-    focal <- rbind(focal, focal_partner)
-  }
-  move <- rbind(move, focal)
-}
-rm(list = ls()[ ! ls() %in% c('move', 'focals')]) ; gc()
-
+# #### import data for both models ####
+# # https://dagitty.net/dags.html?id=dw8twK
+# # read in data
+# ages <- readRDS('../data_processed/behaviour_by_second_indexvariables_bda.RDS') %>%
+#   select(focal, f_age_cat, f_age_num) %>%
+#   distinct() %>%
+#   filter(!is.na(f_age_cat)) %>%
+#   mutate(partner = focal,
+#          p_age_cat = f_age_cat,
+#          p_age_num = f_age_num)
+# 
+# stim_starts <- readRDS('../data_processed/stimuli.RDS') %>%
+#   filter(status == 'START' & behavior == 'STIMULUS') %>%
+#   select(pb_num,time,stim_num,stim_type,group_size,comment)
+# table(stim_starts$pb_num)
+# multiple_starts <- c(10, 24, 29, 32, 46, 53)
+# check <- stim_starts %>%
+#   filter(pb_num %in% multiple_starts) # for stim 10+29+46+53 take first time, for 24+32 use second.
+# for(i in multiple_starts){
+#   x <- check %>% filter(pb_num == i)
+#   check <- anti_join(check, x)
+#   if(i %in% c(10,29,46,53)){
+#     x <- x[1,]
+#   }
+#   if(i %in% c(24,32)){
+#     x <- x[2,]
+#   }
+#   check <- rbind(check, x)
+# }
+# stim_starts <- stim_starts %>%
+#   filter(! pb_num %in% multiple_starts) %>%
+#   rbind(check) %>%
+#   mutate(time = as.numeric(time)) %>%
+#   mutate(stim_start = round(time, 0)) %>%
+#   select(pb_num,stim_start,stim_num,stim_type,group_size)
+# 
+# ## movement data
+# cols_of_interest <- c('b1_move','b2_move','b3_move','b4_move',
+#                       'b5_move','b6_move','b7_move','b8_move')
+# cols_of_interest_name <- c('b1_move_name','b2_move_name','b3_move_name','b4_move_name',
+#                            'b5_move_name','b6_move_name','b7_move_name','b8_move_name')
+# cols_of_interest_index <- c('b1_move_index','b2_move_index','b3_move_index','b4_move_index',
+#                             'b5_move_index','b6_move_index','b7_move_index','b8_move_index')
+# move <- readRDS('../data_processed/behaviour_by_second_indexvariables.RDS') %>%
+#   # select relevant variables
+#   select(subject,pb_num,second,out_frame_name,
+#          all_of(cols_of_interest_name),all_of(cols_of_interest_index)) %>%
+#   # convert to tidy format
+#   rename(b1_move = b1_move_name, b2_move = b2_move_name,
+#          b3_move = b3_move_name, b4_move = b4_move_name,
+#          b5_move = b5_move_name, b6_move = b6_move_name,
+#          b7_move = b7_move_name, b8_move = b8_move_name) %>%
+#   pivot_longer(cols = all_of(cols_of_interest),
+#                names_to = 'elephant_activity_name', values_to = 'moving_direction') %>%
+#   rename(b1_move = b1_move_index, b2_move = b2_move_index,
+#          b3_move = b3_move_index, b4_move = b4_move_index,
+#          b5_move = b5_move_index, b6_move = b6_move_index,
+#          b7_move = b7_move_index, b8_move = b8_move_index) %>%
+#   pivot_longer(cols = all_of(cols_of_interest),
+#                names_to = 'elephant_activity_index', values_to = 'move_index') %>%
+#   filter(elephant_activity_name == elephant_activity_index) %>%
+#   select(-elephant_activity_index) %>%
+#   # clean up
+#   rename(elephant_activity = elephant_activity_name,
+#          focal = subject) %>%
+#   # remove non-existent elephants (e.g. elephants 5-8 in a 4-elephant group)
+#   mutate(moving_direction = ifelse(out_frame_name == 'out_of_sight' &
+#                                             is.na(moving_direction) == FALSE,
+#                                    ifelse(moving_direction == 'impossible_partner',
+#                                           'impossible_partner','out_of_sight'),
+#                                    moving_direction),
+#          move_index = ifelse(out_frame_name == 'out_of_sight' &
+#                                is.na(moving_direction) == FALSE,
+#                            9, move_index)) %>% 
+#   filter(is.na(move_index) == FALSE) %>%
+#   # remove movement relative to self
+#   filter(moving_direction != 'impossible_partner') %>% 
+#   # join with explanatory variables
+#   separate(elephant_activity, into = c('partner','activity'),
+#            sep = '_', remove = T) %>%
+#   mutate(partner = paste0(partner, '_e', pb_num),
+#          pb_num = as.numeric(pb_num)) %>%
+#   left_join(ages[,c('focal','f_age_cat','f_age_num')], by = 'focal') %>%
+#   left_join(ages[,c('partner','p_age_cat','p_age_num')], by = 'partner') %>%
+#   left_join(stim_starts, by = 'pb_num') %>%
+#   # remove elephants with unknown ages
+#   filter(!is.na(f_age_num)) %>%  # b2_e13 + b2_e34 + b6_e7 = unknown age
+#   # create additional variables
+#   mutate(time_since_stim = second - stim_start,
+#          after_stim = ifelse(time_since_stim < 0, 0, time_since_stim/60),
+#          age_difference = ifelse(as.numeric(f_age_num) > as.numeric(p_age_num),
+#                                  'partner_younger',
+#                                  ifelse(as.numeric(f_age_num) == as.numeric(p_age_num),
+#                                         'matched',
+#                                         'partner_older'))) %>%
+#   # clean up
+#   select(pb_num,focal,partner,
+#          activity,moving_direction,move_index,
+#          stim_num,stim_type,
+#          time_since_stim, after_stim,
+#          f_age_cat,p_age_cat,f_age_num,p_age_num,
+#          age_difference) %>%
+#   mutate(f_age_num = as.factor(f_age_num),
+#          p_age_num = as.factor(p_age_num),
+#          age_combo = paste0(f_age_num,'_',p_age_num),
+#          move_tminus1 = NA,
+#          move_tminus1_num = NA)
+# rm(list = ls() [ ! ls() %in% 'move']) ; gc()
+# length(which(is.na(move$moving_direction) == TRUE))
+# 
+# ## create variable for moving_direction at time t-1
+# focals <- unique(move$focal)
+# for(f in 1:length(focals)){
+#   focal <- move %>% filter(focal == focals[f])
+#   move <- move %>% anti_join(focal, by = 'focal')
+#   partners <- unique(focal$partner)
+#   for(p in 1:length(partners)){
+#     focal_partner <- focal %>% filter(partner == partners[p])
+#     focal <- focal %>% anti_join(focal_partner, by = 'partner')
+#     for(i in 2:nrow(focal_partner)){
+#       focal_partner$move_tminus1[i] <- focal_partner$moving_direction[i-1]
+#       focal_partner$move_tminus1_num[i] <- focal_partner$move_index[i-1]
+#     }
+#     focal <- rbind(focal, focal_partner)
+#   }
+#   move <- rbind(move, focal)
+# }
+# rm(list = ls()[ ! ls() %in% c('move', 'focals')]) ; gc()
+# 
 # ############### Probability of moving ###############
 # pdf('../outputs/movement_binomial_model/movement_binomial_modelprep.pdf')
 # 
@@ -555,6 +555,96 @@ rm(list = ls()[ ! ls() %in% c('move', 'focals')]) ; gc()
 # 
 # rm(list = ls()[! ls() %in% 'move']) ; gc()
 # 
+# #### calculate posterior contrasts from predictions ####
+# load('movement_direction/movement_binomial_predictions.RData')
+# 
+## stim type ####
+move_new <- move_no_na %>%
+  dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
+                focal_id, stim_id, playback_id) %>%
+  mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
+
+## redo predictions with different stimulus types: all doves
+ctd_move <- move_new %>%
+  mutate(stim_type = 'ctd')
+ctd_mtx <- posterior_epred(object = mbm_fit, newdata = ctd_move)
+colnames(ctd_mtx) <- ctd_move$unique_data_combo
+ctd_mtx <- ctd_mtx[c(1:100,1001:1100,2001:2100,3001:3100),]
+
+## redo predictions with different stimulus types: all lions
+lion_move <- move_new %>%
+  mutate(stim_type = 'l')
+lion_mtx <- posterior_epred(object = mbm_fit, newdata = lion_move)
+colnames(lion_mtx) <- lion_move$unique_data_combo
+lion_mtx <- lion_mtx[c(1:100,1001:1100,2001:2100,3001:3100),]
+
+## redo predictions with different stimulus types: all humans
+human_move <- move_new %>%
+  mutate(stim_type = 'h')
+human_mtx <- posterior_epred(object = mbm_fit, newdata = human_move)
+colnames(human_mtx) <- human_move$unique_data_combo
+human_mtx <- human_mtx[c(1:100,1001:1100,2001:2100,3001:3100),]
+
+## calculate contrasts
+ctd_vs_lion <- lion_mtx - ctd_mtx
+ctd_vs_human <- human_mtx - ctd_mtx
+lion_vs_human <- human_mtx - lion_mtx
+
+## summarise contrasts
+contrasts <- move_no_na %>%
+  select(-stim_type) %>%
+  mutate(ctd_vs_lion_mu = apply(ctd_vs_lion, 2, mean),
+         ctd_vs_lion_sd = apply(ctd_vs_lion, 2, sd),
+         ctd_vs_human_mu = apply(ctd_vs_human, 2, mean),
+         ctd_vs_human_sd = apply(ctd_vs_human, 2, sd),
+         lion_vs_human_mu = apply(lion_vs_human, 2, mean),
+         lion_vs_human_sd = apply(lion_vs_human, 2, sd))
+contrasts_long <- contrasts %>%
+  pivot_longer(cols = c(ctd_vs_lion_mu, ctd_vs_human_mu, lion_vs_human_mu),
+               names_to = 'contrast', values_to = 'difference') %>%
+  separate(contrast, into = c('contrast','mu'),
+           sep = -3, remove = T) %>%
+  select(-mu, -ctd_vs_lion_sd, -ctd_vs_human_sd, -lion_vs_human_sd)
+
+## save contrasts
+save.image('movement_direction/movement_binomial_stimuluscontrasts.RData')
+
+# plot contrasts
+contrasts_long %>%
+  mutate(contrast = ifelse(contrast == 'ctd_vs_human',
+                           'dove -> human',
+                           ifelse(contrast == 'ctd_vs_lion',
+                                  'dove -> lion', 'lion -> human'))) %>% 
+  ggplot()+
+  geom_density(aes(x = difference, colour = contrast))+
+  scale_colour_viridis_d()+
+  labs(colour = 'effect of changing stimulus')
+
+save.image('movement_direction/movement_binomial_stimuluscontrasts.RData')
+rm(ctd_move, lion_move, human_move, ctd_mtx, human_mtx, lion_mtx) ; gc()
+
+## focal age ####
+move_new <- move_new %>%
+  mutate(unique_data_combo = as.integer(as.factor(paste0(stim_type, move_tminus1_num, after_stim,
+                                                         focal_id, stim_id, playback_id))))
+
+## predict with original ages
+age_move_org <- move_new
+age_mtx_org <- posterior_epred(object = move_fit, newdata = age_move_org)
+colnames(age_mtx_org) <- age_move_org$unique_data_combo
+age_mtx_org <- age_mtx_org[c(1:100,1001:1100,2001:2100,3001:3100),,]
+
+## redo predictions with altered ages
+age_move_alt <- move_new %>%
+  mutate(f_age_num_original = f_age_num) %>%
+  mutate(f_age_num = ifelse(f_age_num == 4, 1, f_age_num + 1)) %>%
+  relocate(f_age_num_original)
+age_mtx_alt <- posterior_epred(object = move_fit, newdata = age_move_alt)
+colnames(age_mtx_alt) <- age_move_alt$unique_data_combo
+age_mtx_alt <- age_mtx_alt[c(1:100,1001:1100,2001:2100,3001:3100),,]
+
+save.image('movement_direction/movement_binomial_agecontrasts.RData')
+
 # ############# Probability of different directions once moving ###############
 # pdf('../outputs/movement_ordinal_model_1/movement_ordinal_model1_modelprep.pdf')
 # 
@@ -1027,204 +1117,198 @@ rm(list = ls()[ ! ls() %in% c('move', 'focals')]) ; gc()
 # save.image('movement_direction/movement_ordinal_model1_run.RData') # save.image('ele_playbacks/movement_direction/movement_ordinal_model1_run.RData')
 # dev.off()
 # 
-#### predict from model ####
-pdf('../outputs/movement_ordinal_model_1/movement_ordinal_model1_modelpredictions.pdf')
-load('movement_direction/movement_ordinal_model1_run.RData')
-rm(list = ls()[! ls() %in% c('mom1_fit','move_no_na')]) ; gc()
-
-pred <- posterior_epred(object = mom1_fit,
-                        newdata = move_no_na)
-save.image('movement_direction/movement_ordinal_model1_predictions.RData')
-
-## convert to data frame
-extract_predictions <- function(prediction_array, layer, df){
-  predictions <- as.data.frame(prediction_array[,,layer])
-  colnames(predictions) <- 1:nrow(df)
-  predictions <- predictions %>%
-    pivot_longer(cols = everything(),
-                 names_to = 'data_row', values_to = 'epred') %>%
-    mutate(data_row = as.integer(data_row)) %>%
-    left_join(df, by = 'data_row') %>%
-    mutate(pred_type = ifelse(layer == 1, 'move directly away',
-                              ifelse(layer == 2, 'move away at an angle',
-                                     ifelse(layer == 3, 'move neither towards or away',
-                                            ifelse(layer == 4, 'approach at an angle',
-                                                   ifelse(layer == 5, 'approach directly',
-                                                          'CHECK -- PROBLEM IN DATA'))))),
-           pred_type_num = layer)
-  return(predictions)
-}
-
-# pred1 <- as.data.frame(pred[,,1])
-# colnames(pred1) <- 1:nrow(move_no_na)
-
-move_no_na$data_row <- 1:nrow(move_no_na)
-# pred1 <- pred1 %>%
-#   pivot_longer(cols = everything(),
-#                names_to = 'data_row', values_to = 'epred') %>%
-#   left_join(move_no_na, by = 'data_row') %>%
-#   mutate(pred_type = 'not_moving',
-#          pred_type_num = 0)
-
-pred1 <- extract_predictions(prediction_array = pred, layer = 1, df = move_no_na)
-pred2 <- extract_predictions(prediction_array = pred, layer = 2, df = move_no_na)
-pred3 <- extract_predictions(prediction_array = pred, layer = 3, df = move_no_na)
-pred4 <- extract_predictions(prediction_array = pred, layer = 4, df = move_no_na)
-pred5 <- extract_predictions(prediction_array = pred, layer = 5, df = move_no_na)
-
-pred <- rbind(pred1, pred2, pred3, pred4, pred5)
-save.image('movement_direction/movement_ordinal_model1_predictions.RData')
-rm(pred1, pred2, pred3, pred4, pred5) ; gc()
-
-print(paste0('predictions calculated at ',Sys.time()))
-
-#### plot predictions ####
+# #### predict from model ####
+# pdf('../outputs/movement_ordinal_model_1/movement_ordinal_model1_modelpredictions.pdf')
+# load('movement_direction/movement_ordinal_model1_run.RData')
+# rm(list = ls()[! ls() %in% c('mom1_fit','move_no_na')]) ; gc()
+# 
+# pred <- posterior_epred(object = mom1_fit,
+#                         newdata = move_no_na)
+# save.image('movement_direction/movement_ordinal_model1_predictions.RData')
+# 
+# ## convert to data frame
+# extract_predictions <- function(prediction_array, layer, df){
+#   predictions <- as.data.frame(prediction_array[,,layer])
+#   colnames(predictions) <- 1:nrow(df)
+#   predictions <- predictions %>%
+#     pivot_longer(cols = everything(),
+#                  names_to = 'data_row', values_to = 'epred') %>%
+#     mutate(data_row = as.integer(data_row)) %>%
+#     left_join(df, by = 'data_row') %>%
+#     mutate(pred_type = ifelse(layer == 1, 'move directly away',
+#                               ifelse(layer == 2, 'move away at an angle',
+#                                      ifelse(layer == 3, 'move neither towards or away',
+#                                             ifelse(layer == 4, 'approach at an angle',
+#                                                    ifelse(layer == 5, 'approach directly',
+#                                                           'CHECK -- PROBLEM IN DATA'))))),
+#            pred_type_num = layer)
+#   return(predictions)
+# }
+# 
+# # pred1 <- as.data.frame(pred[,,1])
+# # colnames(pred1) <- 1:nrow(move_no_na)
+# 
+# move_no_na$data_row <- 1:nrow(move_no_na)
+# # pred1 <- pred1 %>%
+# #   pivot_longer(cols = everything(),
+# #                names_to = 'data_row', values_to = 'epred') %>%
+# #   left_join(move_no_na, by = 'data_row') %>%
+# #   mutate(pred_type = 'not_moving',
+# #          pred_type_num = 0)
+# 
+# pred1 <- extract_predictions(prediction_array = pred, layer = 1, df = move_no_na)
+# pred2 <- extract_predictions(prediction_array = pred, layer = 2, df = move_no_na)
+# pred3 <- extract_predictions(prediction_array = pred, layer = 3, df = move_no_na)
+# pred4 <- extract_predictions(prediction_array = pred, layer = 4, df = move_no_na)
+# pred5 <- extract_predictions(prediction_array = pred, layer = 5, df = move_no_na)
+# 
+# pred <- rbind(pred1, pred2, pred3, pred4, pred5)
+# save.image('movement_direction/movement_ordinal_model1_predictions.RData')
+# rm(pred1, pred2, pred3, pred4, pred5) ; gc()
+# 
+# print(paste0('predictions calculated at ',Sys.time()))
+# 
+# #### plot predictions ####
+# load('movement_direction/movement_ordinal_model1_predictions.RData')
+# 
+# ## make labels for movement in previous second
+# prevsec_labels <- c('direct away at t-1',
+#                     'angle away at t-1',
+#                     'neither at t-1',
+#                     'angle approach at t-1',
+#                     'direct approach at t-1')
+# names(prevsec_labels) <- 1:5
+# 
+# ## plot in 3 sections -- split by stimulus type as the thing that I changed, each graph by age as the thing I'm interested in
+# (ctd_plot <- pred %>%
+#     filter(stim_type == 'ctd',
+#            after_stim %in% c(0, 0.5, 1, 1.5, 2, 2.5, 3)) %>%
+#     ggplot()+
+#     geom_violin(aes(x = as.factor(f_age_num), y = epred,
+#                     fill = factor(pred_type, levels = c('move directly away',
+#                                                         'move away at an angle',
+#                                                         'move neither towards or away',
+#                                                         'approach at an angle',
+#                                                         'approach directly')),
+#                     colour = factor(pred_type, levels = c('move directly away',
+#                                                           'move away at an angle',
+#                                                           'move neither towards or away',
+#                                                           'approach at an angle',
+#                                                           'approach directly'))
+#                     )) +
+#     facet_grid(move_tminus1_num ~ after_stim,
+#                labeller = labeller(move_tminus1_num = prevsec_labels))+
+#     scale_fill_viridis_d()+
+#     scale_colour_viridis_d()+
+#     labs(colour = 'predicted direction of movement relative to focal:',
+#          fill = 'predicted direction of movement relative to focal:',
+#          x = 'age category of focal elephant',
+#          y = 'proportion of predictions',
+#          title = 'cape turtle dove (control)')+
+#     theme(legend.position = 'bottom'))
+# print('ctd_plot complete')
+# 
+# (lion_plot <- pred %>%
+#     filter(stim_type == 'l',
+#            after_stim %in% c(0, 0.5, 1, 1.5, 2, 2.5, 3)) %>%
+#     ggplot()+
+#     geom_violin(aes(x = as.factor(f_age_num), y = epred,
+#                     fill = factor(pred_type, levels = c('move directly away',
+#                                                         'move away at an angle',
+#                                                         'move neither towards or away',
+#                                                         'approach at an angle',
+#                                                         'approach directly')),
+#                     colour = factor(pred_type, levels = c('move directly away',
+#                                                           'move away at an angle',
+#                                                           'move neither towards or away',
+#                                                           'approach at an angle',
+#                                                           'approach directly'))
+#                     )) +
+#     facet_grid(move_tminus1_num ~ after_stim,
+#                labeller = labeller(move_tminus1_num = prevsec_labels))+
+#     scale_fill_viridis_d()+
+#     scale_colour_viridis_d()+
+#     labs(colour = 'predicted direction of movement relative to focal:',
+#          fill = 'predicted direction of movement relative to focal:',
+#          x = 'age category of focal elephant',
+#          y = 'proportion of predictions',
+#          title = 'lion')+
+#     theme(legend.position = 'bottom'))
+# print('lion_plot complete')
+# 
+# (human_plot <- pred %>%
+#     filter(stim_type == 'h',
+#            after_stim %in% c(0, 0.5, 1, 1.5, 2, 2.5, 3)) %>%
+#     ggplot()+
+#     geom_violin(aes(x = as.factor(f_age_num), y = epred,
+#                     fill = factor(pred_type, levels = c('move directly away',
+#                                                         'move away at an angle',
+#                                                         'move neither towards or away',
+#                                                         'approach at an angle',
+#                                                         'approach directly')),
+#                     colour = factor(pred_type, levels = c('move directly away',
+#                                                           'move away at an angle',
+#                                                           'move neither towards or away',
+#                                                           'approach at an angle',
+#                                                           'approach directly'))
+#                     )) +
+#     facet_grid(move_tminus1_num ~ after_stim,
+#                labeller = labeller(move_tminus1_num = prevsec_labels))+
+#     scale_fill_viridis_d()+
+#     scale_colour_viridis_d()+
+#     labs(colour = 'predicted direction of movement relative to focal:',
+#          fill = 'predicted direction of movement relative to focal:',
+#          x = 'age category of focal elephant',
+#          y = 'proportion of predictions',
+#          title = 'human')+
+#     theme(legend.position = 'bottom'))
+# print('human_plot complete')
+# 
+# (ctd_plot + lion_plot + human_plot) +
+#   plot_layout(guides = "collect") +
+#   plot_annotation(tag_levels = 'a')
+# ggsave(plot = last_plot(), file = '../outputs/movement_ordinal_model_1/movement_ordinal_model1_predictions_violin.png',
+#        device = 'png', height = 8, width = 24)
+# 
+# ## reset plotting
+# dev.off()
+pdf('../outputs/movement_ordinal_model_1/movement_ordinal_model1_modelcontrasts.pdf')
+# 
+#### calculate posterior contrasts from predictions ####
+rm(list = ls()) ; gc()
 load('movement_direction/movement_ordinal_model1_predictions.RData')
 
-## make labels for movement in previous second
-prevsec_labels <- c('direct away at t-1',
-                    'angle away at t-1',
-                    'neither at t-1',
-                    'angle approach at t-1',
-                    'direct approach at t-1')
-names(prevsec_labels) <- 1:5
+## stim type ####
+move_new <- move_no_na %>%
+  dplyr::select(f_age_num, age_combo, stim_type, after_stim, move_tminus1_num,
+                focal_id, stim_id, playback_id) %>%
+  mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
 
-## plot in 3 sections -- split by stimulus type as the thing that I changed, each graph by age as the thing I'm interested in
-(ctd_plot <- pred %>%
-    filter(stim_type == 'ctd',
-           after_stim %in% c(0, 0.5, 1, 1.5, 2, 2.5, 3)) %>%
-    ggplot()+
-    geom_violin(aes(x = as.factor(f_age_num), y = epred,
-                    fill = factor(pred_type, levels = c('move directly away',
-                                                        'move away at an angle',
-                                                        'move neither towards or away',
-                                                        'approach at an angle',
-                                                        'approach directly')),
-                    colour = factor(pred_type, levels = c('move directly away',
-                                                          'move away at an angle',
-                                                          'move neither towards or away',
-                                                          'approach at an angle',
-                                                          'approach directly'))
-                    )) +
-    facet_grid(move_tminus1_num ~ after_stim,
-               labeller = labeller(move_tminus1_num = prevsec_labels))+
-    scale_fill_viridis_d()+
-    scale_colour_viridis_d()+
-    labs(colour = 'predicted direction of movement relative to focal:',
-         fill = 'predicted direction of movement relative to focal:',
-         x = 'age category of focal elephant',
-         y = 'proportion of predictions',
-         title = 'cape turtle dove (control)')+
-    theme(legend.position = 'bottom'))
-print('ctd_plot complete')
+## redo predictions with different stimulus types: all doves
+ctd_move <- move_new %>%
+  mutate(stim_type = 'ctd')
+ctd_mtx <- posterior_epred(object = mom1_fit, newdata = ctd_move)
+colnames(ctd_mtx) <- ctd_move$unique_data_combo
+ctd_mtx <- ctd_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
 
-(lion_plot <- pred %>%
-    filter(stim_type == 'l',
-           after_stim %in% c(0, 0.5, 1, 1.5, 2, 2.5, 3)) %>%
-    ggplot()+
-    geom_violin(aes(x = as.factor(f_age_num), y = epred,
-                    fill = factor(pred_type, levels = c('move directly away',
-                                                        'move away at an angle',
-                                                        'move neither towards or away',
-                                                        'approach at an angle',
-                                                        'approach directly')),
-                    colour = factor(pred_type, levels = c('move directly away',
-                                                          'move away at an angle',
-                                                          'move neither towards or away',
-                                                          'approach at an angle',
-                                                          'approach directly'))
-                    )) +
-    facet_grid(move_tminus1_num ~ after_stim,
-               labeller = labeller(move_tminus1_num = prevsec_labels))+
-    scale_fill_viridis_d()+
-    scale_colour_viridis_d()+
-    labs(colour = 'predicted direction of movement relative to focal:',
-         fill = 'predicted direction of movement relative to focal:',
-         x = 'age category of focal elephant',
-         y = 'proportion of predictions',
-         title = 'lion')+
-    theme(legend.position = 'bottom'))
-print('lion_plot complete')
+## redo predictions with different stimulus types: all lions
+lion_move <- move_new %>%
+  mutate(stim_type = 'l')
+lion_mtx <- posterior_epred(object = mom1_fit, newdata = lion_move)
+colnames(lion_mtx) <- lion_move$unique_data_combo
+lion_mtx <- lion_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
 
-(human_plot <- pred %>%
-    filter(stim_type == 'h',
-           after_stim %in% c(0, 0.5, 1, 1.5, 2, 2.5, 3)) %>%
-    ggplot()+
-    geom_violin(aes(x = as.factor(f_age_num), y = epred,
-                    fill = factor(pred_type, levels = c('move directly away',
-                                                        'move away at an angle',
-                                                        'move neither towards or away',
-                                                        'approach at an angle',
-                                                        'approach directly')),
-                    colour = factor(pred_type, levels = c('move directly away',
-                                                          'move away at an angle',
-                                                          'move neither towards or away',
-                                                          'approach at an angle',
-                                                          'approach directly'))
-                    )) +
-    facet_grid(move_tminus1_num ~ after_stim,
-               labeller = labeller(move_tminus1_num = prevsec_labels))+
-    scale_fill_viridis_d()+
-    scale_colour_viridis_d()+
-    labs(colour = 'predicted direction of movement relative to focal:',
-         fill = 'predicted direction of movement relative to focal:',
-         x = 'age category of focal elephant',
-         y = 'proportion of predictions',
-         title = 'human')+
-    theme(legend.position = 'bottom'))
-print('human_plot complete')
+## redo predictions with different stimulus types: all humans
+human_move <- move_new %>%
+  mutate(stim_type = 'h')
+human_mtx <- posterior_epred(object = mom1_fit, newdata = human_move)
+colnames(human_mtx) <- human_move$unique_data_combo
+human_mtx <- human_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
 
-(ctd_plot + lion_plot + human_plot) +
-  plot_layout(guides = "collect") +
-  plot_annotation(tag_levels = 'a')
-ggsave(plot = last_plot(), file = '../outputs/movement_ordinal_model_1/movement_ordinal_model1_predictions_violin.png',
-       device = 'png', height = 8, width = 24)
+save.image('movement_direction/movement_ordinal_model1_stimuluscontrasts.RData')
 
-## reset plotting
-dev.off()
-# pdf('../outputs/movement_ordinal_model_1/movement_ordinal_model1_modelcontrasts.pdf')
-
-########################### BELOW HERE STILL NEEDS TO BE DONE ####################################
-# ## graph contrasts from predictions and extract coefficients -- move ####
-# #CALCULATE POSTERIOR CONTRASTS FROM PREDICTIONS
-# # load('movement_direction/movement_model_predictions.RData') # load('ele_playbacks/movement_direction/movement_model_predictions.RData')
-# rm(prevsec_labels, ctd_plot, human_plot, lion_plot, predictions_all) ; gc()
-#
-# # stim type -- move ####
-# ## redo predictions with different stimulus types: all doves
-# ctd_move <- move_no_na %>%
-#   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
-#                 focal_id, stim_id, playback_id) %>%
-#   mutate(stim_type = 'ctd',
-#          unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
-# ctd_mtx <- posterior_epred(object = move_fit, newdata = ctd_move)
-# colnames(ctd_mtx) <- ctd_move$unique_data_combo
-# ctd_mtx <- ctd_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
-#
-# ## redo predictions with different stimulus types: all lions
-# lion_move <- move_no_na %>%
-#   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
-#                 focal_id, stim_id, playback_id) %>%
-#   mutate(stim_type = 'l',
-#          unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
-# lion_mtx <- posterior_epred(object = move_fit, newdata = lion_move)
-# colnames(lion_mtx) <- lion_move$unique_data_combo
-# lion_mtx <- lion_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
-#
-# ## redo predictions with different stimulus types: all humans
-# human_move <- move_no_na %>%
-#   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
-#                 focal_id, stim_id, playback_id) %>%
-#   mutate(stim_type = 'h',
-#          unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
-# human_mtx <- posterior_epred(object = move_fit, newdata = human_move)
-# colnames(human_mtx) <- human_move$unique_data_combo
-# human_mtx <- human_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
-#
-# save.image('movement_direction/movement_model_stimuluscontrasts_epred.RData')
-#
 # ## count types of each prediction
-# #load('movement_direction/movement_model_stimuluscontrasts_epred.RData')
+# #load('movement_direction/movement_model_stimuluscontrasts.RData')
 # # count_values <- function(vector, levels = c(1,2,3)) {
 # #   x <- tabulate(factor(vector, levels), length(levels))
 # #   return(list(x))
@@ -1234,8 +1318,8 @@ dev.off()
 #   # mutate(ctd_count = apply(ctd_mtx, 2, count_values),
 #   #        lion_count = apply(lion_mtx, 2, count_values),
 #   #        human_count = apply(human_mtx, 2, count_values)) %>%
-#   # umoveest(c(ctd_count, lion_count, human_count)) %>% # I've done something weird with the count_values function so for now this needs umoveesting twice, but should probably fix it at some point! For now this works!
-#   # umoveest(c(ctd_count, lion_count, human_count)) %>%
+#   # unnest(c(ctd_count, lion_count, human_count)) %>% # I've done something weird with the count_values function so for now this needs unnesting twice, but should probably fix it at some point! For now this works!
+#   # unnest(c(ctd_count, lion_count, human_count)) %>%
 #   mutate(ctd_prop1_mu = apply(ctd_mtx[,,1], 2, mean),
 #          ctd_prop2_mu = apply(ctd_mtx[,,2], 2, mean),
 #          ctd_prop3_mu = apply(ctd_mtx[,,3], 2, mean),
@@ -1275,7 +1359,7 @@ dev.off()
 #   mutate(move_pred = as.numeric(move_pred)) %>%
 #   mutate(pred_type = ifelse(move_pred == 1, 'younger',
 #                             ifelse(move_pred == 2, 'matched', 'older')))
-#
+# 
 # ## calculate contrasts
 # ctd_vs_lion_age1 <- lion_mtx[,,1] - ctd_mtx[,,1]
 # ctd_vs_lion_age2 <- lion_mtx[,,2] - ctd_mtx[,,2]
@@ -1286,7 +1370,7 @@ dev.off()
 # lion_vs_human_age1 <- human_mtx[,,1] - lion_mtx[,,1]
 # lion_vs_human_age2 <- human_mtx[,,2] - lion_mtx[,,2]
 # lion_vs_human_age3 <- human_mtx[,,3] - lion_mtx[,,3]
-#
+# 
 # ## summarise contrasts
 # contrasts <- move_no_na %>%
 #   select(-stim_type) %>%
@@ -1323,7 +1407,7 @@ dev.off()
 #   select(-mu, -ctd_vs_lion_age1_sd, -ctd_vs_lion_age2_sd, -ctd_vs_lion_age3_sd,
 #          -ctd_vs_human_age1_sd, -ctd_vs_human_age2_sd, -ctd_vs_human_age3_sd,
 #          -lion_vs_human_age1_sd, -lion_vs_human_age2_sd, -lion_vs_human_age3_sd)
-#
+# 
 # ## plot contrasts
 # # stim_pred %>%
 # #   dplyr::select(ctd_lion, ctd_human, lion_human, pred_type) %>%
@@ -1332,7 +1416,7 @@ dev.off()
 # #   ggplot()+
 # #   geom_density(aes(x = value, colour = contrast))+
 # #   facet_wrap(. ~ pred_type)
-#
+# 
 # stim_pred %>%
 #   ggplot()+
 #   geom_density(aes(x = mean_propn, colour = pred_type))+
@@ -1345,9 +1429,9 @@ dev.off()
 #   ggplot()+
 #   geom_density(aes(x = difference))+
 #   facet_grid(pred_type ~ contrast)
-#
+# 
 # save.image('movement_direction/movement_model_stimuluscontrasts_epred.RData')
-#
+# 
 # # focal age -- move ####
 # # load('movement_direction/movement_model_stimuluscontrasts_epred.RData')
 # rm(ctd_move, ctd_mtx, human_move, human_mtx, lion_move, lion_mtx,
@@ -1355,7 +1439,7 @@ dev.off()
 #    ctd_vs_human_age1, ctd_vs_human_age2, ctd_vs_human_age3,
 #    ctd_vs_lion_age1, ctd_vs_lion_age2, ctd_vs_lion_age3,
 #    lion_vs_human_age1, lion_vs_human_age2, lion_vs_human_age3) ; gc()
-#
+# 
 # ## predict with original ages
 # age_move_org <- move_no_na %>%
 #   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
@@ -1364,7 +1448,7 @@ dev.off()
 # age_mtx_org <- posterior_epred(object = move_fit, newdata = age_move_org)
 # colnames(age_mtx_org) <- age_move_org$unique_data_combo
 # age_mtx_org <- age_mtx_org[c(1:100,1001:1100,2001:2100,3001:3100),,]
-#
+# 
 # ## redo predictions with altered ages
 # age_move_alt <- move_no_na %>%
 #   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
@@ -1377,7 +1461,7 @@ dev.off()
 # colnames(age_mtx_alt) <- age_move_alt$unique_data_combo
 # age_mtx_alt <- age_mtx_alt[c(1:100,1001:1100,2001:2100,3001:3100),,]
 # save.image('movement_direction/movement_model_agecontrasts_epred.RData')
-#
+# 
 # ## summarise and convert to long format
 # age_pred <- age_move_org %>%
 #   #dplyr::select(-f_age_num) %>%
@@ -1415,12 +1499,12 @@ dev.off()
 #                                    1, f_age_num + 1))) %>%
 #   mutate(pred_type = ifelse(move_pred == 1, 'younger',
 #                             ifelse(move_pred == 2, 'matched', 'older')))
-#
+# 
 # ## calculate contrasts
 # alt_vs_org_young <- age_mtx_alt[,,1] - age_mtx_org[,,1]
 # alt_vs_org_match <- age_mtx_alt[,,2] - age_mtx_org[,,2]
 # alt_vs_org_older <- age_mtx_alt[,,3] - age_mtx_org[,,3]
-#
+# 
 # ## summarise contrasts
 # contrasts <- move_no_na %>%
 #   mutate(alt_vs_org_young_mu = apply(alt_vs_org_young, 2, mean),
@@ -1435,7 +1519,7 @@ dev.off()
 #   separate(contrast, into = c('alt','vs','org','move_pred','mu'),
 #            sep = '_', remove = T) %>%
 #   select(-alt_vs_org_young_sd, -alt_vs_org_match_sd, -alt_vs_org_older_sd, -alt, -vs, -org, -mu)
-#
+# 
 # ## plot contrasts
 # # age_pred %>%
 # #   dplyr::select(ctd_lion, ctd_human, lion_human, pred_type) %>%
@@ -1444,7 +1528,7 @@ dev.off()
 # #   ggplot()+
 # #   geom_density(aes(x = value, colour = contrast))+
 # #   facet_wrap(. ~ pred_type)
-#
+# 
 # age_pred %>%
 #   ggplot()+
 #   geom_density(aes(x = mean_propn, colour = pred_type))+
@@ -1459,11 +1543,11 @@ dev.off()
 #   geom_density(aes(x = difference))+
 #   facet_grid(pred_type ~ f_age_new, scales = 'free')
 # save.image('movement_direction/movement_model_agecontrasts_epred.RData')
-#
+# 
 # # movement in previous second -- move ####
 # #load('movement_direction/movement_model_agecontrasts_epred.RData')
 # rm(age_move_org, age_mtx_org, age_move_alt, age_mtx_alt, age_pred, alt_vs_org_young, alt_vs_org_match, alt_vs_org_older, contrasts, contrasts_long) ; gc()
-#
+# 
 # ## redo predictions with different previous movements: all younger -- NOTE: THIS INCLUDES IMPOSSIBLE COMBINATIONS OF FOCAL AGE 1, move AT T-1 YOUNGER
 # young_move <- move_no_na %>%
 #   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
@@ -1473,7 +1557,7 @@ dev.off()
 # young_mtx <- posterior_epred(object = move_fit, newdata = young_move)
 # colnames(young_mtx) <- young_move$unique_data_combo
 # young_mtx <- young_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
-#
+# 
 # ## redo predictions with different previous movements: all matching
 # match_move <- move_no_na %>%
 #   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
@@ -1483,7 +1567,7 @@ dev.off()
 # match_mtx <- posterior_epred(object = move_fit, newdata = match_move)
 # colnames(match_mtx) <- match_move$unique_data_combo
 # match_mtx <- match_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
-#
+# 
 # ## redo predictions with different previous movements: all older -- NOTE: THIS INCLUDES IMPOSSIBLE COMBINATIONS OF FOCAL AGE 4, move AT T-1 OLDER
 # older_move <- move_no_na %>%
 #   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
@@ -1493,9 +1577,9 @@ dev.off()
 # older_mtx <- posterior_epred(object = move_fit, newdata = older_move)
 # colnames(older_mtx) <- older_move$unique_data_combo
 # older_mtx <- older_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
-#
+# 
 # save.image('movement_direction/movement_model_tminus1contrasts_epred.RData')
-#
+# 
 # ## count types of each prediction
 # #load('movement_direction/movement_model_tminus1contrasts_epred.RData')
 # prevsec_pred <- young_move %>%
@@ -1538,7 +1622,7 @@ dev.off()
 #   mutate(move_pred = as.numeric(move_pred)) %>%
 #   mutate(pred_type = ifelse(move_pred == 1, 'younger',
 #                             ifelse(move_pred == 2, 'matched', 'older')))
-#
+# 
 # ## calculate contrasts
 # young_vs_match_age1 <- match_mtx[,,1] - young_mtx[,,1]
 # young_vs_match_age2 <- match_mtx[,,2] - young_mtx[,,2]
@@ -1549,7 +1633,7 @@ dev.off()
 # match_vs_older_age1 <- older_mtx[,,1] - match_mtx[,,1]
 # match_vs_older_age2 <- older_mtx[,,2] - match_mtx[,,2]
 # match_vs_older_age3 <- older_mtx[,,3] - match_mtx[,,3]
-#
+# 
 # ## summarise contrasts
 # contrasts <- move_no_na %>%
 #   select(-move_tminus1_num) %>%
@@ -1586,7 +1670,7 @@ dev.off()
 #   select(-mu, -young_vs_match_age1_sd, -young_vs_match_age2_sd, -young_vs_match_age3_sd,
 #          -young_vs_older_age1_sd, -young_vs_older_age2_sd, -young_vs_older_age3_sd,
 #          -match_vs_older_age1_sd, -match_vs_older_age2_sd, -match_vs_older_age3_sd)
-#
+# 
 # ## plot contrasts
 # prevsec_pred %>%
 #   ggplot()+
@@ -1600,9 +1684,9 @@ dev.off()
 #   ggplot()+
 #   geom_density(aes(x = difference))+
 #   facet_grid(pred_type ~ contrast)
-#
+# 
 # save.image('movement_direction/movement_model_prevseccontrasts_epred.RData')
-#
+# 
 # # predictions %>%
 # #   mutate(previous = ifelse(move_tminus1_num == 1, 'younger',
 # #                            ifelse(move_tminus1_num == 2, 'same age', 'older')),
@@ -1650,7 +1734,7 @@ dev.off()
 # #        x = 'difference between movements at previous second')+
 # #   geom_vline(xintercept = 0, linetype = 2)+
 # #   scale_x_continuous(limits = c(-2,2))
-#
+# 
 # # time since stimulus -- move ####
 # # load('movement_direction/movement_model_prevseccontrasts_epred.RData')
 # rm(young_move, young_mtx, match_move, match_mtx, older_move, older_mtx,
@@ -1658,7 +1742,7 @@ dev.off()
 #    young_vs_match_age1, young_vs_match_age2, young_vs_match_age3,
 #    young_vs_older_age1, young_vs_older_age2, young_vs_older_age3,
 #    match_vs_older_age1, match_vs_older_age2, match_vs_older_age3) ; gc()
-#
+# 
 # ## predict with original times
 # time_move_org <- move_no_na %>%
 #   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
@@ -1667,7 +1751,7 @@ dev.off()
 # time_mtx_org <- posterior_epred(object = move_fit, newdata = time_move_org)
 # colnames(time_mtx_org) <- time_move_org$unique_data_combo
 # time_mtx_org <- time_mtx_org[c(1:100,1001:1100,2001:2100,3001:3100),,]
-#
+# 
 # ## redo predictions with shifted times: +15 seconds
 # time_move_alt_0.25 <- move_no_na %>%
 #   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
@@ -1679,7 +1763,7 @@ dev.off()
 # time_mtx_alt_0.25 <- posterior_epred(object = move_fit, newdata = time_move_alt_0.25)
 # colnames(time_mtx_alt_0.25) <- time_move_alt_0.25$unique_data_combo
 # time_mtx_alt_0.25 <- time_mtx_alt_0.25[c(1:100,1001:1100,2001:2100,3001:3100),,]
-#
+# 
 # ## redo predictions with shifted times: +30 seconds
 # time_move_alt_0.50 <- move_no_na %>%
 #   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
@@ -1691,7 +1775,7 @@ dev.off()
 # time_mtx_alt_0.50 <- posterior_epred(object = move_fit, newdata = time_move_alt_0.50)
 # colnames(time_mtx_alt_0.50) <- time_move_alt_0.50$unique_data_combo
 # time_mtx_alt_0.50 <- time_mtx_alt_0.50[c(1:100,1001:1100,2001:2100,3001:3100),,]
-#
+# 
 # ## redo predictions with shifted times: +45 seconds
 # time_move_alt_0.75 <- move_no_na %>%
 #   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
@@ -1703,7 +1787,7 @@ dev.off()
 # time_mtx_alt_0.75 <- posterior_epred(object = move_fit, newdata = time_move_alt_0.75)
 # colnames(time_mtx_alt_0.75) <- time_move_alt_0.75$unique_data_combo
 # time_mtx_alt_0.75 <- time_mtx_alt_0.75[c(1:100,1001:1100,2001:2100,3001:3100),,]
-#
+# 
 # ## redo predictions with shifted times: +60 seconds
 # time_move_alt_1.00 <- move_no_na %>%
 #   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
@@ -1715,9 +1799,9 @@ dev.off()
 # time_mtx_alt_1.00 <- posterior_epred(object = move_fit, newdata = time_move_alt_1.00)
 # colnames(time_mtx_alt_1.00) <- time_move_alt_1.00$unique_data_combo
 # time_mtx_alt_1.00 <- time_mtx_alt_1.00[c(1:100,1001:1100,2001:2100,3001:3100),,]
-#
+# 
 # save.image('movement_direction/movement_model_timecontrasts_epred.RData')
-#
+# 
 # ## summarise and convert to long format
 # time_pred <- time_move_org %>%
 #   mutate(time_org_0.00_prop1_mu = apply(time_mtx_org[,,1], 2, mean),
@@ -1777,24 +1861,24 @@ dev.off()
 #   rename(mins_added = alt_mu) %>%
 #   mutate(pred_type = ifelse(move_pred == 1, 'younger',
 #                             ifelse(move_pred == 2, 'matched', 'older')))
-#
+# 
 # ## calculate contrasts
 # alt0.25_vs_0.00_young <- time_mtx_alt_0.25[,,1] - time_mtx_org[,,1]
 # alt0.25_vs_0.00_match <- time_mtx_alt_0.25[,,2] - time_mtx_org[,,2]
 # alt0.25_vs_0.00_older <- time_mtx_alt_0.25[,,3] - time_mtx_org[,,3]
-#
+# 
 # alt0.50_vs_0.25_young <- time_mtx_alt_0.50[,,1] - time_mtx_alt_0.25[,,1]
 # alt0.50_vs_0.25_match <- time_mtx_alt_0.50[,,2] - time_mtx_alt_0.25[,,2]
 # alt0.50_vs_0.25_older <- time_mtx_alt_0.50[,,3] - time_mtx_alt_0.25[,,3]
-#
+# 
 # alt0.75_vs_0.50_young <- time_mtx_alt_0.75[,,1] - time_mtx_alt_0.50[,,1]
 # alt0.75_vs_0.50_match <- time_mtx_alt_0.75[,,2] - time_mtx_alt_0.50[,,2]
 # alt0.75_vs_0.50_older <- time_mtx_alt_0.75[,,3] - time_mtx_alt_0.50[,,3]
-#
+# 
 # alt1.00_vs_0.75_young <- time_mtx_alt_1.00[,,1] - time_mtx_alt_0.75[,,1]
 # alt1.00_vs_0.75_match <- time_mtx_alt_1.00[,,2] - time_mtx_alt_0.75[,,2]
 # alt1.00_vs_0.75_older <- time_mtx_alt_1.00[,,3] - time_mtx_alt_0.75[,,3]
-#
+# 
 # ## summarise contrasts
 # contrasts <- move_no_na %>%
 #   mutate(alt0.25_vs_0.00_young_mu = apply(alt0.25_vs_0.00_young, 2, mean),
@@ -1838,7 +1922,7 @@ dev.off()
 #   mutate(later = as.numeric(later),
 #          earlier = as.numeric(earlier),
 #          contrast = paste0(later,'_',earlier))
-#
+# 
 # ## plot contrasts
 # time_pred %>%
 #   ggplot()+
@@ -1853,4 +1937,4 @@ dev.off()
 #   geom_density(aes(x = difference))+
 #   facet_grid(pred_type ~ contrast, scales = 'free')
 # save.image('movement_direction/movement_model_timecontrasts_epred.RData')
-#
+# 
