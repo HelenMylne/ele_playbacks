@@ -630,7 +630,7 @@ move_new <- move_new %>%
 
 ## predict with original ages
 age_move_org <- move_new
-age_mtx_org <- posterior_epred(object = move_fit, newdata = age_move_org)
+age_mtx_org <- posterior_epred(object = mbm_fit, newdata = age_move_org)
 colnames(age_mtx_org) <- age_move_org$unique_data_combo
 age_mtx_org <- age_mtx_org[c(1:100,1001:1100,2001:2100,3001:3100),,]
 
@@ -639,11 +639,141 @@ age_move_alt <- move_new %>%
   mutate(f_age_num_original = f_age_num) %>%
   mutate(f_age_num = ifelse(f_age_num == 4, 1, f_age_num + 1)) %>%
   relocate(f_age_num_original)
-age_mtx_alt <- posterior_epred(object = move_fit, newdata = age_move_alt)
+age_mtx_alt <- posterior_epred(object = mbm_fit, newdata = age_move_alt)
 colnames(age_mtx_alt) <- age_move_alt$unique_data_combo
 age_mtx_alt <- age_mtx_alt[c(1:100,1001:1100,2001:2100,3001:3100),,]
 
 save.image('movement_direction/movement_binomial_agecontrasts.RData')
+
+## time since stimulus -- untested! ####
+#load('movement_direction/movement_binomial_agecontrasts.RData')
+rm(list = ls()[!ls() %in% c('mom1_fit','move_no_na')]) ; gc()
+
+## create new data frme to calculate from
+time_new <- move_no_na %>%
+  dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
+                focal_id, stim_id, playback_id) %>%
+  mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
+
+## predict with original times
+time_move_org <- time_new
+time_mtx_org <- posterior_epred(object = mbm_fit, newdata = time_move_org)
+colnames(time_mtx_org) <- time_move_org$unique_data_combo
+time_mtx_org <- time_mtx_org[c(1:100,1001:1100,2001:2100,3001:3100),]
+
+## redo predictions with shifted times: +15 seconds
+time_move_alt_0.25 <- time_new %>%
+  mutate(after_stim_org = after_stim) %>%
+  mutate(after_stim = after_stim + 1/4) %>% 
+  #mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>% # commented out because I THINK this should actually be the same as before and not overwritten with the new f_age_num, but I'm not certain
+  relocate(after_stim_org)
+time_mtx_alt_0.25 <- posterior_epred(object = mbm_fit, newdata = time_move_alt_0.25)
+colnames(time_mtx_alt_0.25) <- time_move_alt_0.25$unique_data_combo
+time_mtx_alt_0.25 <- time_mtx_alt_0.25[c(1:100,1001:1100,2001:2100,3001:3100),]
+
+## redo predictions with shifted times: +30 seconds
+time_move_alt_0.50 <- time_new %>%
+  mutate(after_stim_org = after_stim) %>%
+  mutate(after_stim = after_stim + 1/2) %>% 
+  #mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>% # commented out because I THINK this should actually be the same as before and not overwritten with the new f_age_num, but I'm not certain
+  relocate(after_stim_org)
+time_mtx_alt_0.50 <- posterior_epred(object = mbm_fit, newdata = time_move_alt_0.50)
+colnames(time_mtx_alt_0.50) <- time_move_alt_0.50$unique_data_combo
+time_mtx_alt_0.50 <- time_mtx_alt_0.50[c(1:100,1001:1100,2001:2100,3001:3100),]
+
+## redo predictions with shifted times: +45 seconds
+time_move_alt_0.75 <- time_new %>%
+  mutate(after_stim_org = after_stim) %>%
+  mutate(after_stim = after_stim + 3/4) %>% 
+  #mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>% # commented out because I THINK this should actually be the same as before and not overwritten with the new f_age_num, but I'm not certain
+  relocate(after_stim_org)
+time_mtx_alt_0.75 <- posterior_epred(object = mbm_fit, newdata = time_move_alt_0.75)
+colnames(time_mtx_alt_0.75) <- time_move_alt_0.75$unique_data_combo
+time_mtx_alt_0.75 <- time_mtx_alt_0.75[c(1:100,1001:1100,2001:2100,3001:3100),]
+
+## redo predictions with shifted times: +60 seconds
+time_move_alt_1.00 <- time_new %>%
+  mutate(after_stim_org = after_stim) %>%
+  mutate(after_stim = after_stim + 1) %>% 
+  #mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>% # commented out because I THINK this should actually be the same as before and not overwritten with the new f_age_num, but I'm not certain
+  relocate(after_stim_org)
+time_mtx_alt_1.00 <- posterior_epred(object = mbm_fit, newdata = time_move_alt_1.00)
+colnames(time_mtx_alt_1.00) <- time_move_alt_1.00$unique_data_combo
+time_mtx_alt_1.00 <- time_mtx_alt_1.00[c(1:100,1001:1100,2001:2100,3001:3100),]
+
+save.image('movement_direction/movement_model_timecontrasts_epred.RData')
+
+# ## summarise and convert to long format
+# time_pred <- time_move_org %>%
+#   mutate(time_org_0.00_mu = apply(time_mtx_org, 2, mean),
+#          time_org_0.00_sd = apply(time_mtx_org, 2, sd),
+#          time_alt_0.25_mu = apply(time_mtx_alt_0.25, 2, mean),
+#          time_alt_0.25_sd = apply(time_mtx_alt_0.25, 2, sd),
+#          time_alt_0.50_mu = apply(time_mtx_alt_0.50, 2, mean),
+#          time_alt_0.50_sd = apply(time_mtx_alt_0.50, 2, sd),
+#          time_alt_0.75_mu = apply(time_mtx_alt_0.75, 2, mean),
+#          time_alt_0.75_sd = apply(time_mtx_alt_0.75, 2, sd),
+#          time_alt_1.00_mu = apply(time_mtx_alt_1.00, 2, mean),
+#          time_alt_1.00_sd = apply(time_mtx_alt_1.00, 2, sd)) %>%
+#   pivot_longer(cols = c(time_org_0.00_mu, time_alt_0.25_mu, time_alt_0.50_mu, time_alt_0.75_mu, time_alt_1.00_mu,),
+#                names_to = 'time_org_alt_prop_agemove_mu', values_to = 'mean_propn') %>%
+#   pivot_longer(cols = c(time_org_0.00_sd, time_alt_0.25_sd, time_alt_0.50_sd, time_alt_0.75_sd, time_alt_1.00_sd,),
+#                names_to = 'time_org_alt_prop_agemove_sd', values_to = 'stdv_propn') %>%
+#   separate(col = time_org_alt_prop_agemove_mu,
+#            into = c('time_mu','org_mu','alt_mu','prop_agemove_mu','mu'),
+#            sep = '_', remove = T) %>%
+#   separate(col = time_org_alt_prop_agemove_sd,
+#            into = c('time_sd','org_sd','alt_sd','prop_agemove_sd','sd'),
+#            sep = '_', remove = T) %>%
+#   select(-time_mu,-org_mu, -time_sd,-org_sd,-mu,-sd) %>%
+#   filter(alt_mu == alt_sd & prop_agemove_sd == prop_agemove_mu) %>%
+#   mutate(move_pred = ifelse(prop_agemove_mu == 'prop1', 1,
+#                             ifelse(prop_agemove_mu == 'prop2', 2,
+#                                    ifelse(prop_agemove_mu == 'prop3', 3, 4)))) %>%
+#   select(-alt_sd, -prop_agemove_mu, -prop_agemove_sd) %>%
+#   rename(mins_added = alt_mu) %>%
+#   mutate(pred_type = ifelse(move_pred == 1, 'younger',
+#                             ifelse(move_pred == 2, 'matched', 'older')))
+# 
+# ## calculate contrasts
+# alt0.25_vs_0.00 <- time_mtx_alt_0.25 - time_mtx_org
+# alt0.50_vs_0.25 <- time_mtx_alt_0.50 - time_mtx_alt_0.25
+# alt0.75_vs_0.50 <- time_mtx_alt_0.75 - time_mtx_alt_0.50
+# alt1.00_vs_0.75 <- time_mtx_alt_1.00 - time_mtx_alt_0.75
+# 
+# ## summarise contrasts
+# contrasts <- move_no_na %>%
+#   mutate(alt0.25_vs_0.00_mu = apply(alt0.25_vs_0.00, 2, mean),
+#          alt0.25_vs_0.00_sd = apply(alt0.25_vs_0.00, 2, sd),
+#          alt0.50_vs_0.25_mu = apply(alt0.50_vs_0.25, 2, mean),
+#          alt0.50_vs_0.25_sd = apply(alt0.50_vs_0.25, 2, sd),
+#          alt0.75_vs_0.50_mu = apply(alt0.75_vs_0.50, 2, mean),
+#          alt0.75_vs_0.50_sd = apply(alt0.75_vs_0.50, 2, sd),
+#          alt1.00_vs_0.75_mu = apply(alt1.00_vs_0.75, 2, mean),
+#          alt1.00_vs_0.75_sd = apply(alt1.00_vs_0.75, 2, sd))
+# contrasts_long <- contrasts %>%
+#   select(-alt0.25_vs_0.00_sd,-alt0.50_vs_0.25_sd,-alt0.75_vs_0.50_sd,-alt1.00_vs_0.75_sd) %>%
+#   pivot_longer(cols = c(alt0.25_vs_0.00_mu,alt0.50_vs_0.25_mu,
+#                         alt0.75_vs_0.50_mu,alt1.00_vs_0.75_mu),
+#                names_to = 'contrast', values_to = 'difference') %>%
+#   separate(contrast, into = c('alt','contrast'), sep = 3) %>%
+#   separate(contrast, into = c('later','vs','earlier','pred_type','mu'),
+#            sep = '_', remove = T) %>%
+#   select(-alt, -vs, -mu) %>%
+#   mutate(later = as.numeric(later),
+#          earlier = as.numeric(earlier),
+#          contrast = paste0(later,'_',earlier))
+# 
+# ## plot contrasts
+# time_pred %>%
+#   ggplot()+
+#   geom_density(aes(x = mean_propn, colour = pred_type))+
+#   facet_wrap(. ~ stim_type)
+# contrasts_long %>%
+#   ggplot()+
+#   geom_density(aes(x = difference))+
+#   facet_grid(pred_type ~ contrast, scales = 'free')
+# save.image('movement_direction/movement_model_timecontrasts_epred.RData')
 
 # ############# Probability of different directions once moving ###############
 # pdf('../outputs/movement_ordinal_model_1/movement_ordinal_model1_modelprep.pdf')
@@ -1432,36 +1562,33 @@ save.image('movement_direction/movement_ordinal_model1_stimuluscontrasts.RData')
 # 
 # save.image('movement_direction/movement_model_stimuluscontrasts_epred.RData')
 # 
-# # focal age -- move ####
-# # load('movement_direction/movement_model_stimuluscontrasts_epred.RData')
-# rm(ctd_move, ctd_mtx, human_move, human_mtx, lion_move, lion_mtx,
-#    contrasts, contrasts_long, stim_pred,
-#    ctd_vs_human_age1, ctd_vs_human_age2, ctd_vs_human_age3,
-#    ctd_vs_lion_age1, ctd_vs_lion_age2, ctd_vs_lion_age3,
-#    lion_vs_human_age1, lion_vs_human_age2, lion_vs_human_age3) ; gc()
-# 
-# ## predict with original ages
-# age_move_org <- move_no_na %>%
-#   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
-#                 focal_id, stim_id, playback_id) %>%
-#   mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
-# age_mtx_org <- posterior_epred(object = move_fit, newdata = age_move_org)
-# colnames(age_mtx_org) <- age_move_org$unique_data_combo
-# age_mtx_org <- age_mtx_org[c(1:100,1001:1100,2001:2100,3001:3100),,]
-# 
-# ## redo predictions with altered ages
-# age_move_alt <- move_no_na %>%
-#   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
-#                 focal_id, stim_id, playback_id) %>%
-#   mutate(f_age_num_original = f_age_num) %>%
-#   mutate(f_age_num = ifelse(f_age_num == 4, 1, f_age_num + 1),
-#          unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>%
-#   relocate(f_age_num_original)
-# age_mtx_alt <- posterior_epred(object = move_fit, newdata = age_move_alt)
-# colnames(age_mtx_alt) <- age_move_alt$unique_data_combo
-# age_mtx_alt <- age_mtx_alt[c(1:100,1001:1100,2001:2100,3001:3100),,]
-# save.image('movement_direction/movement_model_agecontrasts_epred.RData')
-# 
+## focal age -- untested! ####
+# load('movement_direction/movement_model_stimuluscontrasts_epred.RData')
+rm(list = ls()[!ls() %in% c('mom1_fit','move_no_na')]) ; gc()
+
+## create new dataframe to predict from
+age_new <- move_no_na %>%
+  dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
+                focal_id, stim_id, playback_id) %>%
+  mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, look_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
+
+## predict with original ages
+age_move_org <- age_new
+age_mtx_org <- posterior_epred(object = mom1_fit, newdata = age_move_org)
+colnames(age_mtx_org) <- age_move_org$unique_data_combo
+age_mtx_org <- age_mtx_org[c(1:100,1001:1100,2001:2100,3001:3100),,]
+
+## redo predictions with altered ages
+age_move_alt <- age_new %>%
+  mutate(f_age_num_original = f_age_num) %>%
+  mutate(f_age_num = ifelse(f_age_num == 4, 1, f_age_num + 1)) %>%
+  #mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>%  # commented out because I THINK this should actually be the same as before and not overwritten with the new f_age_num, but I'm not certain
+  relocate(f_age_num_original)
+age_mtx_alt <- posterior_epred(object = mom1_fit, newdata = age_move_alt)
+colnames(age_mtx_alt) <- age_move_alt$unique_data_combo
+age_mtx_alt <- age_mtx_alt[c(1:100,1001:1100,2001:2100,3001:3100),,]
+save.image('movement_direction/movement_model_agecontrasts_epred.RData')
+
 # ## summarise and convert to long format
 # age_pred <- age_move_org %>%
 #   #dplyr::select(-f_age_num) %>%
@@ -1544,264 +1671,64 @@ save.image('movement_direction/movement_ordinal_model1_stimuluscontrasts.RData')
 #   facet_grid(pred_type ~ f_age_new, scales = 'free')
 # save.image('movement_direction/movement_model_agecontrasts_epred.RData')
 # 
-# # movement in previous second -- move ####
-# #load('movement_direction/movement_model_agecontrasts_epred.RData')
-# rm(age_move_org, age_mtx_org, age_move_alt, age_mtx_alt, age_pred, alt_vs_org_young, alt_vs_org_match, alt_vs_org_older, contrasts, contrasts_long) ; gc()
-# 
-# ## redo predictions with different previous movements: all younger -- NOTE: THIS INCLUDES IMPOSSIBLE COMBINATIONS OF FOCAL AGE 1, move AT T-1 YOUNGER
-# young_move <- move_no_na %>%
-#   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
-#                 focal_id, stim_id, playback_id) %>%
-#   mutate(move_tminus1_num = 1,
-#          unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
-# young_mtx <- posterior_epred(object = move_fit, newdata = young_move)
-# colnames(young_mtx) <- young_move$unique_data_combo
-# young_mtx <- young_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
-# 
-# ## redo predictions with different previous movements: all matching
-# match_move <- move_no_na %>%
-#   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
-#                 focal_id, stim_id, playback_id) %>%
-#   mutate(move_tminus1_num = 2,
-#          unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
-# match_mtx <- posterior_epred(object = move_fit, newdata = match_move)
-# colnames(match_mtx) <- match_move$unique_data_combo
-# match_mtx <- match_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
-# 
-# ## redo predictions with different previous movements: all older -- NOTE: THIS INCLUDES IMPOSSIBLE COMBINATIONS OF FOCAL AGE 4, move AT T-1 OLDER
-# older_move <- move_no_na %>%
-#   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
-#                 focal_id, stim_id, playback_id) %>%
-#   mutate(move_tminus1_num = 3,
-#          unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
-# older_mtx <- posterior_epred(object = move_fit, newdata = older_move)
-# colnames(older_mtx) <- older_move$unique_data_combo
-# older_mtx <- older_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
-# 
-# save.image('movement_direction/movement_model_tminus1contrasts_epred.RData')
-# 
-# ## count types of each prediction
-# #load('movement_direction/movement_model_tminus1contrasts_epred.RData')
-# prevsec_pred <- young_move %>%
-#   dplyr::select(-move_tminus1_num) %>%
-#   mutate(young_prop1_mu = apply(young_mtx[,,1], 2, mean),
-#          young_prop2_mu = apply(young_mtx[,,2], 2, mean),
-#          young_prop3_mu = apply(young_mtx[,,3], 2, mean),
-#          young_prop1_sd = apply(young_mtx[,,1], 2, sd),
-#          young_prop2_sd = apply(young_mtx[,,2], 2, sd),
-#          young_prop3_sd = apply(young_mtx[,,3], 2, sd),
-#          match_prop1_mu = apply(match_mtx[,,1], 2, mean),
-#          match_prop2_mu = apply(match_mtx[,,2], 2, mean),
-#          match_prop3_mu = apply(match_mtx[,,3], 2, mean),
-#          match_prop1_sd = apply(match_mtx[,,1], 2, sd),
-#          match_prop2_sd = apply(match_mtx[,,2], 2, sd),
-#          match_prop3_sd = apply(match_mtx[,,3], 2, sd),
-#          older_prop1_mu = apply(older_mtx[,,1], 2, mean),
-#          older_prop2_mu = apply(older_mtx[,,2], 2, mean),
-#          older_prop3_mu = apply(older_mtx[,,3], 2, mean),
-#          older_prop1_sd = apply(older_mtx[,,1], 2, sd),
-#          older_prop2_sd = apply(older_mtx[,,2], 2, sd),
-#          older_prop3_sd = apply(older_mtx[,,3], 2, sd)) %>%
-#   pivot_longer(cols = c(young_prop1_mu,young_prop2_mu,young_prop3_mu,
-#                         match_prop1_mu,match_prop2_mu,match_prop3_mu,
-#                         older_prop1_mu,older_prop2_mu,older_prop3_mu),
-#                names_to = 'prevsec_propage_mu', values_to = 'mean_propn') %>%
-#   pivot_longer(cols = c(young_prop1_sd,young_prop2_sd,young_prop3_sd,
-#                         match_prop1_sd,match_prop2_sd,match_prop3_sd,
-#                         older_prop1_sd,older_prop2_sd,older_prop3_sd),
-#                names_to = 'prevsec_propage_sd', values_to = 'stdv_propn') %>%
-#   separate(col = prevsec_propage_mu, into = c('prevsec_propage_mu','mu'),
-#            sep = '_m', remove = T) %>%
-#   separate(col = prevsec_propage_sd, into = c('prevsec_propage_sd','sd'),
-#            sep = '_s', remove = T) %>%
-#   select(-mu, -sd) %>%
-#   filter(prevsec_propage_mu == prevsec_propage_sd) %>%
-#   separate(col = prevsec_propage_mu, into = c('prevsec_type', 'move_pred'),
-#            sep = '_prop', remove = T) %>%
-#   select(-prevsec_propage_sd) %>%
-#   mutate(move_pred = as.numeric(move_pred)) %>%
-#   mutate(pred_type = ifelse(move_pred == 1, 'younger',
-#                             ifelse(move_pred == 2, 'matched', 'older')))
-# 
-# ## calculate contrasts
-# young_vs_match_age1 <- match_mtx[,,1] - young_mtx[,,1]
-# young_vs_match_age2 <- match_mtx[,,2] - young_mtx[,,2]
-# young_vs_match_age3 <- match_mtx[,,3] - young_mtx[,,3]
-# young_vs_older_age1 <- older_mtx[,,1] - young_mtx[,,1]
-# young_vs_older_age2 <- older_mtx[,,2] - young_mtx[,,2]
-# young_vs_older_age3 <- older_mtx[,,3] - young_mtx[,,3]
-# match_vs_older_age1 <- older_mtx[,,1] - match_mtx[,,1]
-# match_vs_older_age2 <- older_mtx[,,2] - match_mtx[,,2]
-# match_vs_older_age3 <- older_mtx[,,3] - match_mtx[,,3]
-# 
-# ## summarise contrasts
-# contrasts <- move_no_na %>%
-#   select(-move_tminus1_num) %>%
-#   mutate(young_vs_match_age1_mu = apply(young_vs_match_age1, 2, mean),
-#          young_vs_match_age1_sd = apply(young_vs_match_age1, 2, sd),
-#          young_vs_match_age2_mu = apply(young_vs_match_age2, 2, mean),
-#          young_vs_match_age2_sd = apply(young_vs_match_age2, 2, sd),
-#          young_vs_match_age3_mu = apply(young_vs_match_age3, 2, mean),
-#          young_vs_match_age3_sd = apply(young_vs_match_age3, 2, sd),
-#          young_vs_older_age1_mu = apply(young_vs_older_age1, 2, mean),
-#          young_vs_older_age1_sd = apply(young_vs_older_age1, 2, sd),
-#          young_vs_older_age2_mu = apply(young_vs_older_age2, 2, mean),
-#          young_vs_older_age2_sd = apply(young_vs_older_age2, 2, sd),
-#          young_vs_older_age3_mu = apply(young_vs_older_age3, 2, mean),
-#          young_vs_older_age3_sd = apply(young_vs_older_age3, 2, sd),
-#          match_vs_older_age1_mu = apply(match_vs_older_age1, 2, mean),
-#          match_vs_older_age1_sd = apply(match_vs_older_age1, 2, sd),
-#          match_vs_older_age2_mu = apply(match_vs_older_age2, 2, mean),
-#          match_vs_older_age2_sd = apply(match_vs_older_age2, 2, sd),
-#          match_vs_older_age3_mu = apply(match_vs_older_age3, 2, mean),
-#          match_vs_older_age3_sd = apply(match_vs_older_age3, 2, sd))
-# contrasts_long <- contrasts %>%
-#   pivot_longer(cols = c(young_vs_match_age1_mu,young_vs_match_age2_mu,young_vs_match_age3_mu,
-#                         young_vs_older_age1_mu,young_vs_older_age2_mu,young_vs_older_age3_mu,
-#                         match_vs_older_age1_mu,match_vs_older_age2_mu,match_vs_older_age3_mu),
-#                names_to = 'contrast', values_to = 'difference') %>%
-#   separate(contrast, into = c('contrast','move_pred'),
-#            sep = '_age', remove = T) %>%
-#   separate(move_pred, into = c('move_pred','mu'),
-#            sep = '_', remove = T) %>%
-#   mutate(move_pred = as.numeric(move_pred)) %>%
-#   mutate(pred_type = ifelse(move_pred == 1, 'younger',
-#                             ifelse(move_pred == 2, 'matched', 'older'))) %>%
-#   select(-mu, -young_vs_match_age1_sd, -young_vs_match_age2_sd, -young_vs_match_age3_sd,
-#          -young_vs_older_age1_sd, -young_vs_older_age2_sd, -young_vs_older_age3_sd,
-#          -match_vs_older_age1_sd, -match_vs_older_age2_sd, -match_vs_older_age3_sd)
-# 
-# ## plot contrasts
-# prevsec_pred %>%
-#   ggplot()+
-#   geom_density(aes(x = mean_propn, colour = pred_type))+
-#   facet_wrap(. ~ stim_type)
-# contrasts_long %>%
-#   mutate(pred_type = ifelse(move_pred == 1, 'younger',
-#                             ifelse(move_pred == 2, 'matched', 'older'))) %>%
-#   mutate(pred_type = factor(pred_type,
-#                             levels = c('younger','matched','older'))) %>%
-#   ggplot()+
-#   geom_density(aes(x = difference))+
-#   facet_grid(pred_type ~ contrast)
-# 
-# save.image('movement_direction/movement_model_prevseccontrasts_epred.RData')
-# 
-# # predictions %>%
-# #   mutate(previous = ifelse(move_tminus1_num == 1, 'younger',
-# #                            ifelse(move_tminus1_num == 2, 'same age', 'older')),
-# #          prediction = ifelse(prediction == 1, 'younger',
-# #                              ifelse(prediction == 2, 'same age', 'older'))) %>%
-# #   mutate(previous = factor(previous, levels = c('younger','same age','older')),
-# #          prediction = factor(prediction, levels = c('younger','same age','older'))) %>%
-# #   ggplot()+
-# #   geom_bar(aes(x = prediction, fill = as.factor(previous)),
-# #            position = 'dodge')+
-# #   scale_y_continuous(expand = c(0,0))+
-# #   labs(colour = 'previous second')+
-# #   scale_fill_viridis_d()
-# #
-# # prevsec2 <- pred_prop %>% filter(move_tminus1_num == 2)
-# # prevsec3 <- pred_prop %>% filter(move_tminus1_num == 3)
-# # pred_prev <- pred_prop %>%
-# #   filter(move_tminus1_num == 1) %>%
-# #   rename(count_1 = count_predictions,
-# #          prop_1 = proportion) %>%
-# #   select(f_age_num, after_stim, stim_type, prediction, count_1, prop_1) %>%
-# #   left_join(prevsec2[,c('f_age_num','after_stim','stim_type','prediction','count_predictions','proportion')],
-# #             by = c('f_age_num','after_stim','stim_type','prediction')) %>%
-# #   rename(count_2 = count_predictions,
-# #          prop_2 = proportion) %>%
-# #   left_join(prevsec3[,c('f_age_num','after_stim','stim_type','prediction','count_predictions','proportion')],
-# #             by = c('f_age_num','after_stim','stim_type','prediction')) %>%
-# #   rename(count_3 = count_predictions,
-# #          prop_3 = proportion) %>%
-# #   mutate(move1_2 = prop_1 - prop_2,
-# #          move1_3 = prop_1 - prop_3,
-# #          move2_3 = prop_2 - prop_3)
-# # pred_prev %>%
-# #   select(stim_type, after_stim, f_age_num, prediction,
-# #          move1_2,move1_3,move2_3) %>%
-# #   pivot_longer(cols = c('move1_2', 'move1_3', 'move2_3'),
-# #                names_to = 'contrast', values_to = 'value') %>%
-# #   mutate(contrast = ifelse(contrast == 'move1_2', 'younger vs same',
-# #                            ifelse(contrast == 'move1_3', 'younger vs older',
-# #                                   'same vs older'))) %>%
-# #   ggplot()+
-# #   geom_density(aes(x = value, colour = contrast), linewidth = 1)+
-# #   scale_colour_viridis_d()+
-# #   labs(colour = 't-1 pair',
-# #        x = 'difference between movements at previous second')+
-# #   geom_vline(xintercept = 0, linetype = 2)+
-# #   scale_x_continuous(limits = c(-2,2))
-# 
-# # time since stimulus -- move ####
-# # load('movement_direction/movement_model_prevseccontrasts_epred.RData')
-# rm(young_move, young_mtx, match_move, match_mtx, older_move, older_mtx,
-#    contrasts, contrasts_long, prevsec_pred,
-#    young_vs_match_age1, young_vs_match_age2, young_vs_match_age3,
-#    young_vs_older_age1, young_vs_older_age2, young_vs_older_age3,
-#    match_vs_older_age1, match_vs_older_age2, match_vs_older_age3) ; gc()
-# 
-# ## predict with original times
-# time_move_org <- move_no_na %>%
-#   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
-#                 focal_id, stim_id, playback_id) %>%
-#   mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
-# time_mtx_org <- posterior_epred(object = move_fit, newdata = time_move_org)
-# colnames(time_mtx_org) <- time_move_org$unique_data_combo
-# time_mtx_org <- time_mtx_org[c(1:100,1001:1100,2001:2100,3001:3100),,]
-# 
-# ## redo predictions with shifted times: +15 seconds
-# time_move_alt_0.25 <- move_no_na %>%
-#   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
-#                 focal_id, stim_id, playback_id) %>%
-#   mutate(after_stim_org = after_stim) %>%
-#   mutate(after_stim = after_stim + 1/4,
-#          unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>%
-#   relocate(after_stim_org)
-# time_mtx_alt_0.25 <- posterior_epred(object = move_fit, newdata = time_move_alt_0.25)
-# colnames(time_mtx_alt_0.25) <- time_move_alt_0.25$unique_data_combo
-# time_mtx_alt_0.25 <- time_mtx_alt_0.25[c(1:100,1001:1100,2001:2100,3001:3100),,]
-# 
-# ## redo predictions with shifted times: +30 seconds
-# time_move_alt_0.50 <- move_no_na %>%
-#   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
-#                 focal_id, stim_id, playback_id) %>%
-#   mutate(after_stim_org = after_stim) %>%
-#   mutate(after_stim = after_stim + 1/2,
-#          unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>%
-#   relocate(after_stim_org)
-# time_mtx_alt_0.50 <- posterior_epred(object = move_fit, newdata = time_move_alt_0.50)
-# colnames(time_mtx_alt_0.50) <- time_move_alt_0.50$unique_data_combo
-# time_mtx_alt_0.50 <- time_mtx_alt_0.50[c(1:100,1001:1100,2001:2100,3001:3100),,]
-# 
-# ## redo predictions with shifted times: +45 seconds
-# time_move_alt_0.75 <- move_no_na %>%
-#   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
-#                 focal_id, stim_id, playback_id) %>%
-#   mutate(after_stim_org = after_stim) %>%
-#   mutate(after_stim = after_stim + 3/4,
-#          unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>%
-#   relocate(after_stim_org)
-# time_mtx_alt_0.75 <- posterior_epred(object = move_fit, newdata = time_move_alt_0.75)
-# colnames(time_mtx_alt_0.75) <- time_move_alt_0.75$unique_data_combo
-# time_mtx_alt_0.75 <- time_mtx_alt_0.75[c(1:100,1001:1100,2001:2100,3001:3100),,]
-# 
-# ## redo predictions with shifted times: +60 seconds
-# time_move_alt_1.00 <- move_no_na %>%
-#   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
-#                 focal_id, stim_id, playback_id) %>%
-#   mutate(after_stim_org = after_stim) %>%
-#   mutate(after_stim = after_stim + 1,
-#          unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>%
-#   relocate(after_stim_org)
-# time_mtx_alt_1.00 <- posterior_epred(object = move_fit, newdata = time_move_alt_1.00)
-# colnames(time_mtx_alt_1.00) <- time_move_alt_1.00$unique_data_combo
-# time_mtx_alt_1.00 <- time_mtx_alt_1.00[c(1:100,1001:1100,2001:2100,3001:3100),,]
-# 
-# save.image('movement_direction/movement_model_timecontrasts_epred.RData')
-# 
+## time since stimulus -- untested! ####
+# load('movement_direction/movement_model_prevseccontrasts_epred.RData')
+rm(list = ls()[!ls() %in% c('mom1_fit','move_no_na')]) ; gc()
+
+## create new data frme to calculate from
+time_new <- move_no_na %>%
+  dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
+                focal_id, stim_id, playback_id) %>%
+  mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
+
+## predict with original times
+time_move_org <- time_new
+time_mtx_org <- posterior_epred(object = mom1_fit, newdata = time_move_org)
+colnames(time_mtx_org) <- time_move_org$unique_data_combo
+time_mtx_org <- time_mtx_org[c(1:100,1001:1100,2001:2100,3001:3100),,]
+
+## redo predictions with shifted times: +15 seconds
+time_move_alt_0.25 <- time_new %>%
+  mutate(after_stim_org = after_stim) %>%
+  mutate(after_stim = after_stim + 1/4) %>%
+  #mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>%  # commented out because I THINK this should actually be the same as before and not overwritten with the new f_age_num, but I'm not certain
+  relocate(after_stim_org)
+time_mtx_alt_0.25 <- posterior_epred(object = mom1_fit, newdata = time_move_alt_0.25)
+colnames(time_mtx_alt_0.25) <- time_move_alt_0.25$unique_data_combo
+time_mtx_alt_0.25 <- time_mtx_alt_0.25[c(1:100,1001:1100,2001:2100,3001:3100),,]
+
+## redo predictions with shifted times: +30 seconds
+time_move_alt_0.50 <- time_new %>%
+  mutate(after_stim_org = after_stim) %>%
+  mutate(after_stim = after_stim + 1/2) %>%
+  #mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>%  # commented out because I THINK this should actually be the same as before and not overwritten with the new f_age_num, but I'm not certain
+  relocate(after_stim_org)
+time_mtx_alt_0.50 <- posterior_epred(object = mom1_fit, newdata = time_move_alt_0.50)
+colnames(time_mtx_alt_0.50) <- time_move_alt_0.50$unique_data_combo
+time_mtx_alt_0.50 <- time_mtx_alt_0.50[c(1:100,1001:1100,2001:2100,3001:3100),,]
+
+## redo predictions with shifted times: +45 seconds
+time_move_alt_0.75 <- time_new %>%
+  mutate(after_stim_org = after_stim) %>%
+  mutate(after_stim = after_stim + 3/4) %>%
+  #mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>%  # commented out because I THINK this should actually be the same as before and not overwritten with the new f_age_num, but I'm not certain
+  relocate(after_stim_org)
+time_mtx_alt_0.75 <- posterior_epred(object = mom1_fit, newdata = time_move_alt_0.75)
+colnames(time_mtx_alt_0.75) <- time_move_alt_0.75$unique_data_combo
+time_mtx_alt_0.75 <- time_mtx_alt_0.75[c(1:100,1001:1100,2001:2100,3001:3100),,]
+
+## redo predictions with shifted times: +60 seconds
+time_move_alt_1.00 <- time_new %>%
+  mutate(after_stim_org = after_stim) %>%
+  mutate(after_stim = after_stim + 1) %>%
+  #mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>%  # commented out because I THINK this should actually be the same as before and not overwritten with the new f_age_num, but I'm not certain
+  relocate(after_stim_org)
+time_mtx_alt_1.00 <- posterior_epred(object = mom1_fit, newdata = time_move_alt_1.00)
+colnames(time_mtx_alt_1.00) <- time_move_alt_1.00$unique_data_combo
+time_mtx_alt_1.00 <- time_mtx_alt_1.00[c(1:100,1001:1100,2001:2100,3001:3100),,]
+
+save.image('movement_direction/movement_model_timecontrasts_epred.RData')
+
 # ## summarise and convert to long format
 # time_pred <- time_move_org %>%
 #   mutate(time_org_0.00_prop1_mu = apply(time_mtx_org[,,1], 2, mean),
