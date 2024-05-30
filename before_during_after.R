@@ -514,10 +514,8 @@ theme_set(theme_classic())
 # ## reset plotting
 # dev.off()
 # 
-# print('neighbour completed')
-# 
 #### calculate posterior contrasts from predictions ####
-# load('nearest_neighbour/neighbour_binomial_predictions.RData')
+load('nearest_neighbour/neighbour_binomial_predictions.RData')
 pdf('../outputs/neighbour_binomial_model/neighbour_binomial_modelcontrasts.pdf')
 
 ## stim type ####
@@ -638,6 +636,10 @@ colnames(time_mtx_alt_1.00) <- time_nn_alt_1.00$unique_data_combo
 time_mtx_alt_1.00 <- time_mtx_alt_1.00[c(1:100,1001:1100,2001:2100,3001:3100),]
 
 save.image('ele_playbacks/looking_direction/looking_ordinal_model1_timecontrasts.RData')
+dev.off()
+
+rm(list = ls()) ; gc()
+print('neighbour completed')
 
 # ######## looking direction ####
 # rm(list = ls()[! ls() %in% 'behav']) ; gc()
@@ -1208,7 +1210,7 @@ save.image('ele_playbacks/looking_direction/looking_ordinal_model1_timecontrasts
 # print('looking direction completed')
 # 
 #### calculate posterior contrasts from predictions ####
-# load('looking_direction/looking_ordinal_model2bda_predictions.RData')
+load('looking_direction/looking_ordinal_model2bda_predictions.RData')
 pdf('../outputs/looking_ordinal_model_2/looking_ordinal_model2_modelcontrasts.pdf')
 
 ## stim type ####
@@ -1330,6 +1332,10 @@ colnames(time_mtx_alt_1.00) <- time_look_alt_1.00$unique_data_combo
 time_mtx_alt_1.00 <- time_mtx_alt_1.00[c(1:100,1001:1100,2001:2100,3001:3100),,]
 
 save.image('ele_playbacks/looking_direction/looking_ordinal_model1_timecontrasts.RData')
+dev.off()
+
+rm(list = ls()) ; gc()
+print('looking direction completed')
 
 # ######## movement direction ####
 # rm(list = ls()[! ls() %in% 'behav']) ; gc()
@@ -1955,7 +1961,7 @@ save.image('ele_playbacks/looking_direction/looking_ordinal_model1_timecontrasts
 # dev.off()
 # 
 #### calculate posterior contrasts from predictions ####
-# load('movement_direction/moving_ordinal_2bda_modelpredictions.RData')
+load('movement_direction/moving_ordinal_2bda_modelpredictions.RData')
 pdf('../outputs/movement_ordinal_model_2/movement_ordinal_model2_modelcontrasts.pdf')
 
 ## stim type ####
@@ -2077,3 +2083,7 @@ colnames(time_mtx_alt_1.00) <- time_move_alt_1.00$unique_data_combo
 time_mtx_alt_1.00 <- time_mtx_alt_1.00[c(1:100,1001:1100,2001:2100,3001:3100),,]
 
 save.image('ele_playbacks/looking_direction/looking_ordinal_model1_timecontrasts.RData')
+dev.off()
+
+rm(list = ls()) ; gc()
+print('movement direction completed')
