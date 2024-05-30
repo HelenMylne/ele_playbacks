@@ -196,112 +196,131 @@ str(nn_no_na)
 # $ focal_id       : int [1:63868] 1 1 1 1 1 1 1 1 1 1 ...
 # $ stim_id        : int [1:63868] 5 5 5 5 5 5 5 5 5 5 ...
 
-################################ MARKOV MODEL WITH MARKOVCHAIN PACKAGE -- DOESN'T ALLOW ADDITION OF COVARIATES #############################
-library(markovchain)
-library(igraph)
-
-#### create markov sequence ####
-## select individual elephant -- changes a couple of times between neighbours
-focal <- nn_no_na %>% 
-  filter(focal == 'b1_e24') %>% 
-  mutate(age_difference = ifelse(age_difference == 'partner_older', 'Older',
-                                 ifelse(age_difference == 'partner_younger', 'Younger', 'Matched')))
-
-mkvseq <- createSequenceMatrix(focal$age_difference, sanitize = F)
-mkvseq # transition matrix (unstandardised)
-
-## standardise matrix
-mkvseq_std <- mkvseq
-for(i in 1:nrow(mkvseq)){
-  for(j in 1:ncol(mkvseq)){
-    mkvseq_std[i,j] <- mkvseq_std[i,j] / sum(mkvseq[i,])
-  }
-}
-
-#### fit markov chain ####
-mkvfit <- markovchainFit(data = focal$age_difference, # won't accept mkvseq but not sure why
-                         method = 'map',
-                         possibleStates = c('Older','Matched'))#,'Younger'))
-mkvfit
-
-## extract estimates
-est_mat <- mkvfit$estimate
-est_mat <- est_mat[1:nrow(est_mat),]
-
-## not actually got a clue what this does??
-neighbours <- new('markovchain',
-                  states = c('Older','Matched'),# 'Younger'),
-                  transitionMatrix = est_mat,
-                  name = 'neighbour chain')
-steadyStates(neighbours)
-
-#### plot nicely ####
-## plot basic
-plot(neighbours, nod.size = 5000, edge.curved = 0.5, 
-     vertex.color = "#1F968BFF", vertex.size = 75)
-
-## create edgelist for igraph
-edgelist <- as.data.frame(mkvseq_std)
-edgelist$original_state <- rownames(edgelist)
-edgelist <- edgelist %>%
-  pivot_longer(cols = c('Matched','Older'),
-               names_to = 'new_state', values_to = 'transition_probability')
-
-## add uncertainty to edgelist
-errors <- as.data.frame(mkvfit$standardError)
-colnames(errors) <- c('Matched','Older')
-rownames(errors) <- c('Matched','Older')
-errors$original_state <- rownames(errors)
-errors <- errors %>%
-  pivot_longer(cols = c('Matched','Older'),
-               names_to = 'new_state', values_to = 'error')
-edgelist <- edgelist %>% 
-  left_join(errors, by = c('original_state','new_state')) %>% 
-  mutate(lower = transition_probability - error,
-         upper = transition_probability + error)
-
-## create igraph object
-g <- graph_from_adjacency_matrix(mkvseq_std, weighted = T)
-par(mai = c(0.1,0.1,0.1,0.1))
-
-## plot with uncertainty
-coords <- matrix(data = c(0,2,1,1), byrow = T, nrow = 2,
-                 dimnames = list(c('Matched','Older'),
-                                 c('Matched','Older')))
-edge.label.x <- c(-0.45, 0.35, -0.5, 1.55)
-edge.label.y <- c(1.2, 0.35, -0.2, -0.8)
-plot.igraph(g, layout = coords,
-            vertex.label.color = 'white', label.family = 'Helvetica',
-            vertex.color = "#1F968BFF", vertex.size = 75,
-            frame.color = NA, frame.width = 0,
-            edge.color = 'grey', edge.arrow.size = 1, 
-            edge.width = edgelist$upper*10,
-            edge.label = NA,
-            edge.curved = 0.5)
-plot.igraph(g, layout = coords, add = T,
-            vertex.label.color = 'white', label.family = 'Helvetica',
-            vertex.color = "#1F968BFF", vertex.size = 75,
-            frame.color = NA, frame.width = 0,
-            edge.color = 'black', edge.arrow.size = 1, 
-            edge.width = edgelist$transition_probability*5,
-            edge.label = round(edgelist$transition_probability, 3),
-            edge.label.x = edge.label.x, edge.label.y = edge.label.y,
-            edge.curved = 0.5)
+# ################################ MARKOV MODEL WITH MARKOVCHAIN PACKAGE -- DOESN'T ALLOW ADDITION OF COVARIATES #############################
+# library(markovchain)
+# library(igraph)
+# 
+# #### create markov sequence ####
+# ## select individual elephant -- changes a couple of times between neighbours
+# focal <- nn_no_na %>% 
+#   filter(focal == 'b1_e24') %>% 
+#   mutate(age_difference = ifelse(age_difference == 'partner_older', 'Older',
+#                                  ifelse(age_difference == 'partner_younger', 'Younger', 'Matched')))
+# 
+# mkvseq <- createSequenceMatrix(focal$age_difference, sanitize = F)
+# mkvseq # transition matrix (unstandardised)
+# 
+# ## standardise matrix
+# mkvseq_std <- mkvseq
+# for(i in 1:nrow(mkvseq)){
+#   for(j in 1:ncol(mkvseq)){
+#     mkvseq_std[i,j] <- mkvseq_std[i,j] / sum(mkvseq[i,])
+#   }
+# }
+# 
+# #### fit markov chain ####
+# mkvfit <- markovchainFit(data = focal$age_difference, # won't accept mkvseq but not sure why
+#                          method = 'map',
+#                          possibleStates = c('Older','Matched'))#,'Younger'))
+# mkvfit
+# 
+# ## extract estimates
+# est_mat <- mkvfit$estimate
+# est_mat <- est_mat[1:nrow(est_mat),]
+# 
+# ## not actually got a clue what this does??
+# neighbours <- new('markovchain',
+#                   states = c('Older','Matched'),# 'Younger'),
+#                   transitionMatrix = est_mat,
+#                   name = 'neighbour chain')
+# steadyStates(neighbours)
+# 
+# #### plot nicely ####
+# ## plot basic
+# plot(neighbours, nod.size = 5000, edge.curved = 0.5, 
+#      vertex.color = "#1F968BFF", vertex.size = 75)
+# 
+# ## create edgelist for igraph
+# edgelist <- as.data.frame(mkvseq_std)
+# edgelist$original_state <- rownames(edgelist)
+# edgelist <- edgelist %>%
+#   pivot_longer(cols = c('Matched','Older'),
+#                names_to = 'new_state', values_to = 'transition_probability')
+# 
+# ## add uncertainty to edgelist
+# errors <- as.data.frame(mkvfit$standardError)
+# colnames(errors) <- c('Matched','Older')
+# rownames(errors) <- c('Matched','Older')
+# errors$original_state <- rownames(errors)
+# errors <- errors %>%
+#   pivot_longer(cols = c('Matched','Older'),
+#                names_to = 'new_state', values_to = 'error')
+# edgelist <- edgelist %>% 
+#   left_join(errors, by = c('original_state','new_state')) %>% 
+#   mutate(lower = transition_probability - error,
+#          upper = transition_probability + error)
+# 
+# ## create igraph object
+# g <- graph_from_adjacency_matrix(mkvseq_std, weighted = T)
+# par(mai = c(0.1,0.1,0.1,0.1))
+# 
+# ## plot with uncertainty
+# coords <- matrix(data = c(0,2,1,1), byrow = T, nrow = 2,
+#                  dimnames = list(c('Matched','Older'),
+#                                  c('Matched','Older')))
+# edge.label.x <- c(-0.45, 0.35, -0.5, 1.55)
+# edge.label.y <- c(1.2, 0.35, -0.2, -0.8)
+# plot.igraph(g, layout = coords,
+#             vertex.label.color = 'white', label.family = 'Helvetica',
+#             vertex.color = "#1F968BFF", vertex.size = 75,
+#             frame.color = NA, frame.width = 0,
+#             edge.color = 'grey', edge.arrow.size = 1, 
+#             edge.width = edgelist$upper*10,
+#             edge.label = NA,
+#             edge.curved = 0.5)
+# plot.igraph(g, layout = coords, add = T,
+#             vertex.label.color = 'white', label.family = 'Helvetica',
+#             vertex.color = "#1F968BFF", vertex.size = 75,
+#             frame.color = NA, frame.width = 0,
+#             edge.color = 'black', edge.arrow.size = 1, 
+#             edge.width = edgelist$transition_probability*5,
+#             edge.label = round(edgelist$transition_probability, 3),
+#             edge.label.x = edge.label.x, edge.label.y = edge.label.y,
+#             edge.curved = 0.5)
 
 ################################ MARKOV MODEL WITH MSM PACKAGE -- ALLOWS ADDITION OF COVARIATES AND CAN SPECIFY IMPOSSIBLE TRANSITIONS PER ELEPHANT, BUT CURRENTLY MODEL IS FAILING TO CONVERGE SO NEEDS A DIFFERENT OPTIMISATION #############################
 library(msm)
 
-## summarise state data transitions ####
+#### summarise state data transitions ####
 statetable.msm(age_diff_num, focal, data = nn_no_na)
+#     to
+# from     1     2     3     9
+#    1 16487    22    26    85
+#    2    25 18783    30    88
+#    3    27    32 14815    74
+#    9    44    42    44 13070
 
-#### fit markov chain ####
+#### prep for Markov chains ####
 ## define qmatrix -- matrix showing all the impossible transitions -- To tell msm what the allowed transitions of our model are, we define a matrix of the same size as as the statetable, containing zeroes in the positions where the transition is impossible. All other positions contain an initial value for the corresponding transition intensity. The diagonal entries supplied in this matrix do not matter, as the diagonal entries are defined as minus the sum of all the other entries in the row.
-qmat <- rbind(c(0.6, 0.2, 0.2),
-              c(0.2, 0.6, 0.2),
-              c(0.2, 0.2, 0.6))
+qmat <- rbind(c(0.8, 0.1, 0.1),
+              c(0.1, 0.8, 0.1),
+              c(0.1, 0.1, 0.8))
+
+## normalise time variable to help convergence
+# nn_no_na$time_norm <- NA
+# for(i in unique(nn_no_na$focal)){
+#   focal <- nn_no_na %>% 
+#     filter(focal == i)
+#   nn_no_na <- nn_no_na %>% 
+#     filter(focal != i)
+#   focal$time_norm <- focal$time_since_stim + abs(min(focal$time_since_stim)) +1
+#   focal$time_norm <- (focal$time_norm - min(focal$time_norm)) / (max(focal$time_norm) - min(focal$time_norm))
+#   nn_no_na <- rbind(nn_no_na, focal)
+# }
+nn_no_na$time_norm <- nn_no_na$time_since_stim / 60 # minutes not seconds
 
 ## get crude estimates
-crudes <- crudeinits.msm(age_diff_num ~ time_since_stim,
+crudes <- crudeinits.msm(age_diff_num ~ time_norm,
                          subject = focal, data = nn_no_na, qmatrix = qmat,
                          censor = 9)
 
@@ -320,64 +339,222 @@ for(i in 1:nrow(nn_mkv)){
 }
 init.probs <- matrix(data = NA, nrow = length(unique(nn_no_na$focal)),
                      ncol = 3, dimnames = list(unique(nn_no_na$focal), 1:3))
-# for(i in 1:nrow(init.probs)){
-#   if(nn_mkv$oldest[i] == 1){
-#     init.probs[i,] <- c(2/3, 1/3, 0) # change so that it's the number of individuals in each possible age category per group
-#   }
-#   if(nn_mkv$youngest[i] == 1){
-#     init.probs[i,] <- c(0, 1/3, 2/3) # change so that it's the number of individuals in each possible age category per group
-#   }
-#   if(nn_mkv$oldest[i] == 0 & nn_mkv$youngest[i] == 0){
-#     init.probs[i,] <- c(1/3, 1/3, 1/3) # change so that it's the number of individuals in each possible age category per group
-#   }
-# }
 for(i in 1:nrow(init.probs)){
   x <- nn_mkv[i,c('young','match','older')]
   init.probs[i,] <- as.matrix(x/sum(x))
 }
 
+## make all parts of the data set the same length, with additional "out of sight" rows, or it tried to fit them all to the same length of data (I believe)
+nn_mkv <- nn_no_na %>% 
+  select(age_diff_num, time_since_stim, time_norm,
+         f_age_cat, f_age_num, stim_type,
+         focal_id, stim_id, playback_id)
+min_start <- min(nn_mkv$time_since_stim)
+max_end <- max(nn_mkv$time_since_stim)
+for(i in unique(nn_mkv$focal_id)){
+  ## define the data frame per elephant
+  focal <- nn_mkv %>% 
+    filter(focal_id == i)
+  nn_mkv <- nn_mkv %>% 
+    filter(focal_id != i)
+  
+  ## define the range of the times for this particular individual
+  min_focal_start <- min(focal$time_since_stim)
+  max_focal_end <- max(focal$time_since_stim)
+  
+  ## create data frames to add to start
+  start_diff <- min_focal_start - min_start
+  if(min_focal_start != min_start){
+    start <- data.frame(age_diff_num = rep(9, start_diff),
+                        time_since_stim = min_start:(min_focal_start-1),
+                        time_norm = rep(NA, start_diff),
+                        f_age_cat = rep(focal$f_age_cat[1], start_diff),
+                        f_age_num = rep(focal$f_age_num[1], start_diff),
+                        stim_type = rep(focal$stim_type[1], start_diff),
+                        focal_id = rep(focal$focal_id[1], start_diff),
+                        stim_id = rep(focal$stim_id[1], start_diff),
+                        playback_id = rep(focal$playback_id[1], start_diff)) %>% 
+      mutate(time_norm = time_since_stim / 60)
+  } else {
+    start <- data.frame(age_diff_num = rep(NA,0),
+                        time_since_stim = rep(NA,0),
+                        time_norm = rep(NA,0),
+                        f_age_cat = rep(NA,0),
+                        f_age_num = rep(NA,0),
+                        stim_type = rep(NA,0),
+                        focal_id = rep(NA,0),
+                        stim_id = rep(NA,0),
+                        playback_id = rep(NA,0))
+  }
+  
+  ## create data frames to add to end
+  end_diff <- max_end - max_focal_end
+  if(max_focal_end != max_end){
+    end <- data.frame(age_diff_num = rep(9, end_diff),
+                      time_since_stim = (max_focal_end+1):max_end,
+                      time_norm = rep(NA, end_diff),
+                      f_age_cat = rep(focal$f_age_cat[1], end_diff),
+                      f_age_num = rep(focal$f_age_num[1], end_diff),
+                      stim_type = rep(focal$stim_type[1], end_diff),
+                      focal_id = rep(focal$focal_id[1], end_diff),
+                      stim_id = rep(focal$stim_id[1], end_diff),
+                      playback_id = rep(focal$playback_id[1], end_diff)) %>% 
+      mutate(time_norm = time_since_stim / 60)
+  } else {
+    end <- data.frame(age_diff_num = rep(NA,0),
+                      time_since_stim = rep(NA,0),
+                      time_norm = rep(NA,0),
+                      f_age_cat = rep(NA,0),
+                      f_age_num = rep(NA,0),
+                      stim_type = rep(NA,0),
+                      focal_id = rep(NA,0),
+                      stim_id = rep(NA,0),
+                      playback_id = rep(NA,0))
+  }
+  
+  ## combine together
+  focal <- rbind(start, focal, end)
+  nn_mkv <- rbind(nn_mkv, focal)
+}
+rm(pb, x, start, end, focal, max_end, max_focal_start, max_x_end, min_focal_start, min_start, min_x_start, start_diff, end_diff, i) ; gc()
+
+#### fit Markov chains ####
 ## fit chain -- baseline probabilities
-mkv_base <- msm(formula = age_diff_num ~ time_since_stim,
-                subject = focal,
-                data = nn_no_na,
+mkv_base <- msm(formula = age_diff_num ~ time_norm,
+                subject = focal_id,
+                data = nn_mkv,
                 qmatrix = qmat,
                 exacttimes = T,
                 initprobs = init.probs,
                 censor = 9)
-
 mkv_base
-# Maximum likelihood estimates
-# Transition intensities
-#                    Baseline                        
-# State 1 - State 1 -0.002784 (-0.0036592,-0.002117) # 1/-0.002874 = average 359 seconds remain nearest younger when already nearest younger
-# State 1 - State 2  0.001293 ( 0.0008664, 0.001929) # similar probability of younger->matched
-# State 1 - State 3  0.001491 ( 0.0010234, 0.002171) # as probability of younger->older
-# State 2 - State 1  0.001305 ( 0.0008836, 0.001927)
-# State 2 - State 2 -0.002921 (-0.0037871,-0.002252) # average 342 seconds remain nearest age matched when already nearest age matched
-# State 2 - State 3  0.001616 ( 0.0011383, 0.002293)
-# State 3 - State 1  0.001710 ( 0.0011830, 0.002471) # all states show slightly lower chance of transition to be near younger/same age
-# State 3 - State 2  0.001950 ( 0.0013862, 0.002744) # than same age/older
-# State 3 - State 3 -0.003660 (-0.0046990,-0.002851) # average 273 seconds remain nearest older when already nearest older
-# -2 * log-likelihood:  2464.636 
+# Maximum likelihood estimates -- raw minutes (time = -3 to +3)
+#                   Baseline                     
+# State 1 - State 1 -25.67454 (-26.11995,-25.2367)
+# State 1 - State 2   0.08379 (  0.05752,  0.1221)
+# State 1 - State 3  25.59075 ( 25.15347, 26.0356)
+# State 2 - State 1   0.21147 (  0.15112,  0.2959)
+# State 2 - State 2  -0.48117 ( -0.56428, -0.4103)
+# State 2 - State 3   0.26970 (  0.20350,  0.3574)
+# State 3 - State 1  27.33383 ( 26.86692, 27.8088)
+# State 3 - State 2   0.13572 (  0.10185,  0.1809)
+# State 3 - State 3 -27.46955 (-27.94550,-27.0017)
+# -2 * log-likelihood:  -128336.6 
 
 ## fit chain with covariates -- currently has issues with optimisation
-mkv_cov <- msm(formula = age_diff_num ~ time_since_stim,
-               subject = focal,
-               data = nn_no_na,
+mkv_cov <- msm(formula = age_diff_num ~ time_norm,    # response and time variable
+               subject = focal_id,                    # separate different identities
+               data = nn_mkv,                         # data frame of interest
+               qmatrix = qmat,                        # self-defined q-matrix
+               covariates = ~ f_age_num + stim_type,  # covariates of interest -- NOTE: F_AGE_NUM IS BEING TREATED AS A CONTINUOUS VARIABLE HERE, NOT A CATEGORICAL. CATEGORICAL CAUSES OVERPARAMETERISATION AND THE MODEL FAILS, BUT CONTINUOUS IS WRONG.
+               exacttimes = T, #obstype = 2,          # know the times that individuals switched exactly
+               opt.method = 'optim',                  # optimisation -- this is the default and may need to change
+               hessian = T,                           # don't understand this bit -- also the default
+               gen.inits = F,                         # don't generate initial probabilities in the model
+               initprobs = init.probs,                # use these initial probabilities
+               censor = 9,                            # censored category (elephant out of sight) = 9
+               censor.states = c(1,2,3),              # censored category could mean true value is any other
+               control = list(#reltol = 1e-32,        # set controls for optimiser 
+                              #ndeps = rep(1e-6,length(unique(nn_no_na$focal)) + 7),
+                              fnscale=4000))
+mkv_cov # note DOES NOT CONVERGE
+# msm(formula = age_diff_num ~ time_norm, subject = focal_id, data = nn_mkv, qmatrix = qmat, gen.inits = F, covariates = ~f_age_num + stim_type, initprobs = init.probs, exacttimes = T, censor = 9, censor.states = c(1, 2, 3), opt.method = "optim", hessian = T, control = list(fnscale = 4000))
+#                   Baseline                       f_age_num              stim_typeh           stim_typel           
+# State 1 - State 1 -26.86335 (-27.33516,-26.3997)                                                                  
+# State 1 - State 2   0.06991 (  0.04243,  0.1152) 1.6126 (1.0081,2.5798) 1.797 (0.8830,3.657) 0.7221 (0.2081,2.506)
+# State 1 - State 3  26.79343 ( 26.33038, 27.2646) 0.5673 (0.5556,0.5792) 1.249 (1.2020,1.298) 1.3048 (1.2413,1.371)
+# State 2 - State 1   0.16204 (  0.08684,  0.3024) 1.4183 (0.9572,2.1016) 2.863 (1.0294,7.962) 0.9889 (0.2901,3.371)
+# State 2 - State 2  -0.40682 ( -0.50213, -0.3296)                                                                  
+# State 2 - State 3   0.24479 (  0.15548,  0.3854) 0.4003 (0.2585,0.6201) 1.285 (0.6166,2.680) 1.5264 (0.6593,3.534)
+# State 3 - State 1  30.87882 ( 30.34497, 31.4221) 1.5825 (1.5482,1.6176) 0.999 (0.9616,1.038) 1.0675 (1.0165,1.121)
+# State 3 - State 2   0.10939 (  0.06923,  0.1729) 0.7191 (0.4452,1.1615) 1.201 (0.6125,2.357) 2.3157 (1.1082,4.839)
+# State 3 - State 3 -30.98822 (-31.53249,-30.4533)                                                                  
+# -2 * log-likelihood:  -132956.1
+
+mkv_stm <- msm(formula = age_diff_num ~ time_norm,   # time_since_stim,
+               subject = focal_id,
+               data = nn_mkv,
                qmatrix = qmat,
-               covariates = ~ f_age_cat + stim_type,
+               covariates = ~ stim_type,
                exacttimes = T, #obstype = 2,
                opt.method = 'optim',
                hessian = T,
                gen.inits = T,
                initprobs = init.probs,
-               censor = 9)
-mkv_cov
+               censor = 9,
+               censor.states = c(1,2,3))
+mkv_stm
+# msm(formula = age_diff_num ~ time_norm, subject = focal_id, data = nn_mkv,     qmatrix = qmat, gen.inits = T, covariates = ~stim_type, initprobs = init.probs,     exacttimes = T, censor = 9, censor.states = c(1, 2, 3), opt.method = "optim",     hessian = T)
+#                   Baseline                             stim_typeh            stim_typel                    
+# State 1 - State 1  -0.460361 ( -7.651e-01, -2.770e-01)                                                     
+# State 1 - State 2   0.248935 (  1.721e-01,  3.601e-01) 1.5501 (0.7193,3.341) 1.989e+00 (0.6796018,  5.8193)
+# State 1 - State 3   0.211426 (  6.075e-02,  7.358e-01) 1.6167 (0.8727,2.995) 1.878e-01 (0.0003366,104.7731)
+# State 2 - State 1   0.075373 (  4.428e-02,  1.283e-01) 3.0764 (1.0043,9.424) 1.991e+00 (0.6159979,  6.4371)
+# State 2 - State 2 -24.399424 ( -2.482e+01, -2.398e+01)                                                     
+# State 2 - State 3  24.324051 (  2.391e+01,  2.475e+01) 1.0442 (1.0050,1.085) 6.175e-01 (0.5878776,  0.6486)
+# State 3 - State 1   0.009473 ( 6.689e-115, 1.342e+110) 0.8854 (0.4807,1.631) 6.758e-07 (0.0000000,     Inf)
+# State 3 - State 2  27.466955 (  2.700e+01,  2.795e+01) 1.0030 (0.9654,1.042) 1.151e+00 (1.0960311,  1.2092)
+# State 3 - State 3 -27.476428 ( -3.008e+01, -2.509e+01)                                                     
+# -2 * log-likelihood:  -127532.3 
 
+mkv_age <- msm(formula = age_diff_num ~ time_norm,
+               subject = focal_id,
+               data = nn_mkv,
+               qmatrix = qmat,
+               covariates = ~ f_age_num, # treats this as a continuous variable not an ordered categorical -- this is WRONG but I can't find how to make it take an ordered categoricala at all, and a regular categorical just leads to overparameterisation and failed convergence
+               exacttimes = T, #obstype = 2,
+               opt.method = 'optim',
+               hessian = T,
+               gen.inits = T,
+               initprobs = init.probs,
+               censor = 9,
+               censor.states = c(1,2,3))
+mkv_age
+# msm(formula = age_diff_num ~ time_norm, subject = focal_id, data = nn_mkv, qmatrix = qmat, gen.inits = T, covariates = ~f_age_num, initprobs = init.probs, exacttimes = T, censor = 9, censor.states = c(1, 2, 3), opt.method = "optim", hessian = T)
+#                   Baseline                       f_age_num                
+# State 1 - State 1  -0.72653 ( -0.88043, -0.5995)                          
+# State 1 - State 2   0.32466 (  0.22651,  0.4653) 0.05250 (0.04241,0.06501) # increase f_age_num by 1 category = reduce Pr(y -> m) by 95%
+# State 1 - State 3   0.40187 (  0.30141,  0.5358) 0.68047 (0.47092,0.98325) # reduce Pr(y -> o) by 93%
+# State 2 - State 1   0.11664 (  0.08498,  0.1601) 1.74485 (1.22233,2.49075) # increase Pr(m -> y) by 74%
+# State 2 - State 2 -23.93943 (-24.36220,-23.5240)
+# State 2 - State 3  23.82279 ( 23.40860, 24.2443) 0.80215 (0.78584,0.81879) # reduce Pr(m -> o) by 20%
+# State 3 - State 1   0.01268 (  0.00781,  0.0206) 0.01736 (0.01297,0.02322) # reduce Pr(o -> y) to almost nothing
+# State 3 - State 2  29.11131 ( 28.58774, 29.6445) 1.89735 (1.85195,1.94386) # increase Pr(o -> m) by 90%
+# State 3 - State 3 -29.12399 (-29.65708,-28.6005)                          
+# -2 * log-likelihood:  -129871
 
+qmatrix.msm(x = mkv_cov, covariates = 'mean', sojourn = T, ci = 'bootstrap') # calculate transition intensity matrix
+#           State 1                        State 2                        State 3                       
+# 
 
+sojourn.msm(mkv_cov) # time predicted to be spent in each state
+#          estimates           SE          L          U
+# State 1 0.03722544 0.0003306851 0.03658292 0.03787925
+# State 2 2.45807413 0.2639655757 1.99153007 3.03391273
+# State 3 0.03227033 0.0002866732 0.03171333 0.03283712
 
-###########################################################################
+pmatrix.msm(mkv_cov, t=1)  # transition probability at time 1
+#           State 1   State 2   State 3
+# State 1 0.4983486 0.06940858 0.4322428
+# State 2 0.1711802 0.67915503 0.1496647
+# State 3 0.4981231 0.06982880 0.4320481
+
+pmatrix.msm(mkv_cov, t=10) # transition probability at time 10 -- is there a way to do this for t=start of playback?
+#           State 1  State 2   State 3
+# State 1 0.4406180 0.1770016 0.3823804
+# State 2 0.4368173 0.1840850 0.3790977
+# State 3 0.4406154 0.1770065 0.3823781
+
+pmatrix.msm(mkv_cov, ci="boot", B=100) # Repeatedly draw bootstrap resamples of the data, refit the model for each sample, and summarise the estimates over the repeated samples
+# 
+
+totlos.msm(mkv_cov, t=10)  # predicted length of time spent in each state, both now and in the future
+#  State 1  State 2  State 3 
+# 4.599630 1.424465 3.975905
+
+plot.prevalence.msm(mkv_cov) # plot predictions for proportion of population in each state, based on starting proportions
+
+################################ ORDINAL REGRESSION MODEL -- WRONG, AS NOTHING STOPPING A DIRECT CHANGE FROM YOUNGER TO OLDER, DOESN'T HAVE TO GO THROUGH SAME AGE. CONVERT TO A MULTINOMIAL IF DAN CAN'T WORK OUT HOW TO DO IT AS A MARKOV ###########################################
 # #### ordinal logistic regression -- run model ####
 # # https://dagitty.net/dags.html?id=fQrEyF#
 # pdf('outputs/neighbour_ordinal_model/neighbour_ordinal_modelprep.pdf')
@@ -2049,3 +2226,4 @@ mkv_cov
 # 
 # save.image('ele_playbacks/nearest_neighbour/neighbour_ordinal_timecontrasts.RData')
 # dev.off()
+
