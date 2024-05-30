@@ -558,152 +558,187 @@ set.seed(12345)
 # #### calculate posterior contrasts from predictions ####
 # load('movement_direction/movement_binomial_predictions.RData')
 # 
-## stim type ####
-move_new <- move_no_na %>%
-  dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
-                focal_id, stim_id, playback_id) %>%
-  mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
-
-## redo predictions with different stimulus types: all doves
-ctd_move <- move_new %>%
-  mutate(stim_type = 'ctd')
-ctd_mtx <- posterior_epred(object = mbm_fit, newdata = ctd_move)
-colnames(ctd_mtx) <- ctd_move$unique_data_combo
-ctd_mtx <- ctd_mtx[c(1:100,1001:1100,2001:2100,3001:3100),]
-
-## redo predictions with different stimulus types: all lions
-lion_move <- move_new %>%
-  mutate(stim_type = 'l')
-lion_mtx <- posterior_epred(object = mbm_fit, newdata = lion_move)
-colnames(lion_mtx) <- lion_move$unique_data_combo
-lion_mtx <- lion_mtx[c(1:100,1001:1100,2001:2100,3001:3100),]
-
-## redo predictions with different stimulus types: all humans
-human_move <- move_new %>%
-  mutate(stim_type = 'h')
-human_mtx <- posterior_epred(object = mbm_fit, newdata = human_move)
-colnames(human_mtx) <- human_move$unique_data_combo
-human_mtx <- human_mtx[c(1:100,1001:1100,2001:2100,3001:3100),]
-
-## calculate contrasts
-ctd_vs_lion <- lion_mtx - ctd_mtx
-ctd_vs_human <- human_mtx - ctd_mtx
-lion_vs_human <- human_mtx - lion_mtx
-
-## summarise contrasts
-contrasts <- move_no_na %>%
-  select(-stim_type) %>%
-  mutate(ctd_vs_lion_mu = apply(ctd_vs_lion, 2, mean),
-         ctd_vs_lion_sd = apply(ctd_vs_lion, 2, sd),
-         ctd_vs_human_mu = apply(ctd_vs_human, 2, mean),
-         ctd_vs_human_sd = apply(ctd_vs_human, 2, sd),
-         lion_vs_human_mu = apply(lion_vs_human, 2, mean),
-         lion_vs_human_sd = apply(lion_vs_human, 2, sd))
-contrasts_long <- contrasts %>%
-  pivot_longer(cols = c(ctd_vs_lion_mu, ctd_vs_human_mu, lion_vs_human_mu),
-               names_to = 'contrast', values_to = 'difference') %>%
-  separate(contrast, into = c('contrast','mu'),
-           sep = -3, remove = T) %>%
-  select(-mu, -ctd_vs_lion_sd, -ctd_vs_human_sd, -lion_vs_human_sd)
-
-## save contrasts
-save.image('movement_direction/movement_binomial_stimuluscontrasts.RData')
-
-# plot contrasts
-contrasts_long %>%
-  mutate(contrast = ifelse(contrast == 'ctd_vs_human',
-                           'dove -> human',
-                           ifelse(contrast == 'ctd_vs_lion',
-                                  'dove -> lion', 'lion -> human'))) %>% 
-  ggplot()+
-  geom_density(aes(x = difference, colour = contrast))+
-  scale_colour_viridis_d()+
-  labs(colour = 'effect of changing stimulus')
-
-save.image('movement_direction/movement_binomial_stimuluscontrasts.RData')
-rm(ctd_move, lion_move, human_move, ctd_mtx, human_mtx, lion_mtx) ; gc()
-
-## focal age ####
-move_new <- move_new %>%
-  mutate(unique_data_combo = as.integer(as.factor(paste0(stim_type, move_tminus1_num, after_stim,
-                                                         focal_id, stim_id, playback_id))))
-
-## predict with original ages
-age_move_org <- move_new
-age_mtx_org <- posterior_epred(object = mbm_fit, newdata = age_move_org)
-colnames(age_mtx_org) <- age_move_org$unique_data_combo
-age_mtx_org <- age_mtx_org[c(1:100,1001:1100,2001:2100,3001:3100),,]
-
-## redo predictions with altered ages
-age_move_alt <- move_new %>%
-  mutate(f_age_num_original = f_age_num) %>%
-  mutate(f_age_num = ifelse(f_age_num == 4, 1, f_age_num + 1)) %>%
-  relocate(f_age_num_original)
-age_mtx_alt <- posterior_epred(object = mbm_fit, newdata = age_move_alt)
-colnames(age_mtx_alt) <- age_move_alt$unique_data_combo
-age_mtx_alt <- age_mtx_alt[c(1:100,1001:1100,2001:2100,3001:3100),,]
-
-save.image('movement_direction/movement_binomial_agecontrasts.RData')
-
-## time since stimulus -- untested! ####
-#load('movement_direction/movement_binomial_agecontrasts.RData')
-rm(list = ls()[!ls() %in% c('mom1_fit','move_no_na')]) ; gc()
-
-## create new data frme to calculate from
-time_new <- move_no_na %>%
-  dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
-                focal_id, stim_id, playback_id) %>%
-  mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
-
-## predict with original times
-time_move_org <- time_new
-time_mtx_org <- posterior_epred(object = mbm_fit, newdata = time_move_org)
-colnames(time_mtx_org) <- time_move_org$unique_data_combo
-time_mtx_org <- time_mtx_org[c(1:100,1001:1100,2001:2100,3001:3100),]
-
-## redo predictions with shifted times: +15 seconds
-time_move_alt_0.25 <- time_new %>%
-  mutate(after_stim_org = after_stim) %>%
-  mutate(after_stim = after_stim + 1/4) %>% 
-  #mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>% # commented out because I THINK this should actually be the same as before and not overwritten with the new f_age_num, but I'm not certain
-  relocate(after_stim_org)
-time_mtx_alt_0.25 <- posterior_epred(object = mbm_fit, newdata = time_move_alt_0.25)
-colnames(time_mtx_alt_0.25) <- time_move_alt_0.25$unique_data_combo
-time_mtx_alt_0.25 <- time_mtx_alt_0.25[c(1:100,1001:1100,2001:2100,3001:3100),]
-
-## redo predictions with shifted times: +30 seconds
-time_move_alt_0.50 <- time_new %>%
-  mutate(after_stim_org = after_stim) %>%
-  mutate(after_stim = after_stim + 1/2) %>% 
-  #mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>% # commented out because I THINK this should actually be the same as before and not overwritten with the new f_age_num, but I'm not certain
-  relocate(after_stim_org)
-time_mtx_alt_0.50 <- posterior_epred(object = mbm_fit, newdata = time_move_alt_0.50)
-colnames(time_mtx_alt_0.50) <- time_move_alt_0.50$unique_data_combo
-time_mtx_alt_0.50 <- time_mtx_alt_0.50[c(1:100,1001:1100,2001:2100,3001:3100),]
-
-## redo predictions with shifted times: +45 seconds
-time_move_alt_0.75 <- time_new %>%
-  mutate(after_stim_org = after_stim) %>%
-  mutate(after_stim = after_stim + 3/4) %>% 
-  #mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>% # commented out because I THINK this should actually be the same as before and not overwritten with the new f_age_num, but I'm not certain
-  relocate(after_stim_org)
-time_mtx_alt_0.75 <- posterior_epred(object = mbm_fit, newdata = time_move_alt_0.75)
-colnames(time_mtx_alt_0.75) <- time_move_alt_0.75$unique_data_combo
-time_mtx_alt_0.75 <- time_mtx_alt_0.75[c(1:100,1001:1100,2001:2100,3001:3100),]
-
-## redo predictions with shifted times: +60 seconds
-time_move_alt_1.00 <- time_new %>%
-  mutate(after_stim_org = after_stim) %>%
-  mutate(after_stim = after_stim + 1) %>% 
-  #mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>% # commented out because I THINK this should actually be the same as before and not overwritten with the new f_age_num, but I'm not certain
-  relocate(after_stim_org)
-time_mtx_alt_1.00 <- posterior_epred(object = mbm_fit, newdata = time_move_alt_1.00)
-colnames(time_mtx_alt_1.00) <- time_move_alt_1.00$unique_data_combo
-time_mtx_alt_1.00 <- time_mtx_alt_1.00[c(1:100,1001:1100,2001:2100,3001:3100),]
-
-save.image('movement_direction/movement_model_timecontrasts_epred.RData')
-
+# ## stim type ####
+# move_new <- move_no_na %>%
+#   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
+#                 focal_id, stim_id, playback_id) %>%
+#   mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
+# 
+# ## redo predictions with different stimulus types: all doves
+# ctd_move <- move_new %>%
+#   mutate(stim_type = 'ctd')
+# ctd_mtx <- posterior_epred(object = mbm_fit, newdata = ctd_move)
+# colnames(ctd_mtx) <- ctd_move$unique_data_combo
+# ctd_mtx <- ctd_mtx[c(1:100,1001:1100,2001:2100,3001:3100),]
+# 
+# ## redo predictions with different stimulus types: all lions
+# lion_move <- move_new %>%
+#   mutate(stim_type = 'l')
+# lion_mtx <- posterior_epred(object = mbm_fit, newdata = lion_move)
+# colnames(lion_mtx) <- lion_move$unique_data_combo
+# lion_mtx <- lion_mtx[c(1:100,1001:1100,2001:2100,3001:3100),]
+# 
+# ## redo predictions with different stimulus types: all humans
+# human_move <- move_new %>%
+#   mutate(stim_type = 'h')
+# human_mtx <- posterior_epred(object = mbm_fit, newdata = human_move)
+# colnames(human_mtx) <- human_move$unique_data_combo
+# human_mtx <- human_mtx[c(1:100,1001:1100,2001:2100,3001:3100),]
+# 
+# ## calculate contrasts
+# ctd_vs_lion <- lion_mtx - ctd_mtx
+# ctd_vs_human <- human_mtx - ctd_mtx
+# lion_vs_human <- human_mtx - lion_mtx
+# 
+# ## summarise contrasts
+# contrasts <- move_no_na %>%
+#   select(-stim_type) %>%
+#   mutate(ctd_vs_lion_mu = apply(ctd_vs_lion, 2, mean),
+#          ctd_vs_lion_sd = apply(ctd_vs_lion, 2, sd),
+#          ctd_vs_human_mu = apply(ctd_vs_human, 2, mean),
+#          ctd_vs_human_sd = apply(ctd_vs_human, 2, sd),
+#          lion_vs_human_mu = apply(lion_vs_human, 2, mean),
+#          lion_vs_human_sd = apply(lion_vs_human, 2, sd))
+# contrasts_long <- contrasts %>%
+#   pivot_longer(cols = c(ctd_vs_lion_mu, ctd_vs_human_mu, lion_vs_human_mu),
+#                names_to = 'contrast', values_to = 'difference') %>%
+#   separate(contrast, into = c('contrast','mu'),
+#            sep = -3, remove = T) %>%
+#   select(-mu, -ctd_vs_lion_sd, -ctd_vs_human_sd, -lion_vs_human_sd)
+# 
+# ## save contrasts
+# save.image('movement_direction/movement_binomial_stimuluscontrasts.RData')
+# 
+# ## produce values for reporting
+# median(ctd_vs_lion)  ; mean(ctd_vs_lion)  ; sd(ctd_vs_lion)   # 
+# median(ctd_vs_human) ; mean(ctd_vs_human) ; sd(ctd_vs_human)  # 
+# median(lion_vs_human); mean(lion_vs_human); sd(lion_vs_human) # 
+# 
+# ## plot contrasts
+# contrasts_long %>%
+#   mutate(contrast = ifelse(contrast == 'ctd_vs_human',
+#                            'dove -> human',
+#                            ifelse(contrast == 'ctd_vs_lion',
+#                                   'dove -> lion', 'lion -> human'))) %>%
+#   ggplot()+
+#   geom_density(aes(x = difference, colour = contrast))+
+#   scale_colour_viridis_d()+
+#   labs(colour = 'effect of changing stimulus')
+# 
+# save.image('movement_direction/movement_binomial_stimuluscontrasts.RData')
+# rm(ctd_move, lion_move, human_move, ctd_mtx, human_mtx, lion_mtx) ; gc()
+# 
+# ## focal age ####
+# move_new <- move_new %>%
+#   mutate(unique_data_combo = as.integer(as.factor(paste0(stim_type, move_tminus1_num, after_stim,
+#                                                          focal_id, stim_id, playback_id))))
+# 
+# ## predict with original ages
+# age_move_org <- move_new
+# age_mtx_org <- posterior_epred(object = mbm_fit, newdata = age_move_org)
+# colnames(age_mtx_org) <- age_move_org$unique_data_combo
+# age_mtx_org <- age_mtx_org[c(1:100,1001:1100,2001:2100,3001:3100),]
+# 
+# ## redo predictions with altered ages
+# age_move_alt <- move_new %>%
+#   mutate(f_age_num_original = f_age_num) %>%
+#   mutate(f_age_num = ifelse(f_age_num == 4, 1, f_age_num + 1)) %>%
+#   relocate(f_age_num_original)
+# age_mtx_alt <- posterior_epred(object = mbm_fit, newdata = age_move_alt)
+# colnames(age_mtx_alt) <- age_move_alt$unique_data_combo
+# age_mtx_alt <- age_mtx_alt[c(1:100,1001:1100,2001:2100,3001:3100),]
+# 
+# save.image('movement_direction/movement_binomial_agecontrasts.RData')
+# 
+# ## calculate contrasts
+# age_contrast <- age_mtx_alt - age_mtx_org
+# 
+# ## plot overall effect
+# plot(density(age_contrast))
+# 
+# ## plot effect per category
+# age1_vs_age2 <- age_contrast[,which(age_move_org$f_age_num == 1)]
+# age2_vs_age3 <- age_contrast[,which(age_move_org$f_age_num == 2)]
+# age3_vs_age4 <- age_contrast[,which(age_move_org$f_age_num == 3)]
+# age1_vs_age4 <- age_contrast[,which(age_move_org$f_age_num == 4)]*-1
+# 
+# ## plot category effects
+# plot(density(age1_vs_age2), col = 'blue',
+#      xlim = c(-0.2,0), ylim = c(0,500), las = 1,
+#      main = 'contrasts between age categories:\nblue = 1->2, red = 2->3,\ngreen = 3->4, purple = 1->4')
+# lines(density(age2_vs_age3), col = 'red')
+# lines(density(age3_vs_age4), col = 'green')
+# lines(density(age1_vs_age4), col = 'purple')
+# 
+# ## calculate contrast values -- for all, standard deviation > median or mean, so difference is centered on zero
+# median(age1_vs_age2) ; mean(age1_vs_age2) ; sd(age1_vs_age2) # -0.004275072 ; -0.006777268 ; 0.007706321
+# median(age2_vs_age3) ; mean(age2_vs_age3) ; sd(age2_vs_age3) # -0.001301478 ; -0.002223766 ; 0.002880161
+# median(age3_vs_age4) ; mean(age3_vs_age4) ; sd(age3_vs_age4) # -0.002029613 ; -0.003469263 ; 0.004760617
+# median(age1_vs_age4) ; mean(age1_vs_age4) ; sd(age1_vs_age4) # -0.006466953 ; -0.009907014 ; 0.01143831
+# 
+# ## save output
+# save.image('movement_direction/movement_binomial_agecontrasts.RData')
+# 
+# ## time since stimulus -- including all 0 times ####
+# load('movement_direction/movement_binomial_agecontrasts.RData')
+# rm(list = ls()[!ls() %in% c('mbm_fit','move_no_na')]) ; gc()
+# 
+# ## create new data frme to calculate from
+# time_new <- move_no_na %>%
+#   dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
+#                 focal_id, stim_id, playback_id) %>%
+#   mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
+# 
+# ## predict with original times
+# time_move_org <- time_new
+# time_mtx_org <- posterior_epred(object = mbm_fit, newdata = time_move_org)
+# colnames(time_mtx_org) <- time_move_org$unique_data_combo
+# time_mtx_org <- time_mtx_org[c(1:100,1001:1100,2001:2100,3001:3100),]
+# 
+# ## redo predictions with shifted times: +15 seconds
+# time_move_alt_0.25 <- time_new %>%
+#   mutate(after_stim_org = after_stim) %>%
+#   mutate(after_stim = after_stim + 1/4) %>%
+#   #mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>% # commented out because I THINK this should actually be the same as before and not overwritten with the new f_age_num, but I'm not certain
+#   relocate(after_stim_org)
+# time_mtx_alt_0.25 <- posterior_epred(object = mbm_fit, newdata = time_move_alt_0.25)
+# colnames(time_mtx_alt_0.25) <- time_move_alt_0.25$unique_data_combo
+# time_mtx_alt_0.25 <- time_mtx_alt_0.25[c(1:100,1001:1100,2001:2100,3001:3100),]
+# 
+# ## redo predictions with shifted times: +30 seconds
+# time_move_alt_0.50 <- time_new %>%
+#   mutate(after_stim_org = after_stim) %>%
+#   mutate(after_stim = after_stim + 1/2) %>%
+#   #mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>% # commented out because I THINK this should actually be the same as before and not overwritten with the new f_age_num, but I'm not certain
+#   relocate(after_stim_org)
+# time_mtx_alt_0.50 <- posterior_epred(object = mbm_fit, newdata = time_move_alt_0.50)
+# colnames(time_mtx_alt_0.50) <- time_move_alt_0.50$unique_data_combo
+# time_mtx_alt_0.50 <- time_mtx_alt_0.50[c(1:100,1001:1100,2001:2100,3001:3100),]
+# 
+# ## redo predictions with shifted times: +45 seconds
+# time_move_alt_0.75 <- time_new %>%
+#   mutate(after_stim_org = after_stim) %>%
+#   mutate(after_stim = after_stim + 3/4) %>%
+#   #mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>% # commented out because I THINK this should actually be the same as before and not overwritten with the new f_age_num, but I'm not certain
+#   relocate(after_stim_org)
+# time_mtx_alt_0.75 <- posterior_epred(object = mbm_fit, newdata = time_move_alt_0.75)
+# colnames(time_mtx_alt_0.75) <- time_move_alt_0.75$unique_data_combo
+# time_mtx_alt_0.75 <- time_mtx_alt_0.75[c(1:100,1001:1100,2001:2100,3001:3100),]
+# 
+# ## redo predictions with shifted times: +60 seconds
+# time_move_alt_1.00 <- time_new %>%
+#   mutate(after_stim_org = after_stim) %>%
+#   mutate(after_stim = after_stim + 1) %>%
+#   #mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>% # commented out because I THINK this should actually be the same as before and not overwritten with the new f_age_num, but I'm not certain
+#   relocate(after_stim_org)
+# time_mtx_alt_1.00 <- posterior_epred(object = mbm_fit, newdata = time_move_alt_1.00)
+# colnames(time_mtx_alt_1.00) <- time_move_alt_1.00$unique_data_combo
+# time_mtx_alt_1.00 <- time_mtx_alt_1.00[c(1:100,1001:1100,2001:2100,3001:3100),]
+# 
+# save.image('movement_direction/movement_binomial_timecontrasts.RData')
+# 
 # ## summarise and convert to long format
+# load('movement_direction/movement_binomial_timecontrasts.RData')
 # time_pred <- time_move_org %>%
 #   mutate(time_org_0.00_mu = apply(time_mtx_org, 2, mean),
 #          time_org_0.00_sd = apply(time_mtx_org, 2, sd),
@@ -720,26 +755,28 @@ save.image('movement_direction/movement_model_timecontrasts_epred.RData')
 #   pivot_longer(cols = c(time_org_0.00_sd, time_alt_0.25_sd, time_alt_0.50_sd, time_alt_0.75_sd, time_alt_1.00_sd,),
 #                names_to = 'time_org_alt_prop_agemove_sd', values_to = 'stdv_propn') %>%
 #   separate(col = time_org_alt_prop_agemove_mu,
-#            into = c('time_mu','org_mu','alt_mu','prop_agemove_mu','mu'),
+#            into = c('time_mu','org_mu','alt_mu','mu'),
 #            sep = '_', remove = T) %>%
 #   separate(col = time_org_alt_prop_agemove_sd,
-#            into = c('time_sd','org_sd','alt_sd','prop_agemove_sd','sd'),
+#            into = c('time_sd','org_sd','alt_sd','sd'),
 #            sep = '_', remove = T) %>%
 #   select(-time_mu,-org_mu, -time_sd,-org_sd,-mu,-sd) %>%
-#   filter(alt_mu == alt_sd & prop_agemove_sd == prop_agemove_mu) %>%
-#   mutate(move_pred = ifelse(prop_agemove_mu == 'prop1', 1,
-#                             ifelse(prop_agemove_mu == 'prop2', 2,
-#                                    ifelse(prop_agemove_mu == 'prop3', 3, 4)))) %>%
-#   select(-alt_sd, -prop_agemove_mu, -prop_agemove_sd) %>%
-#   rename(mins_added = alt_mu) %>%
-#   mutate(pred_type = ifelse(move_pred == 1, 'younger',
-#                             ifelse(move_pred == 2, 'matched', 'older')))
+#   filter(alt_mu == alt_sd) %>%
+#   dplyr::select(-alt_sd) %>% 
+#   # mutate(move_pred = ifelse(prop_agemove_mu == 'prop1', 1,
+#   #                           ifelse(prop_agemove_mu == 'prop2', 2,
+#   #                                  ifelse(prop_agemove_mu == 'prop3', 3, 4)))) %>%
+#   # select(-prop_agemove_mu, -prop_agemove_sd) %>%
+#   # mutate(pred_type = ifelse(move_pred == 1, 'younger',
+#   #                           ifelse(move_pred == 2, 'matched', 'older'))) %>% 
+#   rename(mins_added = alt_mu)
 # 
 # ## calculate contrasts
 # alt0.25_vs_0.00 <- time_mtx_alt_0.25 - time_mtx_org
 # alt0.50_vs_0.25 <- time_mtx_alt_0.50 - time_mtx_alt_0.25
 # alt0.75_vs_0.50 <- time_mtx_alt_0.75 - time_mtx_alt_0.50
 # alt1.00_vs_0.75 <- time_mtx_alt_1.00 - time_mtx_alt_0.75
+# alt1.00_vs_0.00 <- time_mtx_alt_1.00 - time_mtx_org
 # 
 # ## summarise contrasts
 # contrasts <- move_no_na %>%
@@ -750,31 +787,96 @@ save.image('movement_direction/movement_model_timecontrasts_epred.RData')
 #          alt0.75_vs_0.50_mu = apply(alt0.75_vs_0.50, 2, mean),
 #          alt0.75_vs_0.50_sd = apply(alt0.75_vs_0.50, 2, sd),
 #          alt1.00_vs_0.75_mu = apply(alt1.00_vs_0.75, 2, mean),
-#          alt1.00_vs_0.75_sd = apply(alt1.00_vs_0.75, 2, sd))
+#          alt1.00_vs_0.75_sd = apply(alt1.00_vs_0.75, 2, sd),
+#          alt1.00_vs_0.00_mu = apply(alt1.00_vs_0.00, 2, mean),
+#          alt1.00_vs_0.00_sd = apply(alt1.00_vs_0.00, 2, sd))
 # contrasts_long <- contrasts %>%
-#   select(-alt0.25_vs_0.00_sd,-alt0.50_vs_0.25_sd,-alt0.75_vs_0.50_sd,-alt1.00_vs_0.75_sd) %>%
+#   select(-alt0.25_vs_0.00_sd,-alt0.50_vs_0.25_sd,-alt0.75_vs_0.50_sd,
+#          -alt1.00_vs_0.75_sd,-alt1.00_vs_0.00_sd) %>%
 #   pivot_longer(cols = c(alt0.25_vs_0.00_mu,alt0.50_vs_0.25_mu,
-#                         alt0.75_vs_0.50_mu,alt1.00_vs_0.75_mu),
+#                         alt0.75_vs_0.50_mu,alt1.00_vs_0.75_mu,alt1.00_vs_0.00_mu),
 #                names_to = 'contrast', values_to = 'difference') %>%
 #   separate(contrast, into = c('alt','contrast'), sep = 3) %>%
-#   separate(contrast, into = c('later','vs','earlier','pred_type','mu'),
+#   separate(contrast, into = c('later','vs','earlier','mu'),
 #            sep = '_', remove = T) %>%
 #   select(-alt, -vs, -mu) %>%
 #   mutate(later = as.numeric(later),
 #          earlier = as.numeric(earlier),
 #          contrast = paste0(later,'_',earlier))
 # 
+# ## produce values for reporting
+# mean(alt0.25_vs_0.00) ; sd(alt0.25_vs_0.00) #  0.00410305 ± 0.007559914  -- 15 seconds later
+# mean(alt0.50_vs_0.25) ; sd(alt0.50_vs_0.25) #  0.00200071 ± 0.004846082  -- 15 seconds later
+# mean(alt0.75_vs_0.50) ; sd(alt0.75_vs_0.50) # -0.00183163 ± 0.004568712  -- 15 seconds later
+# mean(alt1.00_vs_0.75) ; sd(alt1.00_vs_0.75) # -0.00293018 ± 0.005923165  -- 15 seconds later
+# mean(alt1.00_vs_0.00) ; sd(alt1.00_vs_0.00) #  0.00134195 ± 0.01179939   -- 1 minute later
+# 
 # ## plot contrasts
 # time_pred %>%
 #   ggplot()+
-#   geom_density(aes(x = mean_propn, colour = pred_type))+
-#   facet_wrap(. ~ stim_type)
+#   geom_density(aes(x = mean_propn, colour = mins_added))+
+#   facet_grid(mins_added ~ stim_type)
 # contrasts_long %>%
 #   ggplot()+
 #   geom_density(aes(x = difference))+
-#   facet_grid(pred_type ~ contrast, scales = 'free')
-# save.image('movement_direction/movement_model_timecontrasts_epred.RData')
-
+#   geom_vline(xintercept = 0, linetype = 2)+
+#   facet_wrap(contrast ~ .#, scales = 'free'
+#              )
+# save.image('movement_direction/movement_binomial_timecontrasts.RData')
+# 
+# ## time since stimulus -- starting from 1 second after stim starts ####
+# # load('movement_direction/movement_binomial_timecontrasts.RData')
+# 
+# ## calculate contrasts
+# alt0.25_vs_0.00_nozeros <- alt0.25_vs_0.00[,which(time_move_org$after_stim > 0)]
+# alt0.50_vs_0.25_nozeros <- alt0.50_vs_0.25[,which(time_move_org$after_stim > 0)]
+# alt0.75_vs_0.50_nozeros <- alt0.75_vs_0.50[,which(time_move_org$after_stim > 0)]
+# alt1.00_vs_0.75_nozeros <- alt1.00_vs_0.75[,which(time_move_org$after_stim > 0)]
+# alt1.00_vs_0.00_nozeros <- alt1.00_vs_0.00[,which(time_move_org$after_stim > 0)]
+# 
+# ## summarise contrasts
+# contrasts_nozeros <- move_no_na %>%
+#   filter(after_stim > 0) %>% 
+#   mutate(alt0.25_vs_0.00_mu = apply(alt0.25_vs_0.00_nozeros, 2, mean),
+#          alt0.25_vs_0.00_sd = apply(alt0.25_vs_0.00_nozeros, 2, sd),
+#          alt0.50_vs_0.25_mu = apply(alt0.50_vs_0.25_nozeros, 2, mean),
+#          alt0.50_vs_0.25_sd = apply(alt0.50_vs_0.25_nozeros, 2, sd),
+#          alt0.75_vs_0.50_mu = apply(alt0.75_vs_0.50_nozeros, 2, mean),
+#          alt0.75_vs_0.50_sd = apply(alt0.75_vs_0.50_nozeros, 2, sd),
+#          alt1.00_vs_0.75_mu = apply(alt1.00_vs_0.75_nozeros, 2, mean),
+#          alt1.00_vs_0.75_sd = apply(alt1.00_vs_0.75_nozeros, 2, sd),
+#          alt1.00_vs_0.00_mu = apply(alt1.00_vs_0.00_nozeros, 2, mean),
+#          alt1.00_vs_0.00_sd = apply(alt1.00_vs_0.00_nozeros, 2, sd))
+# contrasts_long_nozeros <- contrasts_nozeros %>%
+#   select(-alt0.25_vs_0.00_sd,-alt0.50_vs_0.25_sd,-alt0.75_vs_0.50_sd,
+#          -alt1.00_vs_0.75_sd,-alt1.00_vs_0.00_sd) %>%
+#   pivot_longer(cols = c(alt0.25_vs_0.00_mu,alt0.50_vs_0.25_mu,
+#                         alt0.75_vs_0.50_mu,alt1.00_vs_0.75_mu,alt1.00_vs_0.00_mu),
+#                names_to = 'contrast', values_to = 'difference') %>%
+#   separate(contrast, into = c('alt','contrast'), sep = 3) %>%
+#   separate(contrast, into = c('later','vs','earlier','mu'),
+#            sep = '_', remove = T) %>%
+#   select(-alt, -vs, -mu) %>%
+#   mutate(later = as.numeric(later),
+#          earlier = as.numeric(earlier),
+#          contrast = paste0(later,'_',earlier))
+# 
+# ## produce values for reporting
+# mean(alt0.25_vs_0.00_nozeros) ; sd(alt0.25_vs_0.00_nozeros) #  0.000132125 ± 0.00488181
+# mean(alt0.50_vs_0.25_nozeros) ; sd(alt0.50_vs_0.25_nozeros) # -0.000609929 ± 0.00474512
+# mean(alt0.75_vs_0.50_nozeros) ; sd(alt0.75_vs_0.50_nozeros) # -0.000837794 ± 0.00561894
+# mean(alt1.00_vs_0.75_nozeros) ; sd(alt1.00_vs_0.75_nozeros) # -0.000606606 ± 0.00616906
+# mean(alt1.00_vs_0.00_nozeros) ; sd(alt1.00_vs_0.00_nozeros) # -0.001922205 ± 0.01534923
+# 
+# ## plot contrasts
+# contrasts_long_nozeros %>%
+#   ggplot()+
+#   geom_density(aes(x = difference))+
+#   geom_vline(xintercept = 0, linetype = 2)+
+#   facet_wrap(contrast ~ ., scales = 'free'
+#   )
+# save.image('movement_direction/movement_binomial_timecontrasts.RData')
+# 
 # ############# Probability of different directions once moving ###############
 # pdf('../outputs/movement_ordinal_model_1/movement_ordinal_model1_modelprep.pdf')
 # 
@@ -1437,140 +1539,140 @@ human_mtx <- human_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
 
 save.image('movement_direction/movement_ordinal_model1_stimuluscontrasts.RData')
 
-# ## count types of each prediction
-# #load('movement_direction/movement_model_stimuluscontrasts.RData')
-# # count_values <- function(vector, levels = c(1,2,3)) {
-# #   x <- tabulate(factor(vector, levels), length(levels))
-# #   return(list(x))
-# # }
-# stim_pred <- ctd_move %>%
-#   dplyr::select(-stim_type) %>%
-#   # mutate(ctd_count = apply(ctd_mtx, 2, count_values),
-#   #        lion_count = apply(lion_mtx, 2, count_values),
-#   #        human_count = apply(human_mtx, 2, count_values)) %>%
-#   # unnest(c(ctd_count, lion_count, human_count)) %>% # I've done something weird with the count_values function so for now this needs unnesting twice, but should probably fix it at some point! For now this works!
-#   # unnest(c(ctd_count, lion_count, human_count)) %>%
-#   mutate(ctd_prop1_mu = apply(ctd_mtx[,,1], 2, mean),
-#          ctd_prop2_mu = apply(ctd_mtx[,,2], 2, mean),
-#          ctd_prop3_mu = apply(ctd_mtx[,,3], 2, mean),
-#          ctd_prop1_sd = apply(ctd_mtx[,,1], 2, sd),
-#          ctd_prop2_sd = apply(ctd_mtx[,,2], 2, sd),
-#          ctd_prop3_sd = apply(ctd_mtx[,,3], 2, sd),
-#          lion_prop1_mu = apply(lion_mtx[,,1], 2, mean),
-#          lion_prop2_mu = apply(lion_mtx[,,2], 2, mean),
-#          lion_prop3_mu = apply(lion_mtx[,,3], 2, mean),
-#          lion_prop1_sd = apply(lion_mtx[,,1], 2, sd),
-#          lion_prop2_sd = apply(lion_mtx[,,2], 2, sd),
-#          lion_prop3_sd = apply(lion_mtx[,,3], 2, sd),
-#          human_prop1_mu = apply(human_mtx[,,1], 2, mean),
-#          human_prop2_mu = apply(human_mtx[,,2], 2, mean),
-#          human_prop3_mu = apply(human_mtx[,,3], 2, mean),
-#          human_prop1_sd = apply(human_mtx[,,1], 2, sd),
-#          human_prop2_sd = apply(human_mtx[,,2], 2, sd),
-#          human_prop3_sd = apply(human_mtx[,,3], 2, sd)) %>%
-#   pivot_longer(cols = c(ctd_prop1_mu,ctd_prop2_mu,ctd_prop3_mu,
-#                         lion_prop1_mu,lion_prop2_mu,lion_prop3_mu,
-#                         human_prop1_mu,human_prop2_mu,human_prop3_mu),
-#                names_to = 'stim_propage_mu', values_to = 'mean_propn') %>%
-#   pivot_longer(cols = c(ctd_prop1_sd,ctd_prop2_sd,ctd_prop3_sd,
-#                         lion_prop1_sd,lion_prop2_sd,lion_prop3_sd,
-#                         human_prop1_sd,human_prop2_sd,human_prop3_sd),
-#                names_to = 'stim_propage_sd', values_to = 'stdv_propn') %>%
-#   separate(col = stim_propage_mu, into = c('stim_propage_mu','mu'),
-#            sep = '_m', remove = T) %>%
-#   select(-mu) %>%
-#   separate(col = stim_propage_sd, into = c('stim_propage_sd','sd'),
-#            sep = '_s', remove = T) %>%
-#   select(-sd) %>%
-#   filter(stim_propage_mu == stim_propage_sd) %>%
-#   separate(col = stim_propage_mu, into = c('stim_type', 'move_pred'),
-#            sep = '_prop', remove = T) %>%
-#   select(-stim_propage_sd) %>%
-#   mutate(move_pred = as.numeric(move_pred)) %>%
-#   mutate(pred_type = ifelse(move_pred == 1, 'younger',
-#                             ifelse(move_pred == 2, 'matched', 'older')))
-# 
-# ## calculate contrasts
-# ctd_vs_lion_age1 <- lion_mtx[,,1] - ctd_mtx[,,1]
-# ctd_vs_lion_age2 <- lion_mtx[,,2] - ctd_mtx[,,2]
-# ctd_vs_lion_age3 <- lion_mtx[,,3] - ctd_mtx[,,3]
-# ctd_vs_human_age1 <- human_mtx[,,1] - ctd_mtx[,,1]
-# ctd_vs_human_age2 <- human_mtx[,,2] - ctd_mtx[,,2]
-# ctd_vs_human_age3 <- human_mtx[,,3] - ctd_mtx[,,3]
-# lion_vs_human_age1 <- human_mtx[,,1] - lion_mtx[,,1]
-# lion_vs_human_age2 <- human_mtx[,,2] - lion_mtx[,,2]
-# lion_vs_human_age3 <- human_mtx[,,3] - lion_mtx[,,3]
-# 
-# ## summarise contrasts
-# contrasts <- move_no_na %>%
-#   select(-stim_type) %>%
-#   mutate(ctd_vs_lion_age1_mu = apply(ctd_vs_lion_age1, 2, mean),
-#          ctd_vs_lion_age1_sd = apply(ctd_vs_lion_age1, 2, sd),
-#          ctd_vs_lion_age2_mu = apply(ctd_vs_lion_age2, 2, mean),
-#          ctd_vs_lion_age2_sd = apply(ctd_vs_lion_age2, 2, sd),
-#          ctd_vs_lion_age3_mu = apply(ctd_vs_lion_age3, 2, mean),
-#          ctd_vs_lion_age3_sd = apply(ctd_vs_lion_age3, 2, sd),
-#          ctd_vs_human_age1_mu = apply(ctd_vs_human_age1, 2, mean),
-#          ctd_vs_human_age1_sd = apply(ctd_vs_human_age1, 2, sd),
-#          ctd_vs_human_age2_mu = apply(ctd_vs_human_age2, 2, mean),
-#          ctd_vs_human_age2_sd = apply(ctd_vs_human_age2, 2, sd),
-#          ctd_vs_human_age3_mu = apply(ctd_vs_human_age3, 2, mean),
-#          ctd_vs_human_age3_sd = apply(ctd_vs_human_age3, 2, sd),
-#          lion_vs_human_age1_mu = apply(lion_vs_human_age1, 2, mean),
-#          lion_vs_human_age1_sd = apply(lion_vs_human_age1, 2, sd),
-#          lion_vs_human_age2_mu = apply(lion_vs_human_age2, 2, mean),
-#          lion_vs_human_age2_sd = apply(lion_vs_human_age2, 2, sd),
-#          lion_vs_human_age3_mu = apply(lion_vs_human_age3, 2, mean),
-#          lion_vs_human_age3_sd = apply(lion_vs_human_age3, 2, sd))
-# contrasts_long <- contrasts %>%
-#   pivot_longer(cols = c(ctd_vs_lion_age1_mu,ctd_vs_lion_age2_mu,ctd_vs_lion_age3_mu,
-#                         ctd_vs_human_age1_mu,ctd_vs_human_age2_mu,ctd_vs_human_age3_mu,
-#                         lion_vs_human_age1_mu,lion_vs_human_age2_mu,lion_vs_human_age3_mu),
-#                names_to = 'contrast', values_to = 'difference') %>%
-#   separate(contrast, into = c('contrast','move_pred'),
-#            sep = '_age', remove = T) %>%
-#   separate(move_pred, into = c('move_pred','mu'),
-#            sep = '_', remove = T) %>%
-#   mutate(move_pred = as.numeric(move_pred)) %>%
-#   mutate(pred_type = ifelse(move_pred == 1, 'younger',
-#                             ifelse(move_pred == 2, 'matched', 'older'))) %>%
-#   select(-mu, -ctd_vs_lion_age1_sd, -ctd_vs_lion_age2_sd, -ctd_vs_lion_age3_sd,
-#          -ctd_vs_human_age1_sd, -ctd_vs_human_age2_sd, -ctd_vs_human_age3_sd,
-#          -lion_vs_human_age1_sd, -lion_vs_human_age2_sd, -lion_vs_human_age3_sd)
-# 
-# ## plot contrasts
-# # stim_pred %>%
-# #   dplyr::select(ctd_lion, ctd_human, lion_human, pred_type) %>%
-# #   pivot_longer(cols = c('ctd_lion', 'ctd_human', 'lion_human'),
-# #                names_to = 'contrast') %>%
-# #   ggplot()+
-# #   geom_density(aes(x = value, colour = contrast))+
-# #   facet_wrap(. ~ pred_type)
-# 
+## count types of each prediction
+#load('movement_direction/movement_ordinal_model1_stimuluscontrasts.RData')
+# count_values <- function(vector, levels = c(1,2,3)) {
+#   x <- tabulate(factor(vector, levels), length(levels))
+#   return(list(x))
+# }
+stim_pred <- ctd_move %>%
+  dplyr::select(-stim_type) %>%
+  # mutate(ctd_count = apply(ctd_mtx, 2, count_values),
+  #        lion_count = apply(lion_mtx, 2, count_values),
+  #        human_count = apply(human_mtx, 2, count_values)) %>%
+  # unnest(c(ctd_count, lion_count, human_count)) %>% # I've done something weird with the count_values function so for now this needs unnesting twice, but should probably fix it at some point! For now this works!
+  # unnest(c(ctd_count, lion_count, human_count)) %>%
+  mutate(ctd_prop1_mu = apply(ctd_mtx[,,1], 2, mean),
+         ctd_prop2_mu = apply(ctd_mtx[,,2], 2, mean),
+         ctd_prop3_mu = apply(ctd_mtx[,,3], 2, mean),
+         ctd_prop1_sd = apply(ctd_mtx[,,1], 2, sd),
+         ctd_prop2_sd = apply(ctd_mtx[,,2], 2, sd),
+         ctd_prop3_sd = apply(ctd_mtx[,,3], 2, sd),
+         lion_prop1_mu = apply(lion_mtx[,,1], 2, mean),
+         lion_prop2_mu = apply(lion_mtx[,,2], 2, mean),
+         lion_prop3_mu = apply(lion_mtx[,,3], 2, mean),
+         lion_prop1_sd = apply(lion_mtx[,,1], 2, sd),
+         lion_prop2_sd = apply(lion_mtx[,,2], 2, sd),
+         lion_prop3_sd = apply(lion_mtx[,,3], 2, sd),
+         human_prop1_mu = apply(human_mtx[,,1], 2, mean),
+         human_prop2_mu = apply(human_mtx[,,2], 2, mean),
+         human_prop3_mu = apply(human_mtx[,,3], 2, mean),
+         human_prop1_sd = apply(human_mtx[,,1], 2, sd),
+         human_prop2_sd = apply(human_mtx[,,2], 2, sd),
+         human_prop3_sd = apply(human_mtx[,,3], 2, sd)) %>%
+  pivot_longer(cols = c(ctd_prop1_mu,ctd_prop2_mu,ctd_prop3_mu,
+                        lion_prop1_mu,lion_prop2_mu,lion_prop3_mu,
+                        human_prop1_mu,human_prop2_mu,human_prop3_mu),
+               names_to = 'stim_propage_mu', values_to = 'mean_propn') %>%
+  pivot_longer(cols = c(ctd_prop1_sd,ctd_prop2_sd,ctd_prop3_sd,
+                        lion_prop1_sd,lion_prop2_sd,lion_prop3_sd,
+                        human_prop1_sd,human_prop2_sd,human_prop3_sd),
+               names_to = 'stim_propage_sd', values_to = 'stdv_propn') %>%
+  separate(col = stim_propage_mu, into = c('stim_propage_mu','mu'),
+           sep = '_m', remove = T) %>%
+  select(-mu) %>%
+  separate(col = stim_propage_sd, into = c('stim_propage_sd','sd'),
+           sep = '_s', remove = T) %>%
+  select(-sd) %>%
+  filter(stim_propage_mu == stim_propage_sd) %>%
+  separate(col = stim_propage_mu, into = c('stim_type', 'move_pred'),
+           sep = '_prop', remove = T) %>%
+  select(-stim_propage_sd) %>%
+  mutate(move_pred = as.numeric(move_pred)) %>%
+  mutate(pred_type = ifelse(move_pred == 1, 'younger',
+                            ifelse(move_pred == 2, 'matched', 'older')))
+
+## calculate contrasts
+ctd_vs_lion_age1 <- lion_mtx[,,1] - ctd_mtx[,,1]
+ctd_vs_lion_age2 <- lion_mtx[,,2] - ctd_mtx[,,2]
+ctd_vs_lion_age3 <- lion_mtx[,,3] - ctd_mtx[,,3]
+ctd_vs_human_age1 <- human_mtx[,,1] - ctd_mtx[,,1]
+ctd_vs_human_age2 <- human_mtx[,,2] - ctd_mtx[,,2]
+ctd_vs_human_age3 <- human_mtx[,,3] - ctd_mtx[,,3]
+lion_vs_human_age1 <- human_mtx[,,1] - lion_mtx[,,1]
+lion_vs_human_age2 <- human_mtx[,,2] - lion_mtx[,,2]
+lion_vs_human_age3 <- human_mtx[,,3] - lion_mtx[,,3]
+
+## summarise contrasts
+contrasts <- move_no_na %>%
+  select(-stim_type) %>%
+  mutate(ctd_vs_lion_age1_mu = apply(ctd_vs_lion_age1, 2, mean),
+         ctd_vs_lion_age1_sd = apply(ctd_vs_lion_age1, 2, sd),
+         ctd_vs_lion_age2_mu = apply(ctd_vs_lion_age2, 2, mean),
+         ctd_vs_lion_age2_sd = apply(ctd_vs_lion_age2, 2, sd),
+         ctd_vs_lion_age3_mu = apply(ctd_vs_lion_age3, 2, mean),
+         ctd_vs_lion_age3_sd = apply(ctd_vs_lion_age3, 2, sd),
+         ctd_vs_human_age1_mu = apply(ctd_vs_human_age1, 2, mean),
+         ctd_vs_human_age1_sd = apply(ctd_vs_human_age1, 2, sd),
+         ctd_vs_human_age2_mu = apply(ctd_vs_human_age2, 2, mean),
+         ctd_vs_human_age2_sd = apply(ctd_vs_human_age2, 2, sd),
+         ctd_vs_human_age3_mu = apply(ctd_vs_human_age3, 2, mean),
+         ctd_vs_human_age3_sd = apply(ctd_vs_human_age3, 2, sd),
+         lion_vs_human_age1_mu = apply(lion_vs_human_age1, 2, mean),
+         lion_vs_human_age1_sd = apply(lion_vs_human_age1, 2, sd),
+         lion_vs_human_age2_mu = apply(lion_vs_human_age2, 2, mean),
+         lion_vs_human_age2_sd = apply(lion_vs_human_age2, 2, sd),
+         lion_vs_human_age3_mu = apply(lion_vs_human_age3, 2, mean),
+         lion_vs_human_age3_sd = apply(lion_vs_human_age3, 2, sd))
+contrasts_long <- contrasts %>%
+  pivot_longer(cols = c(ctd_vs_lion_age1_mu,ctd_vs_lion_age2_mu,ctd_vs_lion_age3_mu,
+                        ctd_vs_human_age1_mu,ctd_vs_human_age2_mu,ctd_vs_human_age3_mu,
+                        lion_vs_human_age1_mu,lion_vs_human_age2_mu,lion_vs_human_age3_mu),
+               names_to = 'contrast', values_to = 'difference') %>%
+  separate(contrast, into = c('contrast','move_pred'),
+           sep = '_age', remove = T) %>%
+  separate(move_pred, into = c('move_pred','mu'),
+           sep = '_', remove = T) %>%
+  mutate(move_pred = as.numeric(move_pred)) %>%
+  mutate(pred_type = ifelse(move_pred == 1, 'younger',
+                            ifelse(move_pred == 2, 'matched', 'older'))) %>%
+  select(-mu, -ctd_vs_lion_age1_sd, -ctd_vs_lion_age2_sd, -ctd_vs_lion_age3_sd,
+         -ctd_vs_human_age1_sd, -ctd_vs_human_age2_sd, -ctd_vs_human_age3_sd,
+         -lion_vs_human_age1_sd, -lion_vs_human_age2_sd, -lion_vs_human_age3_sd)
+
+## plot contrasts
 # stim_pred %>%
+#   dplyr::select(ctd_lion, ctd_human, lion_human, pred_type) %>%
+#   pivot_longer(cols = c('ctd_lion', 'ctd_human', 'lion_human'),
+#                names_to = 'contrast') %>%
 #   ggplot()+
-#   geom_density(aes(x = mean_propn, colour = pred_type))+
-#   facet_wrap(. ~ stim_type)
-# contrasts_long %>%
-#   mutate(pred_type = ifelse(move_pred == 1, 'younger',
-#                             ifelse(move_pred == 2, 'matched', 'older'))) %>%
-#   mutate(pred_type = factor(pred_type,
-#                             levels = c('younger','matched','older'))) %>%
-#   ggplot()+
-#   geom_density(aes(x = difference))+
-#   facet_grid(pred_type ~ contrast)
-# 
-# save.image('movement_direction/movement_model_stimuluscontrasts_epred.RData')
-# 
-## focal age -- untested! ####
-# load('movement_direction/movement_model_stimuluscontrasts_epred.RData')
+#   geom_density(aes(x = value, colour = contrast))+
+#   facet_wrap(. ~ pred_type)
+
+stim_pred %>%
+  ggplot()+
+  geom_density(aes(x = mean_propn, colour = pred_type))+
+  facet_wrap(. ~ stim_type)
+contrasts_long %>%
+  mutate(pred_type = ifelse(move_pred == 1, 'younger',
+                            ifelse(move_pred == 2, 'matched', 'older'))) %>%
+  mutate(pred_type = factor(pred_type,
+                            levels = c('younger','matched','older'))) %>%
+  ggplot()+
+  geom_density(aes(x = difference))+
+  facet_grid(pred_type ~ contrast)
+
+save.image('movement_direction/movement_ordinal_model1_stimuluscontrasts.RData')
+
+## focal age ####
+load('movement_direction/movement_ordinal_model1_stimuluscontrasts.RData')
 rm(list = ls()[!ls() %in% c('mom1_fit','move_no_na')]) ; gc()
 
 ## create new dataframe to predict from
 age_new <- move_no_na %>%
-  dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
+  dplyr::select(f_age_num, p_age_num, age_combo, stim_type, move_tminus1_num, after_stim,
                 focal_id, stim_id, playback_id) %>%
-  mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, look_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
+  mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, age_combo, move_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
 
 ## predict with original ages
 age_move_org <- age_new
@@ -1582,12 +1684,14 @@ age_mtx_org <- age_mtx_org[c(1:100,1001:1100,2001:2100,3001:3100),,]
 age_move_alt <- age_new %>%
   mutate(f_age_num_original = f_age_num) %>%
   mutate(f_age_num = ifelse(f_age_num == 4, 1, f_age_num + 1)) %>%
+  mutate(age_combo_original = age_combo) %>% 
+  mutate(age_combo = paste0(f_age_num,'_',p_age_num)) %>% 
   #mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>%  # commented out because I THINK this should actually be the same as before and not overwritten with the new f_age_num, but I'm not certain
   relocate(f_age_num_original)
 age_mtx_alt <- posterior_epred(object = mom1_fit, newdata = age_move_alt)
 colnames(age_mtx_alt) <- age_move_alt$unique_data_combo
 age_mtx_alt <- age_mtx_alt[c(1:100,1001:1100,2001:2100,3001:3100),,]
-save.image('movement_direction/movement_model_agecontrasts_epred.RData')
+save.image('movement_direction/movement_ordinal_model1_agecontrasts_epred.RData')
 
 # ## summarise and convert to long format
 # age_pred <- age_move_org %>%
@@ -1669,17 +1773,17 @@ save.image('movement_direction/movement_model_agecontrasts_epred.RData')
 #   ggplot()+
 #   geom_density(aes(x = difference))+
 #   facet_grid(pred_type ~ f_age_new, scales = 'free')
-# save.image('movement_direction/movement_model_agecontrasts_epred.RData')
+# save.image('movement_direction/movement_ordinal_model1_agecontrasts_epred.RData')
 # 
-## time since stimulus -- untested! ####
+## time since stimulus ####
 # load('movement_direction/movement_model_prevseccontrasts_epred.RData')
 rm(list = ls()[!ls() %in% c('mom1_fit','move_no_na')]) ; gc()
 
-## create new data frme to calculate from
+## create new data frame to calculate from
 time_new <- move_no_na %>%
-  dplyr::select(f_age_num, stim_type, move_tminus1_num, after_stim,
+  dplyr::select(f_age_num, age_combo, stim_type, move_tminus1_num, after_stim,
                 focal_id, stim_id, playback_id) %>%
-  mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, move_tminus1_num, after_stim,focal_id, stim_id, playback_id))))
+  mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, age_combo, stim_type, move_tminus1_num, after_stim, focal_id, stim_id, playback_id))))
 
 ## predict with original times
 time_move_org <- time_new
@@ -1727,7 +1831,7 @@ time_mtx_alt_1.00 <- posterior_epred(object = mom1_fit, newdata = time_move_alt_
 colnames(time_mtx_alt_1.00) <- time_move_alt_1.00$unique_data_combo
 time_mtx_alt_1.00 <- time_mtx_alt_1.00[c(1:100,1001:1100,2001:2100,3001:3100),,]
 
-save.image('movement_direction/movement_model_timecontrasts_epred.RData')
+save.image('movement_direction/movement_ordinal_model1_timecontrasts.RData')
 
 # ## summarise and convert to long format
 # time_pred <- time_move_org %>%
@@ -1863,5 +1967,5 @@ save.image('movement_direction/movement_model_timecontrasts_epred.RData')
 #   ggplot()+
 #   geom_density(aes(x = difference))+
 #   facet_grid(pred_type ~ contrast, scales = 'free')
-# save.image('movement_direction/movement_model_timecontrasts_epred.RData')
+# save.image('movement_direction/movement_ordinal_model1_timecontrasts.RData')
 # 
