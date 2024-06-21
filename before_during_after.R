@@ -2348,9 +2348,9 @@ theme_set(theme_classic())
 # dev.off()
 # 
 #### calculate posterior contrasts from predictions ####
-load('movement_direction/moving_ordinal_2bda_modelpredictions.RData')
+# load('movement_direction/moving_ordinal_2bda_modelpredictions.RData')
 pdf('../outputs/movement_ordinal_model_2bda/movement_ordinal_model2_modelcontrasts.pdf')
-
+# 
 ## stim type ####
 # stim_new <- move %>% 
 #   dplyr::select(f_age_num, age_combo, stim_type, prev_num, bda, 
@@ -2380,37 +2380,37 @@ pdf('../outputs/movement_ordinal_model_2bda/movement_ordinal_model2_modelcontras
 # human_mtx <- human_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
 # 
 # save.image('movement_direction/moving_ordinal_2bda_stimuluscontrasts.RData')
+# 
+# ## calculate contrasts
+# ctd_vs_lion <- lion_mtx - ctd_mtx
+# ctd_vs_human <- human_mtx - ctd_mtx
+# lion_vs_human <- human_mtx - lion_mtx
+# 
+# ## summarise contrasts
+# contrasts <- move %>%
+#   select(-stim_type) %>%
+#   mutate(ctd_vs_lion_mu = apply(ctd_vs_lion, 2, mean),
+#          ctd_vs_lion_sd = apply(ctd_vs_lion, 2, sd),
+#          ctd_vs_human_mu = apply(ctd_vs_human, 2, mean),
+#          ctd_vs_human_sd = apply(ctd_vs_human, 2, sd),
+#          lion_vs_human_mu = apply(lion_vs_human, 2, mean),
+#          lion_vs_human_sd = apply(lion_vs_human, 2, sd))
+# contrasts_long <- contrasts %>%
+#   pivot_longer(cols = c(ctd_vs_lion_mu, ctd_vs_human_mu, lion_vs_human_mu),
+#                names_to = 'contrast', values_to = 'difference') %>%
+#   separate(contrast, into = c('contrast','mu'),
+#            sep = -3, remove = T) %>%
+#   select(-mu, -ctd_vs_lion_sd, -ctd_vs_human_sd, -lion_vs_human_sd)
+# 
+# ## produce values for reporting
+# median(ctd_vs_lion)  ; mean(ctd_vs_lion)  ; sd(ctd_vs_lion)
+# #
+# median(ctd_vs_human) ; mean(ctd_vs_human) ; sd(ctd_vs_human)
+# #
+# median(lion_vs_human); mean(lion_vs_human); sd(lion_vs_human)
+# #
 
 load('movement_direction/moving_ordinal_2bda_stimuluscontrasts.RData')
-
-## calculate contrasts
-ctd_vs_lion <- lion_mtx - ctd_mtx
-ctd_vs_human <- human_mtx - ctd_mtx
-lion_vs_human <- human_mtx - lion_mtx
-
-## summarise contrasts
-contrasts <- nn %>%
-  select(-stim_type) %>%
-  mutate(ctd_vs_lion_mu = apply(ctd_vs_lion, 2, mean),
-         ctd_vs_lion_sd = apply(ctd_vs_lion, 2, sd),
-         ctd_vs_human_mu = apply(ctd_vs_human, 2, mean),
-         ctd_vs_human_sd = apply(ctd_vs_human, 2, sd),
-         lion_vs_human_mu = apply(lion_vs_human, 2, mean),
-         lion_vs_human_sd = apply(lion_vs_human, 2, sd))
-contrasts_long <- contrasts %>%
-  pivot_longer(cols = c(ctd_vs_lion_mu, ctd_vs_human_mu, lion_vs_human_mu),
-               names_to = 'contrast', values_to = 'difference') %>%
-  separate(contrast, into = c('contrast','mu'),
-           sep = -3, remove = T) %>%
-  select(-mu, -ctd_vs_lion_sd, -ctd_vs_human_sd, -lion_vs_human_sd)
-
-## produce values for reporting
-median(ctd_vs_lion)  ; mean(ctd_vs_lion)  ; sd(ctd_vs_lion)
-#
-median(ctd_vs_human) ; mean(ctd_vs_human) ; sd(ctd_vs_human)
-#
-median(lion_vs_human); mean(lion_vs_human); sd(lion_vs_human)
-#
 
 ## plot contrasts
 contrasts_long %>%
@@ -2423,46 +2423,46 @@ contrasts_long %>%
   scale_colour_viridis_d()+
   labs(colour = 'effect of changing stimulus')
 
-save.image('nearest_neighbour/neighbour_binomial_stimuluscontrasts.RData')
-
+# save.image('movement_direction/moving_ordinal_2bda_stimuluscontrasts.RData')
+# 
 ## focal age ####
-# # load('movement_direction/moving_ordinal_2bda_stimuluscontrasts.RData')
-# rm(list = ls()[!ls() %in% c('mom2_fit','move')]) ; gc()
-# 
-# ## create new dataframe to predict from
-# age_new <- move %>% 
-#   dplyr::select(f_age_num, age_combo, stim_type, prev_num, bda, 
-#                 focal, stim_num, pb_num) %>%
-#   mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, age_combo, prev_num, bda,
-#                                                          focal, stim_num, pb_num))))
-# 
-# ## predict with original ages
-# age_move_org <- age_new
-# age_mtx_org <- posterior_epred(object = mom2_fit, newdata = age_move_org)
-# colnames(age_mtx_org) <- age_move_org$unique_data_combo
-# age_mtx_org <- age_mtx_org[c(1:100,1001:1100,2001:2100,3001:3100),,]
-# 
-# ## redo predictions with altered ages
-# age_move_alt <- age_new %>% 
-#   mutate(f_age_num_original = f_age_num,
-#          age_combo_original = age_combo) %>%
-#   mutate(f_age_num = ifelse(f_age_num == 4, 1, f_age_num + 1)) %>%
-#   separate(age_combo, into = c('f_age_old','p_age'), sep = '_') %>% 
-#   mutate(age_combo = paste0(f_age_num, '_', p_age)) %>%  
-#   #mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, nn_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>%  # commented out because I THINK this should actually be the same as before and not overwritten with the new f_age_num, but I'm not certain
-#   dplyr::select(f_age_num_original, f_age_num,
-#                 age_combo_original, age_combo,
-#                 stim_type, prev_num, bda,
-#                 focal, stim_num, pb_num,
-#                 unique_data_combo)
-# age_mtx_alt <- posterior_epred(object = mom2_fit, newdata = age_move_alt)
-# colnames(age_mtx_alt) <- age_move_alt$unique_data_combo
-# age_mtx_alt <- age_mtx_alt[c(1:100,1001:1100,2001:2100,3001:3100),,]
-# 
-# save.image('movement_direction/moving_ordinal_2bda_agecontrasts.RData')
+# load('movement_direction/moving_ordinal_2bda_stimuluscontrasts.RData')
+rm(list = ls()[!ls() %in% c('mom2_fit','move')]) ; gc()
+
+## create new dataframe to predict from
+age_new <- move %>%
+  dplyr::select(f_age_num, age_combo, stim_type, prev_num, bda,
+                focal, stim_num, pb_num) %>%
+  mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, age_combo, prev_num, bda,
+                                                         focal, stim_num, pb_num))))
+
+## predict with original ages
+age_move_org <- age_new
+age_mtx_org <- posterior_epred(object = mom2_fit, newdata = age_move_org)
+colnames(age_mtx_org) <- age_move_org$unique_data_combo
+age_mtx_org <- age_mtx_org[c(1:100,1001:1100,2001:2100,3001:3100),,]
+
+## redo predictions with altered ages
+age_move_alt <- age_new %>%
+  mutate(f_age_num_original = f_age_num,
+         age_combo_original = age_combo) %>%
+  mutate(f_age_num = ifelse(f_age_num == 4, 1, f_age_num + 1)) %>%
+  separate(age_combo, into = c('f_age_old','p_age'), sep = '_') %>%
+  mutate(age_combo = paste0(f_age_num, '_', p_age)) %>%
+  #mutate(unique_data_combo = as.integer(as.factor(paste0(f_age_num, nn_tminus1_num, after_stim,focal_id, stim_id, playback_id)))) %>%  # commented out because I THINK this should actually be the same as before and not overwritten with the new f_age_num, but I'm not certain
+  dplyr::select(f_age_num_original, f_age_num,
+                age_combo_original, age_combo,
+                stim_type, prev_num, bda,
+                focal, stim_num, pb_num,
+                unique_data_combo)
+age_mtx_alt <- posterior_epred(object = mom2_fit, newdata = age_move_alt)
+colnames(age_mtx_alt) <- age_move_alt$unique_data_combo
+age_mtx_alt <- age_mtx_alt[c(1:100,1001:1100,2001:2100,3001:3100),,]
+
+save.image('movement_direction/moving_ordinal_2bda_agecontrasts.RData')
 
 ## summarise and convert to long format
-# rm(list = ls()) ; gc() ; load('movement_direction/movement_ordinal_model1_agecontrasts.RData')
+# rm(list = ls()) ; gc() ; load('movement_direction/moving_ordinal_2bda_agecontrasts.RData')
 age_pred <- age_move_org %>%
   #dplyr::select(-f_age_num) %>%
   mutate(age_org_prop1_mu = apply(age_mtx_org[,,1], 2, mean),
@@ -2524,27 +2524,27 @@ alt_vs_org_twdsdirect <- age_mtx_alt[,,5] - age_mtx_org[,,5]
 
 ## calculate contrast values -- for all, standard deviation > median or mean, so difference is centered on zero
 mean(alt_vs_org_awaydirect); sd(alt_vs_org_awaydirect)
-#             ±     
+#             ±
 mean(alt_vs_org_awayangle) ; sd(alt_vs_org_awayangle)
-#             ±     
+#             ±
 mean(alt_vs_org_neither)   ; sd(alt_vs_org_neither)
-#             ±     
+#             ±
 mean(alt_vs_org_twdsangle) ; sd(alt_vs_org_twdsangle)
-#             ±      
+#             ±
 mean(alt_vs_org_twdsdirect); sd(alt_vs_org_twdsdirect)
-#             ±     
+#             ±
 
 ## repeat excluding age category 4 because different contrast
-mean(alt_vs_org_awaydirect[,which(age_move_org$f_age_num != 4)])     # 
-sd(  alt_vs_org_awaydirect[,which(age_move_org$f_age_num != 4)])     # 
-mean(alt_vs_org_awayangle[,which(age_move_org$f_age_num != 4)])      # 
-sd(  alt_vs_org_awayangle[,which(age_move_org$f_age_num != 4)])      # 
-mean(alt_vs_org_neither[,which(age_move_org$f_age_num != 4)])        # 
-sd(  alt_vs_org_neither[,which(age_move_org$f_age_num != 4)])        # 
-mean(alt_vs_org_twdsangle[,which(age_move_org$f_age_num != 4)])      # 
-sd(  alt_vs_org_twdsangle[,which(age_move_org$f_age_num != 4)])      # 
-mean(alt_vs_org_twdsdirect[,which(age_move_org$f_age_num != 4)])     # 
-sd(  alt_vs_org_twdsdirect[,which(age_move_org$f_age_num != 4)])     # 
+mean(alt_vs_org_awaydirect[,which(age_move_org$f_age_num != 4)])     #
+sd(  alt_vs_org_awaydirect[,which(age_move_org$f_age_num != 4)])     #
+mean(alt_vs_org_awayangle[,which(age_move_org$f_age_num != 4)])      #
+sd(  alt_vs_org_awayangle[,which(age_move_org$f_age_num != 4)])      #
+mean(alt_vs_org_neither[,which(age_move_org$f_age_num != 4)])        #
+sd(  alt_vs_org_neither[,which(age_move_org$f_age_num != 4)])        #
+mean(alt_vs_org_twdsangle[,which(age_move_org$f_age_num != 4)])      #
+sd(  alt_vs_org_twdsangle[,which(age_move_org$f_age_num != 4)])      #
+mean(alt_vs_org_twdsdirect[,which(age_move_org$f_age_num != 4)])     #
+sd(  alt_vs_org_twdsdirect[,which(age_move_org$f_age_num != 4)])     #
 
 ## split contrasts by original age category
 age1v2_ad <- alt_vs_org_awaydirect[,which(age_move_org$f_age_num == 1)]
@@ -2569,26 +2569,26 @@ age3v4_td <- alt_vs_org_twdsdirect[,which(age_move_org$f_age_num == 3)]
 age1v4_td <- alt_vs_org_twdsdirect[,which(age_move_org$f_age_num == 4)] * (-1)
 
 ## calculate contrast values
-mean(age1v2_ad) ; sd(age1v2_ad) #  ± 
-mean(age2v3_ad) ; sd(age2v3_ad) #  ± 
-mean(age3v4_ad) ; sd(age3v4_ad) #  ± 
-mean(age1v4_ad) ; sd(age1v4_ad) #  ± 
-mean(age1v2_aa) ; sd(age1v2_aa) #  ± 
-mean(age2v3_aa) ; sd(age2v3_aa) #  ± 
-mean(age3v4_aa) ; sd(age3v4_aa) #  ± 
-mean(age1v4_aa) ; sd(age1v4_aa) #  ± 
-mean(age1v2_n)  ; sd(age1v2_n)  #  ± 
-mean(age2v3_n)  ; sd(age2v3_n)  #  ± 
-mean(age3v4_n)  ; sd(age3v4_n)  #  ± 
-mean(age1v4_n)  ; sd(age1v4_n)  #  ± 
-mean(age1v2_ta) ; sd(age1v2_ta) #  ± 
-mean(age2v3_ta) ; sd(age2v3_ta) #  ± 
-mean(age3v4_ta) ; sd(age3v4_ta) #  ± 
-mean(age1v4_ta) ; sd(age1v4_ta) #  ± 
-mean(age1v2_td) ; sd(age1v2_td) #  ± 
-mean(age2v3_td) ; sd(age2v3_td) #  ± 
-mean(age3v4_td) ; sd(age3v4_td) #  ± 
-mean(age1v4_td) ; sd(age1v4_td) #  ± 
+mean(age1v2_ad) ; sd(age1v2_ad) #  ±
+mean(age2v3_ad) ; sd(age2v3_ad) #  ±
+mean(age3v4_ad) ; sd(age3v4_ad) #  ±
+mean(age1v4_ad) ; sd(age1v4_ad) #  ±
+mean(age1v2_aa) ; sd(age1v2_aa) #  ±
+mean(age2v3_aa) ; sd(age2v3_aa) #  ±
+mean(age3v4_aa) ; sd(age3v4_aa) #  ±
+mean(age1v4_aa) ; sd(age1v4_aa) #  ±
+mean(age1v2_n)  ; sd(age1v2_n)  #  ±
+mean(age2v3_n)  ; sd(age2v3_n)  #  ±
+mean(age3v4_n)  ; sd(age3v4_n)  #  ±
+mean(age1v4_n)  ; sd(age1v4_n)  #  ±
+mean(age1v2_ta) ; sd(age1v2_ta) #  ±
+mean(age2v3_ta) ; sd(age2v3_ta) #  ±
+mean(age3v4_ta) ; sd(age3v4_ta) #  ±
+mean(age1v4_ta) ; sd(age1v4_ta) #  ±
+mean(age1v2_td) ; sd(age1v2_td) #  ±
+mean(age2v3_td) ; sd(age2v3_td) #  ±
+mean(age3v4_td) ; sd(age3v4_td) #  ±
+mean(age1v4_td) ; sd(age1v4_td) #  ±
 
 ## summarise contrasts
 contrasts <- move_no_na %>%
@@ -2661,12 +2661,12 @@ contrasts_long %>%
   scale_fill_viridis_d(begin = 0.5, end = 0)+
   labs(colour = 'categories\ndifferent',
        fill = 'categories\ndifferent')
-save.image('movement_direction/movement_ordinal_model1_agecontrasts.RData')
+save.image('movement_direction/moving_ordinal_2bda_agecontrasts.RData')
 
 ## clean up a bit
 rm(list = ls()[! ls() %in% c('alt_vs_org_awaydirect','alt_vs_org_awayangle',
                              'alt_vs_org_neither','alt_vs_org_twdsangle',
-                             'alt_vs_org_twdsdirect','move_no_na','mom1_fit')]) ; gc()
+                             'alt_vs_org_twdsdirect','move_no_na','mom2_fit')]) ; gc()
 
 ## plot full density instead of means
 colnames(alt_vs_org_awaydirect) <- move_no_na$data_row
@@ -2795,7 +2795,7 @@ before_vs_after  <- move_after_mtx  - move_before_mtx
 during_vs_after  <- move_after_mtx  - move_during_mtx
 
 ## summarise contrasts
-contrasts <- nn %>%
+contrasts <- move %>%
   select(-stim_type) %>%
   mutate(before_vs_during_mu = apply(before_vs_during, 2, mean),
          before_vs_during_sd = apply(before_vs_during, 2, sd),
