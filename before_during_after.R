@@ -9,7 +9,7 @@ library(LaplacesDemon, lib.loc = '../../packages/')
 library(ggpubr, lib.loc = '../../packages/')
 library(patchwork, lib.loc = '../../packages/')
 
-theme_set(theme_classic())
+theme_set(theme_bw())
 
 ######## import data about playbacks                                 ####
 ## read in age data
@@ -227,6 +227,15 @@ table(nn$action_name, nn$prev)
 #        0      1
 # 0 119934    395
 # 1    446  49877
+
+# measure percentages of time spent in each state for report
+nn <- nn %>% 
+  mutate(age_difference = ifelse(as.numeric(f_age_num) > as.numeric(p_age_num), 'partner younger',
+                                 ifelse(as.numeric(f_age_num) == as.numeric(p_age_num), 'age matched',
+                                        'partner older')))
+round(prop.table(table(nn$age_difference[nn$bda == 'before']))*100,2)
+round(prop.table(table(nn$age_difference[nn$bda == 'during']))*100,2)
+round(prop.table(table(nn$age_difference[nn$bda == 'after']))*100,2)
 
 #### set prior                                                       ####
 get_prior(formula = action ~ 1 + age_combo + stim_type + bda + prev +
@@ -1026,12 +1035,81 @@ median(contrast_43v44); mean(contrast_43v44); sd(contrast_43v44)
 #        -0.0008002589;         -0.001212887;        0.001908391
 
 ## plot contrasts
-contrasts_long %>%
-  mutate(contrast = paste0(combo1, ' -> ', combo2)) %>%
-  ggplot()+
-  geom_density(aes(x = difference, colour = contrast))+
-  scale_colour_viridis_d()+
-  labs(colour = 'effect of changing age combination')
+(focal_plot <- contrasts_long %>%
+    separate(combo1, remove = F, into = c('f1', 't1'), sep = 1) %>% 
+    separate(combo2, remove = F, into = c('f2', 't2'), sep = 1) %>% 
+    filter(t1 == t2) %>% 
+    mutate(contrast = paste0(combo1, ' -> ', combo2),
+           cats_diff = as.factor(as.numeric(f2) - as.numeric(f1))) %>%
+    mutate(contrast = factor(contrast,
+                             levels = c('11 -> 21','13 -> 23','21 -> 31','24 -> 34',
+                                        '11 -> 31','13 -> 33','21 -> 41','24 -> 44',
+                                        '11 -> 41','13 -> 43','22 -> 32','31 -> 41',
+                                        '12 -> 22','14 -> 24','22 -> 42','32 -> 42',
+                                        '12 -> 32','14 -> 34','23 -> 33','33 -> 43',
+                                        '12 -> 42','14 -> 44','23 -> 43','34 -> 44'
+                                        ))) %>%
+    ggplot()+
+    geom_density(aes(x = difference, colour = cats_diff, fill = cats_diff),
+                 alpha = 0.4)+
+    scale_colour_viridis_d()+
+    scale_fill_viridis_d()+
+    facet_wrap(. ~ contrast, scales = 'free_y', ncol = 4)+
+    labs(colour = 'difference in\nage category',
+         fill = 'difference in\nage category',
+         title = 'changing focal age',
+         x = 'contrast'))
+ggsave(plot = focal_plot, device = 'png',
+       filename = 'nbm_focalage_contrasts.png',
+       path = '../outputs/neighbour_binomial_model_bda/',
+       width = 2200, height = 2400, units = 'px')
+ggsave(plot = focal_plot, device = 'svg',
+       filename = 'nbm_focalage_contrasts.svg',
+       path = '../outputs/neighbour_binomial_model_bda/',
+       width = 2200, height = 2400, units = 'px')
+(partner_plot <- contrasts_long %>%
+    separate(combo1, remove = F, into = c('f1', 't1'), sep = 1) %>% 
+    separate(combo2, remove = F, into = c('f2', 't2'), sep = 1) %>% 
+    filter(f1 == f2) %>% 
+    mutate(contrast = paste0(combo1, ' -> ', combo2),
+           cats_diff = as.factor(as.numeric(t2) - as.numeric(t1))) %>%
+    mutate(contrast = factor(contrast,
+                             levels = c('11 -> 12','21 -> 22','31 -> 32','41 -> 42',
+                                        '11 -> 13','21 -> 23','31 -> 33','41 -> 43',
+                                        '11 -> 14','21 -> 24','31 -> 34','41 -> 44',
+                                        '12 -> 13','22 -> 23','32 -> 33','42 -> 43',
+                                        '12 -> 14','22 -> 24','32 -> 34','42 -> 44',
+                                        '13 -> 14','23 -> 24','33 -> 34','43 -> 44'))) %>% 
+    ggplot()+
+    geom_density(aes(x = difference, colour = cats_diff, fill = cats_diff),
+                 alpha = 0.4)+
+    scale_colour_viridis_d()+
+    scale_fill_viridis_d()+
+    scale_x_continuous(breaks = c(-0.1,0,0.1))+
+    facet_wrap(contrast ~ ., scales = 'free_y', ncol = 4)+
+    labs(colour = 'difference in\nage category',
+         fill = 'difference in\nage category',
+         title = 'changing partner age',
+         x = 'contrast'))
+ggsave(plot = partner_plot, device = 'png',
+       filename = 'nbm_partnerage_contrasts.png',
+       path = '../outputs/neighbour_binomial_model_bda/',
+       width = 2200, height = 2400, units = 'px')
+ggsave(plot = partner_plot, device = 'svg',
+       filename = 'nbm_partnerage_contrasts.svg',
+       path = '../outputs/neighbour_binomial_model_bda/',
+       width = 2200, height = 2400, units = 'px')
+(focal_plot + partner_plot)+
+  plot_layout(guides = 'collect')+
+  plot_annotation(tag_levels = 'a')
+ggsave(plot = last_plot(), device = 'png',
+       filename = 'nbm_age_contrasts.png',
+       path = '../outputs/neighbour_binomial_model_bda/',
+       width = 4400, height = 2400, units = 'px')
+ggsave(plot = last_plot(), device = 'svg',
+       filename = 'nbm_age_contrasts.svg',
+       path = '../outputs/neighbour_binomial_model_bda/',
+       width = 4400, height = 2400, units = 'px')
 
 save.image('nearest_neighbour/neighbour_binomial_agecontrasts.RData')
 
