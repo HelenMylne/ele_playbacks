@@ -152,6 +152,9 @@ nn <- nn_all %>%
 nn <- nn %>% 
   filter(focal != 'b3_e50')
 
+# measure percentages of time spent in each state for report
+round(prop.table(table(nn$age_difference))*100,2)
+
 # create variable for nearest neighbour at time t-1
 focals <- unique(nn$focal)
 for(f in 1:length(focals)){
