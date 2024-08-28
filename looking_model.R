@@ -13,7 +13,7 @@ library(tidyverse, lib.loc = '../packages/')
 library(LaplacesDemon, lib.loc = '../packages/')
 library(patchwork, lib.loc = '../packages/')
 
-theme_set(theme_classic())
+theme_set(theme_bw())
 set.seed(12345)
 
 pdf('outputs/looking_ordinal_model_1/looking_ordinal_model1_modelprep.pdf')
@@ -320,7 +320,7 @@ lom1_fit <- brm(
   prior = priors, chains = num_chains, cores = num_chains, threads = threading(4),
   iter = num_iter, warmup = num_iter/2, seed = 12345)
 # Warning messages:
-# 1: There were 4 divergent transitions after warmup. See https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup to find out why this is a problem and how to eliminate them.
+# 1: There were 10 divergent transitions after warmup. See https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup to find out why this is a problem and how to eliminate them. 
 # 2: Examine the pairs() plot to diagnose sampling problems
 
 # save workspace
@@ -328,67 +328,69 @@ save.image('ele_playbacks/looking_direction/looking_ordinal_model1_run.RData') #
 
 # inspect model
 summary(lom1_fit)
-# Family: cumulative; Links: mu = logit; disc = identity
-# Formula: look_index ~ 1 + mo(f_age_num) + age_combo + stim_type + s(after_stim) + mo(look_tminus1_num) + (1 | focal_id) + (1 | stim_id) + (1 | playback_id)
-# Data: look_no_na (Number of observations: 170229)
+# Family: cumulative 
+# Links: mu = logit; disc = identity 
+# Formula: look_index ~ 1 + mo(f_age_num) + age_combo + stim_type + s(after_stim) + mo(look_tminus1_num) + (1 | focal_id) + (1 | stim_id) + (1 | playback_id) 
+# Data: look_no_na (Number of observations: 170229) 
 # Draws: 4 chains, each with iter = 2000; warmup = 1000; thin = 1; total post-warmup draws = 4000
-#
-# Smooth Terms:
+# 
+# Smooth Terms: 
 #                    Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sds(safter_stim_1)     1.41      0.82     0.26     3.40 1.00     1175     1687
-#
-# Group-Level Effects:
-#   ~focal_id (Number of levels: 176)
+# sds(safter_stim_1)     1.37      0.83     0.21     3.32 1.00      936     1059
+# 
+# Group-Level Effects: 
+# ~focal_id (Number of levels: 176) 
 #               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sd(Intercept)     0.46      0.04     0.38     0.54 1.00     1399     2109
-#
-# ~playback_id (Number of levels: 48)
+# sd(Intercept)     0.45      0.04     0.38     0.54 1.00     1487     2524
+# 
+# ~playback_id (Number of levels: 48) 
 #               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sd(Intercept)     0.08      0.06     0.00     0.21 1.00      842     1621
-#
-# ~stim_id (Number of levels: 30)
+# sd(Intercept)     0.08      0.06     0.00     0.21 1.00      690     1446
+# 
+# ~stim_id (Number of levels: 30) 
 #               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sd(Intercept)     0.10      0.06     0.01     0.24 1.00      838     2118
-#
-# Population-Level Effects:
+# sd(Intercept)     0.10      0.06     0.01     0.24 1.01      449     1501
+# 
+# Population-Level Effects: 
 #                    Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# Intercept[1]           4.23      0.23     3.77     4.69 1.00     2077     2525
-# Intercept[2]          13.29      0.24    12.81    13.75 1.00     2193     2506
-# age_combo1_2          -0.14      0.20    -0.52     0.24 1.00     3360     3220
-# age_combo1_3           0.02      0.24    -0.46     0.48 1.00     3188     3299
-# age_combo1_4          -0.09      0.28    -0.63     0.45 1.00     3887     3328
-# age_combo2_1           0.27      0.24    -0.20     0.73 1.00     1165     2096
-# age_combo2_2          -0.04      0.22    -0.46     0.39 1.00     1104     2153
-# age_combo2_3           0.08      0.21    -0.33     0.49 1.00     1058     2070
-# age_combo2_4          -0.06      0.22    -0.51     0.38 1.00     1076     2203
-# age_combo3_1          -0.10      0.31    -0.68     0.52 1.00      966     2258
-# age_combo3_2           0.09      0.28    -0.43     0.66 1.00      851     1581
-# age_combo3_3           0.13      0.28    -0.40     0.70 1.00      866     1697
-# age_combo3_4          -0.14      0.29    -0.67     0.45 1.00      854     1735
-# age_combo4_1           0.30      0.45    -0.55     1.19 1.00     1018     2068
-# age_combo4_2           0.22      0.41    -0.58     1.03 1.00      857     1623
-# age_combo4_3           0.06      0.41    -0.74     0.86 1.00      836     1773
-# age_combo4_4          -0.14      0.41    -0.94     0.68 1.00      826     1642
-# stim_typeh            -0.04      0.11    -0.25     0.18 1.00     2693     2882
-# stim_typel             0.06      0.13    -0.19     0.32 1.00     2872     3143
-# safter_stim_1          0.69      0.90    -1.11     2.46 1.00     4971     3035
-# mof_age_num           -0.07      0.16    -0.40     0.26 1.00      993     1792
-# molook_tminus1_num     8.43      0.04     8.36     8.50 1.00     7673     3049
+# Intercept[1]           4.24      0.23     3.80     4.67 1.00     1805     2261
+# Intercept[2]          13.29      0.23    12.84    13.75 1.00     1862     2300
+# age_combo1_2          -0.14      0.20    -0.54     0.24 1.00     2729     3022
+# age_combo1_3           0.03      0.24    -0.45     0.49 1.00     2670     2895
+# age_combo1_4          -0.08      0.28    -0.66     0.47 1.00     2900     2552
+# age_combo2_1           0.26      0.24    -0.19     0.74 1.00     1210     1546
+# age_combo2_2          -0.04      0.22    -0.46     0.38 1.00     1077     1824
+# age_combo2_3           0.07      0.21    -0.33     0.49 1.00     1085     1916
+# age_combo2_4          -0.06      0.22    -0.49     0.38 1.00     1089     1859
+# age_combo3_1          -0.11      0.31    -0.72     0.50 1.00      907     1749
+# age_combo3_2           0.07      0.28    -0.47     0.62 1.00      790     1460
+# age_combo3_3           0.11      0.28    -0.44     0.67 1.00      778     1498
+# age_combo3_4          -0.16      0.28    -0.71     0.41 1.00      816     1638
+# age_combo4_1           0.28      0.45    -0.61     1.16 1.00      814     1995
+# age_combo4_2           0.20      0.41    -0.60     1.02 1.01      794     1752
+# age_combo4_3           0.03      0.41    -0.78     0.83 1.01      750     1862
+# age_combo4_4          -0.16      0.41    -0.97     0.64 1.01      787     1769
+# stim_typeh            -0.04      0.11    -0.25     0.18 1.00     2243     1865
+# stim_typel             0.06      0.13    -0.20     0.32 1.00     2484     2468
+# safter_stim_1          0.70      0.90    -1.07     2.46 1.00     4291     2859
+# mof_age_num           -0.06      0.16    -0.37     0.24 1.01      838     1774
+# molook_tminus1_num     8.43      0.04     8.36     8.50 1.00     5478     3020
+# 
+# Simplex Parameters: 
+#                        Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# mof_age_num1[1]            0.32      0.18     0.05     0.71 1.00     6011     3015
+# mof_age_num1[2]            0.33      0.17     0.05     0.71 1.00     5690     2481
+# mof_age_num1[3]            0.35      0.18     0.05     0.73 1.00     5124     2788
+# molook_tminus1_num1[1]     0.51      0.00     0.50     0.51 1.00     6748     2810
+# molook_tminus1_num1[2]     0.49      0.00     0.49     0.50 1.00     6748     2810
 #
-# Simplex Parameters:
-#                        Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS  Tail_ESS
-# mof_age_num1[1]            0.33      0.18     0.05     0.70 1.00     5893      3066
-# mof_age_num1[2]            0.33      0.18     0.05     0.72 1.00     6907      2550
-# mof_age_num1[3]            0.34      0.18     0.06     0.73 1.00     6582      2887
-# molook_tminus1_num1[1]     0.51      0.00     0.50     0.51 1.00     9431      3310
-# molook_tminus1_num1[2]     0.49      0.00     0.49     0.50 1.00     9431      3310
-#
-# Family Specific Parameters:
+# Family Specific Parameters: 
 #      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # disc     1.00      0.00     1.00     1.00   NA       NA       NA
-#
+# 
 # Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS and Tail_ESS are effective sample size measures, and Rhat is the potential scale reduction factor on split chains (at convergence, Rhat = 1).
-# Warning message: There were 4 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
+# Warning message: There were 10 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
+
 
 print(paste0('model run at ',Sys.time()))
 
@@ -416,7 +418,7 @@ lom1_fit$model
 #         return log1m_inv_logit(disc * (thres[nthres] - mu));
 #       } else {
 #         return log_diff_exp(
-#           log_inv_logit(disc * (thres[y] - mu)),
+#           log_inv_logit(disc * (thres[y] - mu)), 
 #           log_inv_logit(disc * (thres[y - 1] - mu))
 #         );
 #       }
@@ -1209,31 +1211,31 @@ lion_vs_human_twds <- human_mtx[,,3] - lion_mtx[,,3]
 plot(density(ctd_vs_lion_away), col = 'red', las = 1, xlim = c(-0.1, 0.1),
      main = 'contrasts between stim types:\nred = look away, purple = side on, blue = look at;\nsolid = ctd vs l, dashed = ctd vs h, dotted = l vs h')
 mean(ctd_vs_lion_away) ; sd(ctd_vs_lion_away)
-# -0.0005397117 ± 0.001618997
+# -0.0004967693 ± 0.001718434
 lines(density(ctd_vs_lion_side), col = 'purple')
 mean(ctd_vs_lion_side) ; sd(ctd_vs_lion_side)
-# 0.0001635726 ± 0.001926623
+# 0.0001507964 ± 0.00201869
 lines(density(ctd_vs_lion_twds), col = 'blue')
 mean(ctd_vs_lion_twds) ; sd(ctd_vs_lion_twds)
-# 0.0003761391 ± 0.001507346
+# 0.0003459729 ± 0.001590247
 lines(density(ctd_vs_human_away), col = 'red', lty = 2)
 mean(ctd_vs_human_away) ; sd(ctd_vs_human_away)
-# 0.0004139927 ± 0.001397755
+# 0.000475123 ± 0.001426235
 lines(density(ctd_vs_human_side), col = 'purple', lty = 2)
 mean(ctd_vs_human_side) ; sd(ctd_vs_human_side)
-# -0.0001224977 ± 0.001671439
+# -0.0001427692 ± 0.001719725
 lines(density(ctd_vs_human_twds), col = 'blue', lty = 2)
 mean(ctd_vs_human_twds) ; sd(ctd_vs_human_twds)
-# -0.000291495 ± 0.001322645
+# -0.0003323538 ± 0.001357117
 lines(density(lion_vs_human_away), col = 'red', lty = 3)
 mean(lion_vs_human_away) ; sd(lion_vs_human_away)
-# 0.0009537043 ± 0.00188077
+# 0.0009718923 ± 0.001968542
 lines(density(lion_vs_human_side), col = 'purple', lty = 3)
 mean(lion_vs_human_side) ; sd(lion_vs_human_side)
-# -0.0002860702 ± 0.002384605
+# -0.0002935656 ± 0.002478419
 lines(density(lion_vs_human_twds), col = 'blue', lty = 3)
 mean(lion_vs_human_twds) ; sd(lion_vs_human_twds)
-# -0.0006676341 ± 0.001820435
+# -0.0006783267 ± 0.001893226
 
 ## summarise contrasts
 contrasts <- look_no_na %>%
@@ -1412,6 +1414,9 @@ for(i in 2:3){
 }
 
 ## calculate contrasts
+alt_vs_org_away_all <- age_mtx_alt[,,1] - age_mtx_org[,,1]
+alt_vs_org_side_all <- age_mtx_alt[,,2] - age_mtx_org[,,2]
+alt_vs_org_twds_all <- age_mtx_alt[,,3] - age_mtx_org[,,3]
 alt_vs_org_away <- age_mtx_alt[,which(look_no_na$f_age_num != 4),1] - age_mtx_org[,which(look_no_na$f_age_num != 4),1]
 alt_vs_org_side <- age_mtx_alt[,which(look_no_na$f_age_num != 4),2] - age_mtx_org[,which(look_no_na$f_age_num != 4),2]
 alt_vs_org_twds <- age_mtx_alt[,which(look_no_na$f_age_num != 4),3] - age_mtx_org[,which(look_no_na$f_age_num != 4),3]
@@ -1435,24 +1440,24 @@ lines(density(alt_vs_org_side), col = 'purple')
 lines(density(alt_vs_org_twds), col = 'blue')
 
 ## calculate reportable values
-mean(alt_vs_org_away) ; sd(alt_vs_org_away) # 0.0003594844 ± 0.002598793
-mean(alt_vs_org_side) ; sd(alt_vs_org_side) # -4.037212e-05 ± 0.00321784
-mean(alt_vs_org_twds) ; sd(alt_vs_org_twds) # -0.0003191122 ± 0.002609183
+mean(alt_vs_org_away) ; sd(alt_vs_org_away) #  0.0003579506 ± 0.002620482
+mean(alt_vs_org_side) ; sd(alt_vs_org_side) # -4.175601e-05 ± 0.003227751
+mean(alt_vs_org_twds) ; sd(alt_vs_org_twds) # -0.0003161946 ± 0.002615127
 
-mean(away_12) ; sd(away_12) #  ± 
-mean(away_23) ; sd(away_23) #  ± 
-mean(away_34) ; sd(away_34) #  ± 
-mean(away_14) ; sd(away_14) #  ± 
+mean(away_12) ; sd(away_12) # -0.0007637813 ± 0.00322794
+mean(away_23) ; sd(away_23) #  0.0006043386 ± 0.002487587
+mean(away_34) ; sd(away_34) #  0.0003146462 ± 0.002575517
+mean(away_14) ; sd(away_14) #  0.0007367962 ± 0.004028099
 
-mean(side_12) ; sd(side_12) #  ± 
-mean(side_23) ; sd(side_23) #  ± 
-mean(side_34) ; sd(side_34) #  ± 
-mean(side_14) ; sd(side_14) #  ± 
+mean(side_12) ; sd(side_12) #  0.0001926507 ± 0.003966077
+mean(side_23) ; sd(side_23) #  -5.44491e-05 ± 0.00328045
+mean(side_34) ; sd(side_34) #  -6.96339e-05 ± 0.003029219
+mean(side_14) ; sd(side_14) # -0.0001332215 ± 0.00439033
 
-mean(twds_12) ; sd(twds_12) #  ± 
-mean(twds_23) ; sd(twds_23) #  ± 
-mean(twds_34) ; sd(twds_34) #  ± 
-mean(twds_14) ; sd(twds_14) #  ± 
+mean(twds_12) ; sd(twds_12) #  0.0005711306 ± 0.003146889
+mean(twds_23) ; sd(twds_23) # -0.0005498895 ± 0.002678449
+mean(twds_34) ; sd(twds_34) # -0.0002450123 ± 0.002409609
+mean(twds_14) ; sd(twds_14) # -0.0006035747 ± 0.003386156
 
 ## summarise contrasts
 contrasts <- look_no_na %>%
@@ -1573,13 +1578,13 @@ save.image('ele_playbacks/looking_direction/looking_ordinal_model1_agecontrasts.
 
 ## clean up a bit #####
 # load('ele_playbacks/looking_direction/looking_ordinal_model1_agecontrasts.RData') # load('looking_direction/looking_ordinal_model1_agecontrasts.RData')
-rm(list = ls()[! ls() %in% c('alt_vs_org_away','alt_vs_org_side','alt_vs_org_twds',
+rm(list = ls()[! ls() %in% c('alt_vs_org_away_all','alt_vs_org_side_all','alt_vs_org_twds_all',
                              'look_no_na','lom1_fit')]) ; gc()
 
 ## plot full density instead of means
-colnames(alt_vs_org_away) <- look_no_na$data_row[which(look_no_na$f_age_num != 4)]
-colnames(alt_vs_org_side) <- look_no_na$data_row[which(look_no_na$f_age_num != 4)]
-colnames(alt_vs_org_twds) <- look_no_na$data_row[which(look_no_na$f_age_num != 4)]
+colnames(alt_vs_org_away_all) <- look_no_na$data_row#[which(look_no_na$f_age_num != 4)]
+colnames(alt_vs_org_side_all) <- look_no_na$data_row#[which(look_no_na$f_age_num != 4)]
+colnames(alt_vs_org_twds_all) <- look_no_na$data_row#[which(look_no_na$f_age_num != 4)]
 
 mtx_to_df <- function(mtx, pred_type){
   df <- mtx %>%
@@ -1610,7 +1615,8 @@ away <- mtx_to_df(alt_vs_org_away, pred_type = 'look away')
 side <- mtx_to_df(alt_vs_org_side, pred_type = 'side on')
 twds <- mtx_to_df(alt_vs_org_twds, pred_type = 'look at')
 
-plot_contrasts <- rbind(away, side, twds) %>%
+plot_contrasts <- rbind(away, side, twds)
+plot_contrasts <- plot_contrasts %>% 
   mutate(prediction_type = factor(prediction_type,
                                   levels = c('look away',
                                              'side on',
@@ -1626,7 +1632,7 @@ ggplot(plot_contrasts)+
   scale_colour_viridis_d(begin = 0, end = 0.5)+
   scale_fill_viridis_d(begin = 0, end = 0.5)+
   geom_vline(xintercept = 0, linetype = 2)+
-  facet_grid(prediction_type ~ categories, scales = 'free_y')+#, nrow = 3, ncol = 4)+
+  facet_grid(prediction_type ~ categories, scales = 'free')+#, nrow = 3, ncol = 4)+
   labs(x = 'contrast between age categories',
        fill  =  'change in age\ncategory', #  fill  = 'original\nage category',
        colour = 'change in age\ncategory'  # colour = 'original\nage category'
@@ -1635,12 +1641,12 @@ ggplot(plot_contrasts)+
   theme_bw()
 ggsave(plot = last_plot(), device = 'png',
        filename = 'looking_ordinal1_agecontrasts.png',
-       path = 'outputs/looking_ordinal_model_1/',
-       width = 2400, height = 3200, unit = 'px')
+       path = '../outputs/looking_ordinal_model_1/',
+       width = 2400, height = 1600, unit = 'px')
 ggsave(plot = last_plot(), device = 'svg',
        filename = 'looking_ordinal1_agecontrasts.svg',
-       path = 'outputs/looking_ordinal_model_1/',
-       width = 2400, height = 3200, unit = 'px')
+       path = '../outputs/looking_ordinal_model_1/',
+       width = 2000, height = 2400, unit = 'px')
 
 ## time since stimulus ####
 # load('looking_direction/looking_ordinal_model1_agecontrasts.RData')
@@ -1808,40 +1814,40 @@ alt1.00_vs_0.75_twds <- time_mtx_alt_1.00[,,3] - time_mtx_alt_0.75[,,3]
 plot(density(alt0.25_vs_0.00_away), col = 'red', las = 1, xlim = c(-0.001, 0.001),
      main = 'contrasts between stim types:\nsolid = look away, dashed = side on, dotted = older;\nred = 0-15s, blue = 15-30s, green = 30-45s, black = 45-60s')
 mean(alt0.25_vs_0.00_away) ; sd(alt0.25_vs_0.00_away)
-# -0.0001907893 ± 0.0005875004
+# -0.0001982048 ± 0.0005917501
 lines(density(alt0.50_vs_0.25_away), col = 'blue')
 mean(alt0.50_vs_0.25_away) ; sd(alt0.50_vs_0.25_away)
-# -0.000262113 ± 0.0006254504
+# -0.0002826895 ± 0.0006411827
 lines(density(alt0.75_vs_0.50_away), col = 'green')
 mean(alt0.75_vs_0.50_away) ; sd(alt0.75_vs_0.50_away)
-# -0.000292715 ± 0.0007181015
+# -0.0003241976 ± 0.0007480213
 lines(density(alt1.00_vs_0.75_away), col = 'black')
 mean(alt1.00_vs_0.75_away) ; sd(alt1.00_vs_0.75_away)
-# -0.0001711341 ± 0.0007348472
+# -0.0001901752 ± 0.0007707675
 lines(density(alt0.25_vs_0.00_side), col = 'red', lty = 2)
 mean(alt0.25_vs_0.00_side) ; sd(alt0.25_vs_0.00_side)
-# 6.358331e-05 ± 0.0006851622
+#  6.624418e-05 ± 0.0006881122
 lines(density(alt0.50_vs_0.25_side), col = 'blue', lty = 2)
 mean(alt0.50_vs_0.25_side) ; sd(alt0.50_vs_0.25_side)
-# 8.563393e-05 ± 0.0007473229
+#   9.26224e-05 ± 0.0007699839
 lines(density(alt0.75_vs_0.50_side), col = 'green', lty = 2)
 mean(alt0.75_vs_0.50_side) ; sd(alt0.75_vs_0.50_side)
-# 9.272578e-05 ± 0.0008624582
+#  0.0001029985 ± 0.0009063145
 lines(density(alt1.00_vs_0.75_side), col = 'black')
 mean(alt1.00_vs_0.75_side) ; sd(alt1.00_vs_0.75_side)
-# 4.990596e-05 ± 0.0008522631
+#  5.563013e-05 ± 0.0008980742
 lines(density(alt0.25_vs_0.00_twds), col = 'red', lty = 3)
 mean(alt0.25_vs_0.00_twds) ; sd(alt0.25_vs_0.00_twds)
-# 0.000127206 ± 0.0005434647
+#  0.0001319606 ± 0.0005448038
 lines(density(alt0.50_vs_0.25_twds), col = 'blue', lty = 3)
 mean(alt0.50_vs_0.25_twds) ; sd(alt0.50_vs_0.25_twds)
-# 0.0001764791 ± 0.0005787657
+#  0.0001900671 ± 0.0005935111
 lines(density(alt0.75_vs_0.50_twds), col = 'green', lty = 3)
 mean(alt0.75_vs_0.50_twds) ; sd(alt0.75_vs_0.50_twds)
-# 0.0001999892 ± 0.000660076
+#  0.0002211991 ± 0.0006879973
 lines(density(alt1.00_vs_0.75_twds), col = 'black')
 mean(alt1.00_vs_0.75_twds) ; sd(alt1.00_vs_0.75_twds)
-# 0.0001212281 ± 0.0006654675
+#  0.0001345451 ± 0.0006952967
 
 ## summarise contrasts
 contrasts <- look_no_na %>%
