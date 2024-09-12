@@ -12,6 +12,7 @@ library(tidyverse, lib.loc = '../../packages/')
 #library(cmdstanr) ; set_cmdstan_path('../../packages/.cmdstan/cmdstan-2.31.0/')
 library(LaplacesDemon, lib.loc = '../../packages/')
 library(patchwork, lib.loc = '../../packages/')
+library(ggridges, lib.loc = '../../packages/')
 
 theme_set(theme_bw())
 set.seed(12345)
@@ -260,7 +261,7 @@ mbm_fit <- brm(
   prior = priors, chains = num_chains, cores = num_chains, threads = threading(4),
   iter = num_iter, warmup = num_iter/2, seed = 12345)
 # Warning messages:
-# 1: There were 107 divergent transitions after warmup. See https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup to find out why this is a problem and how to eliminate them. 
+# 1: There were 107 divergent transitions after warmup. See https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup to find out why this is a problem and how to eliminate them.
 # 2: Examine the pairs() plot to diagnose sampling problems
 # 3: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable. Running the chains for more iterations may help. See https://mc-stan.org/misc/warnings.html#tail-ess
 
@@ -279,21 +280,21 @@ summary(mbm_fit)
 # Smooth Terms:
 #                    Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # sds(safter_stim_1)     5.83      2.21     2.60    11.78 1.01      441      191
-# 
-# Group-Level Effects: 
-#   ~focal_id (Number of levels: 176) 
+#
+# Group-Level Effects:
+#   ~focal_id (Number of levels: 176)
 #               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # sd(Intercept)     0.10      0.07     0.00     0.25 1.00      976     1731
-# 
-# ~playback_id (Number of levels: 48) 
+#
+# ~playback_id (Number of levels: 48)
 #               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # sd(Intercept)     0.66      0.11     0.47     0.88 1.00      930     2155
-# 
-# ~stim_id (Number of levels: 30) 
+#
+# ~stim_id (Number of levels: 30)
 #               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # sd(Intercept)     0.22      0.16     0.01     0.56 1.01      468     1383
-# 
-# Population-Level Effects: 
+#
+# Population-Level Effects:
 #                  Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # stim_typectd        -4.34      0.23    -4.77    -3.88 1.01     1638     1729
 # stim_typeh          -3.68      0.26    -4.19    -3.18 1.00     1386     2323
@@ -301,15 +302,15 @@ summary(mbm_fit)
 # move_tminus1_num     7.04      0.07     6.91     7.17 1.00     4895     2705
 # safter_stim_1       -0.81      0.98    -2.74     1.10 1.00     4673     2495
 # mof_age_num         -0.21      0.07    -0.35    -0.09 1.00     1750     2663
-# 
-# Simplex Parameters: 
+#
+# Simplex Parameters:
 #                 Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # mof_age_num1[1]     0.47      0.15     0.16     0.74 1.00     3277     2710
 # mof_age_num1[2]     0.22      0.12     0.04     0.50 1.00     1928     2970
 # mof_age_num1[3]     0.31      0.13     0.07     0.59 1.01     4481     2615
-# 
+#
 # Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS and Tail_ESS are effective sample size measures, and Rhat is the potential scale reduction factor on split chains (at convergence, Rhat = 1).
-# Warning message: There were 107 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
+# Warning message: There were 107 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
 
 print(paste0('model fitted at ', Sys.time()))
 
@@ -870,6 +871,7 @@ save.image('movement_direction/movement_binomial_stimuluscontrasts.RData')
 rm(ctd_move, lion_move, human_move, ctd_mtx, human_mtx, lion_mtx) ; gc()
 
 ## focal age ####
+load('movement_direction/movement_binomial_stimuluscontrasts.RData')
 move_new <- move_new %>%
   mutate(unique_data_combo = as.integer(as.factor(paste0(stim_type, move_tminus1_num, after_stim,
                                                          focal_id, stim_id, playback_id))))
@@ -878,7 +880,7 @@ move_new <- move_new %>%
 age_move_org <- move_new
 age_mtx_org <- posterior_epred(object = mbm_fit, newdata = age_move_org)
 colnames(age_mtx_org) <- age_move_org$unique_data_combo
-age_mtx_org <- age_mtx_org[c(1:100,1001:1100,2001:2100,3001:3100),]
+#age_mtx_org <- age_mtx_org[c(1:100,1001:1100,2001:2100,3001:3100),]
 
 ## redo predictions with altered ages
 age_move_alt <- move_new %>%
@@ -887,7 +889,7 @@ age_move_alt <- move_new %>%
   relocate(f_age_num_original)
 age_mtx_alt <- posterior_epred(object = mbm_fit, newdata = age_move_alt)
 colnames(age_mtx_alt) <- age_move_alt$unique_data_combo
-age_mtx_alt <- age_mtx_alt[c(1:100,1001:1100,2001:2100,3001:3100),]
+#age_mtx_alt <- age_mtx_alt[c(1:100,1001:1100,2001:2100,3001:3100),]
 
 save.image('movement_direction/movement_binomial_agecontrasts.RData')
 
@@ -924,7 +926,68 @@ median(age1_vs_age4) ; mean(age1_vs_age4) ; sd(age1_vs_age4)
 ## save output
 save.image('movement_direction/movement_binomial_agecontrasts.RData')
 
-## plot nicely
+## plot predictions
+pred <- pred %>% 
+  mutate(draw_id = rep(1:4000, each = nrow(age_move_org)),
+         stim_type_long = ifelse(stim_type == 'ctd','dove (control)',
+                                 ifelse(stim_type == 'l','lion','human'))) %>% 
+  mutate(stim_type_long = factor(stim_type_long,
+                                 levels = c('dove (control)','lion','human')))
+
+pred %>% 
+  mutate(move_tminus1 = ifelse(move_tminus1 == 'not_moving', 'no', 'yes')) %>% 
+  mutate(move_tminus1 = factor(move_tminus1, levels = c('yes','no'))) %>% 
+  ggplot()+
+  geom_boxplot(aes(x = f_age_cat,
+                   # fill = as.factor(move_index), # successfully predicts actual data
+                   fill = move_tminus1, 
+                   y = epred))+
+  labs(x = 'focal age category',
+       y = 'predicted probability of moving',
+       fill = 'moving in previous second')+
+  facet_wrap(. ~ stim_type_long)+
+  scale_fill_viridis_d()+
+  theme(legend.position = 'bottom')
+
+pred %>% 
+  mutate(move_tminus1 = ifelse(move_tminus1 == 'not_moving',
+                               'not moving at t-1','moving at t-1')) %>% 
+  mutate(move_tminus1 = factor(move_tminus1, levels = c('moving at t-1',
+                                                        'not moving at t-1'))) %>% 
+  ggplot()+
+  geom_density(aes(x = epred,
+                   fill = f_age_cat),
+               alpha = 0.4)+
+  labs(fill = 'focal age category',
+       x = 'predicted probability of moving',
+       y = 'probability density')+
+  facet_grid(move_tminus1 ~ stim_type_long,
+             scales = 'free')+
+  scale_fill_viridis_d()+
+  theme(legend.position = 'bottom')
+
+pred %>% 
+  mutate(move_tminus1 = ifelse(move_tminus1 == 'not_moving',
+                               'not moving at t-1','moving at t-1')) %>% 
+  mutate(move_tminus1 = factor(move_tminus1, levels = c('moving at t-1',
+                                                        'not moving at t-1'))) %>% 
+  ggplot()+
+  geom_density_ridges(aes(x = epred,
+                          y = f_age_cat,
+                          fill = f_age_cat),
+                      alpha = 0.6)+
+  labs(fill = 'focal age category',
+       x = 'predicted probability of moving',
+       y = 'probability density')+
+  facet_grid(stim_type_long ~ move_tminus1,
+             scales = 'free_x')+
+  scale_fill_viridis_d()+
+  theme(legend.position = 'bottom')
+ggsave(filename = 'mbm_predicted_ridges.png',
+       path = '../outputs/movement_binomial_model/',
+       device = 'png', height = 1800, width = 1500, units = 'px')
+
+## plot contrasts
 colnames(age_contrast) <- move_no_na$data_row
 plot_contrasts <- age_contrast %>%
   as.data.frame() %>%
@@ -954,6 +1017,7 @@ ggplot(plot_contrasts)+
                    ),
                #fill = '#21918c', colour = '#21918c',
                alpha = 0.4)+
+  scale_x_continuous(limits = c(-0.1, 0.1))+
   scale_colour_viridis_d(begin = 0, end = 0.5)+
   scale_fill_viridis_d(begin = 0, end = 0.5)+
   facet_wrap(. ~ categories, scales = 'free_y')+
@@ -964,13 +1028,62 @@ ggplot(plot_contrasts)+
   theme(legend.position = 'none')+ #c(0.8, 0.9))+
   theme_bw()
 ggsave(plot = last_plot(), device = 'png',
-       filename = 'movement_binomial_agecontrasts.png',
+       filename = 'mbm_density_agecontrasts.png',
        path = '../outputs/movement_binomial_model/',
        width = 2400, height = 1800, unit = 'px')
 ggsave(plot = last_plot(), device = 'svg',
-       filename = 'movement_binomial_agecontrasts.svg',
+       filename = 'mbm_density_agecontrasts.svg',
        path = '../outputs/movement_binomial_model/',
        width = 2400, height = 1800, unit = 'px')
+
+## replot contrasts and check that it matches -- 2 different scripts, wrote plots independently -- same data seems to produce different graphs
+age_contrast %>% 
+  as.data.frame() %>% 
+  pivot_longer(cols = everything(),
+               names_to = 'unique_data_combo',
+               values_to = 'contrast') %>% 
+  mutate(unique_data_combo = as.integer(unique_data_combo)) %>% 
+  left_join(distinct(age_move_org), by = 'unique_data_combo') %>% 
+  rename(f_age_num_org = f_age_num) %>% 
+  mutate(f_age_num_alt = ifelse(f_age_num_org == 4, 1, f_age_num_org + 1)) %>% 
+  mutate(f_age_cat_org = ifelse(f_age_num_org == 1, '10-15 yrs',
+                                ifelse(f_age_num_org == 2, '16-20 yrs',
+                                       ifelse(f_age_num_org == 3, '21-25 yrs',
+                                              ifelse(f_age_num_org == 4, '26-35 yrs',
+                                                     '>36 yrs')))),
+         f_age_cat_alt = ifelse(f_age_num_alt == 1, '10-15 yrs',
+                                ifelse(f_age_num_alt == 2, '16-20 yrs',
+                                       ifelse(f_age_num_alt == 3, '21-25 yrs',
+                                              ifelse(f_age_num_alt == 4, '26-35 yrs',
+                                                     '>36 yrs')))),
+         contrast = ifelse(f_age_num_org == 4, contrast*(-1), contrast)) %>% 
+  relocate(f_age_num_alt, .after = (f_age_num_org)) %>% 
+  relocate(f_age_cat_org, .after = (f_age_num_alt)) %>% 
+  relocate(f_age_cat_alt, .after = (f_age_cat_org)) %>% 
+  mutate(comparison = ifelse(f_age_num_org == 4,
+                             paste0(f_age_cat_alt, ' to ', f_age_cat_org),
+                             paste0(f_age_cat_org, ' to ', f_age_cat_alt))) %>% 
+  mutate(prev_move = ifelse(move_tminus1_num == 0, 'not moving at t-1', 'moving at t-1'),
+         stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
+                            ifelse(stim_type == 'l', 'lion',
+                                   'human'))) %>% 
+  mutate(stim_type = factor(stim_type,
+                            levels = c('dove (control)', 'lion', 'human'))) %>% 
+  ggplot()+
+  geom_violin(aes(x = comparison,
+                  y = contrast,
+                  fill = comparison),
+              position = position_dodge(0.5))+
+  geom_hline(yintercept = 0, lty = 2)+
+  scale_fill_viridis_d()+
+  facet_grid(stim_type ~ prev_move)+
+  labs(fill = 'age comparison')+
+  theme(legend.position = 'bottom',
+        axis.text.x = element_text(angle = 90, vjust = 0.5))
+ggsave(plot = last_plot(), device = 'png',
+       filename = 'mbm_violin_agecontrasts.png',
+       path = '../outputs/movement_binomial_model/',
+       height = 1600, width = 1600, unit = 'px')
 
 ## time since stimulus -- including all 0 times ####
 load('movement_direction/movement_binomial_agecontrasts.RData')
@@ -1339,7 +1452,7 @@ mom1_prior <- brm(
   prior = priors, chains = num_chains, cores = num_chains,
   iter = num_iter, warmup = num_iter/2, seed = 12345,
   sample_prior = 'only')
-# Warning message: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable. Running the chains for more iterations may help. See https://mc-stan.org/misc/warnings.html#tail-ess 
+# Warning message: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable. Running the chains for more iterations may help. See https://mc-stan.org/misc/warnings.html#tail-ess
 
 pp_check(mom1_prior)
 
@@ -1360,7 +1473,7 @@ mom1_fit <- brm(
   iter = num_iter, warmup = num_iter/2, seed = 12345)
 # Warning messages:
 # 1: There were 23 divergent transitions after warmup. See
-# https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup to find out why this is a problem and how to eliminate them. 
+# https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup to find out why this is a problem and how to eliminate them.
 # 2: Examine the pairs() plot to diagnose sampling problems
 
 # save workspace
@@ -1377,21 +1490,21 @@ summary(mom1_fit)
 # Smooth Terms:
 #                    Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # sds(safter_stim_1)     0.36      0.35     0.02     1.31 1.00     1670     2441
-# 
-# Group-Level Effects: 
-#   ~focal_id (Number of levels: 155) 
+#
+# Group-Level Effects:
+#   ~focal_id (Number of levels: 155)
 #               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # sd(Intercept)     0.17      0.06     0.03     0.28 1.01      628      579
-# 
-# ~playback_id (Number of levels: 45) 
+#
+# ~playback_id (Number of levels: 45)
 #               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # sd(Intercept)     0.07      0.05     0.00     0.18 1.00      994     1087
-# 
-# ~stim_id (Number of levels: 29) 
+#
+# ~stim_id (Number of levels: 29)
 #               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # sd(Intercept)     0.08      0.05     0.01     0.20 1.00     1267     1524
-# 
-# Population-Level Effects: 
+#
+# Population-Level Effects:
 #                    Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # Intercept[1]           3.90      0.22     3.47     4.33 1.00     1532     2131
 # Intercept[2]          10.21      0.24     9.74    10.67 1.00     1689     2370
@@ -1417,8 +1530,8 @@ summary(mom1_fit)
 # safter_stim_1          0.36      0.59    -0.71     1.73 1.00     2403     2225
 # mof_age_num           -0.07      0.13    -0.33     0.19 1.00      972     1743
 # momove_tminus1_num     5.87      0.05     5.78     5.96 1.00     3745     2876
-# 
-# Simplex Parameters: 
+#
+# Simplex Parameters:
 #                        Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # mof_age_num1[1]            0.33      0.18     0.05     0.72 1.00     3839     2640
 # mof_age_num1[2]            0.33      0.17     0.05     0.70 1.00     4989     2890
@@ -1428,12 +1541,12 @@ summary(mom1_fit)
 # momove_tminus1_num1[3]     0.21      0.00     0.20     0.21 1.00     3944     2887
 # momove_tminus1_num1[4]     0.28      0.00     0.28     0.29 1.00     6570     3332
 #
-# Family Specific Parameters: 
+# Family Specific Parameters:
 #      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # disc     1.00      0.00     1.00     1.00   NA       NA       NA
 
 # Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS and Tail_ESS are effective sample size measures, and Rhat is the potential scale reduction factor on split chains (at convergence, Rhat = 1).
-# Warning message: There were 23 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
+# Warning message: There were 23 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
 
 print(paste0('model fitted at ', Sys.time()))
 
@@ -1460,7 +1573,7 @@ mom1_fit$model
 #         return log1m_inv_logit(disc * (thres[nthres] - mu));
 #       } else {
 #         return log_diff_exp(
-#           log_inv_logit(disc * (thres[y] - mu)), 
+#           log_inv_logit(disc * (thres[y] - mu)),
 #           log_inv_logit(disc * (thres[y - 1] - mu))
 #         );
 #       }
@@ -2787,7 +2900,7 @@ time_pred <- time_move_org %>%
          time_alt_0.25_prop3_sd = apply(time_mtx_alt_0.25[,,3], 2, sd),
          time_alt_0.25_prop4_sd = apply(time_mtx_alt_0.25[,,4], 2, sd),
          time_alt_0.25_prop5_sd = apply(time_mtx_alt_0.25[,,5], 2, sd),
-         
+
          time_alt_0.50_prop1_mu = apply(time_mtx_alt_0.50[,,1], 2, mean),
          time_alt_0.50_prop2_mu = apply(time_mtx_alt_0.50[,,2], 2, mean),
          time_alt_0.50_prop3_mu = apply(time_mtx_alt_0.50[,,3], 2, mean),
@@ -2850,14 +2963,14 @@ time_pred <- time_move_org %>%
   filter(alt_mu == alt_sd & prop_agemove_sd == prop_agemove_mu) %>%
   mutate(move_pred = ifelse(prop_agemove_mu == 'prop1', 1,
                           ifelse(prop_agemove_mu == 'prop2', 2,
-                                 ifelse(prop_agemove_mu == 'prop3', 3, 
+                                 ifelse(prop_agemove_mu == 'prop3', 3,
                                         ifelse(prop_agemove_mu == 'prop4', 4, 5))))) %>%
   select(-alt_sd, -prop_agemove_mu, -prop_agemove_sd) %>%
   rename(mins_added = alt_mu) %>%
   mutate(pred_type = ifelse(move_pred == 1, 'directly away',
-                            ifelse(move_pred == 2, 'away at an angle', 
+                            ifelse(move_pred == 2, 'away at an angle',
                                    ifelse(move_pred == 3, 'neither towards or away',
-                                          ifelse(move_pred == 4, 'approach at an angle', 
+                                          ifelse(move_pred == 4, 'approach at an angle',
                                                  'approach directly')))))
 
 ## calculate contrasts
@@ -2897,7 +3010,7 @@ contrasts <- move_no_na %>%
          alt0.25_vs_0.00_at_sd = apply(alt0.25_vs_0.00_at, 2, sd),
          alt0.25_vs_0.00_dt_mu = apply(alt0.25_vs_0.00_dt, 2, mean),
          alt0.25_vs_0.00_dt_sd = apply(alt0.25_vs_0.00_dt, 2, sd),
-         
+
          alt0.50_vs_0.25_da_mu = apply(alt0.50_vs_0.25_da, 2, mean),
          alt0.50_vs_0.25_da_sd = apply(alt0.50_vs_0.25_da, 2, sd),
          alt0.50_vs_0.25_aa_mu = apply(alt0.50_vs_0.25_aa, 2, mean),
@@ -2908,7 +3021,7 @@ contrasts <- move_no_na %>%
          alt0.50_vs_0.25_at_sd = apply(alt0.50_vs_0.25_at, 2, sd),
          alt0.50_vs_0.25_dt_mu = apply(alt0.50_vs_0.25_dt, 2, mean),
          alt0.50_vs_0.25_dt_sd = apply(alt0.50_vs_0.25_dt, 2, sd),
-         
+
          alt0.75_vs_0.50_da_mu = apply(alt0.75_vs_0.50_da, 2, mean),
          alt0.75_vs_0.50_da_sd = apply(alt0.75_vs_0.50_da, 2, sd),
          alt0.75_vs_0.50_aa_mu = apply(alt0.75_vs_0.50_aa, 2, mean),
@@ -2919,7 +3032,7 @@ contrasts <- move_no_na %>%
          alt0.75_vs_0.50_at_sd = apply(alt0.75_vs_0.50_at, 2, sd),
          alt0.75_vs_0.50_dt_mu = apply(alt0.75_vs_0.50_dt, 2, mean),
          alt0.75_vs_0.50_dt_sd = apply(alt0.75_vs_0.50_dt, 2, sd),
-         
+
          alt1.00_vs_0.75_da_mu = apply(alt1.00_vs_0.75_da, 2, mean),
          alt1.00_vs_0.75_da_sd = apply(alt1.00_vs_0.75_da, 2, sd),
          alt1.00_vs_0.75_aa_mu = apply(alt1.00_vs_0.75_aa, 2, mean),
@@ -2959,7 +3072,7 @@ contrasts_long <- contrasts %>%
                             ifelse(pred_type == 'aa', 'away at an angle',
                                    ifelse(pred_type == 'n', 'neither towards or away',
                                           ifelse(pred_type == 'at', 'approach at an angle',
-                                                 'directly approach'))))) %>% 
+                                                 'directly approach'))))) %>%
   mutate(pred_type = factor(pred_type, levels = c('directly away',
                                                   'away at an angle',
                                                   'neither towards or away',
