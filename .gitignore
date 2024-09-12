@@ -10,3 +10,4 @@ model_playing_desktop.R
 *.pdf
 outputs/Thumbs.db
 *.docx
+*.db
