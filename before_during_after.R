@@ -1055,6 +1055,7 @@ median(contrast_43v44); mean(contrast_43v44); sd(contrast_43v44)
     scale_colour_viridis_d()+
     scale_fill_viridis_d()+
     facet_wrap(. ~ contrast, scales = 'free_y', ncol = 4)+
+    scale_x_continuous(limits = c(-0.02,0.02))+
     labs(colour = 'difference in\nage category',
          fill = 'difference in\nage category',
          title = 'changing focal age',
@@ -1085,7 +1086,7 @@ ggsave(plot = focal_plot, device = 'svg',
                  alpha = 0.4)+
     scale_colour_viridis_d()+
     scale_fill_viridis_d()+
-    scale_x_continuous(breaks = c(-0.1,0,0.1))+
+    scale_x_continuous(limits = c(-0.0125,0.025))+
     facet_wrap(contrast ~ ., scales = 'free_y', ncol = 4)+
     labs(colour = 'difference in\nage category',
          fill = 'difference in\nage category',
