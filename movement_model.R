@@ -8,8 +8,6 @@ library(StanHeaders, lib.loc = '../../packages/')
 library(rstan, lib.loc = '../../packages/')
 library(brms, lib.loc = '../../packages/')
 library(tidyverse, lib.loc = '../../packages/')
-#library(cmdstanr, lib.loc = '../../packages/') ; set_cmdstan_path('../../packages/.cmdstan/cmdstan-2.31.0/')
-#library(cmdstanr) ; set_cmdstan_path('../../packages/.cmdstan/cmdstan-2.31.0/')
 library(LaplacesDemon, lib.loc = '../../packages/')
 library(patchwork, lib.loc = '../../packages/')
 library(ggridges, lib.loc = '../../packages/')
@@ -927,20 +925,20 @@ median(age1_vs_age4) ; mean(age1_vs_age4) ; sd(age1_vs_age4)
 save.image('movement_direction/movement_binomial_agecontrasts.RData')
 
 ## plot predictions
-pred <- pred %>% 
+pred <- pred %>%
   mutate(draw_id = rep(1:4000, each = nrow(age_move_org)),
          stim_type_long = ifelse(stim_type == 'ctd','dove (control)',
-                                 ifelse(stim_type == 'l','lion','human'))) %>% 
+                                 ifelse(stim_type == 'l','lion','human'))) %>%
   mutate(stim_type_long = factor(stim_type_long,
                                  levels = c('dove (control)','lion','human')))
 
-pred %>% 
-  mutate(move_tminus1 = ifelse(move_tminus1 == 'not_moving', 'no', 'yes')) %>% 
-  mutate(move_tminus1 = factor(move_tminus1, levels = c('yes','no'))) %>% 
+pred %>%
+  mutate(move_tminus1 = ifelse(move_tminus1 == 'not_moving', 'no', 'yes')) %>%
+  mutate(move_tminus1 = factor(move_tminus1, levels = c('yes','no'))) %>%
   ggplot()+
   geom_boxplot(aes(x = f_age_cat,
                    # fill = as.factor(move_index), # successfully predicts actual data
-                   fill = move_tminus1, 
+                   fill = move_tminus1,
                    y = epred))+
   labs(x = 'focal age category',
        y = 'predicted probability of moving',
@@ -949,11 +947,11 @@ pred %>%
   scale_fill_viridis_d()+
   theme(legend.position = 'bottom')
 
-pred %>% 
+pred %>%
   mutate(move_tminus1 = ifelse(move_tminus1 == 'not_moving',
-                               'not moving at t-1','moving at t-1')) %>% 
+                               'not moving at t-1','moving at t-1')) %>%
   mutate(move_tminus1 = factor(move_tminus1, levels = c('moving at t-1',
-                                                        'not moving at t-1'))) %>% 
+                                                        'not moving at t-1'))) %>%
   ggplot()+
   geom_density(aes(x = epred,
                    fill = f_age_cat),
@@ -966,11 +964,11 @@ pred %>%
   scale_fill_viridis_d()+
   theme(legend.position = 'bottom')
 
-pred %>% 
+pred %>%
   mutate(move_tminus1 = ifelse(move_tminus1 == 'not_moving',
-                               'not moving at t-1','moving at t-1')) %>% 
+                               'not moving at t-1','moving at t-1')) %>%
   mutate(move_tminus1 = factor(move_tminus1, levels = c('moving at t-1',
-                                                        'not moving at t-1'))) %>% 
+                                                        'not moving at t-1'))) %>%
   ggplot()+
   geom_density_ridges(aes(x = epred,
                           y = f_age_cat,
@@ -1037,15 +1035,15 @@ ggsave(plot = last_plot(), device = 'svg',
        width = 2400, height = 1800, unit = 'px')
 
 ## replot contrasts and check that it matches -- 2 different scripts, wrote plots independently -- same data seems to produce different graphs
-age_contrast %>% 
-  as.data.frame() %>% 
+age_contrast %>%
+  as.data.frame() %>%
   pivot_longer(cols = everything(),
                names_to = 'unique_data_combo',
-               values_to = 'contrast') %>% 
-  mutate(unique_data_combo = as.integer(unique_data_combo)) %>% 
-  left_join(distinct(age_move_org), by = 'unique_data_combo') %>% 
-  rename(f_age_num_org = f_age_num) %>% 
-  mutate(f_age_num_alt = ifelse(f_age_num_org == 4, 1, f_age_num_org + 1)) %>% 
+               values_to = 'contrast') %>%
+  mutate(unique_data_combo = as.integer(unique_data_combo)) %>%
+  left_join(distinct(age_move_org), by = 'unique_data_combo') %>%
+  rename(f_age_num_org = f_age_num) %>%
+  mutate(f_age_num_alt = ifelse(f_age_num_org == 4, 1, f_age_num_org + 1)) %>%
   mutate(f_age_cat_org = ifelse(f_age_num_org == 1, '10-15 yrs',
                                 ifelse(f_age_num_org == 2, '16-20 yrs',
                                        ifelse(f_age_num_org == 3, '21-25 yrs',
@@ -1056,19 +1054,19 @@ age_contrast %>%
                                        ifelse(f_age_num_alt == 3, '21-25 yrs',
                                               ifelse(f_age_num_alt == 4, '26-35 yrs',
                                                      '>36 yrs')))),
-         contrast = ifelse(f_age_num_org == 4, contrast*(-1), contrast)) %>% 
-  relocate(f_age_num_alt, .after = (f_age_num_org)) %>% 
-  relocate(f_age_cat_org, .after = (f_age_num_alt)) %>% 
-  relocate(f_age_cat_alt, .after = (f_age_cat_org)) %>% 
+         contrast = ifelse(f_age_num_org == 4, contrast*(-1), contrast)) %>%
+  relocate(f_age_num_alt, .after = (f_age_num_org)) %>%
+  relocate(f_age_cat_org, .after = (f_age_num_alt)) %>%
+  relocate(f_age_cat_alt, .after = (f_age_cat_org)) %>%
   mutate(comparison = ifelse(f_age_num_org == 4,
                              paste0(f_age_cat_alt, ' to ', f_age_cat_org),
-                             paste0(f_age_cat_org, ' to ', f_age_cat_alt))) %>% 
+                             paste0(f_age_cat_org, ' to ', f_age_cat_alt))) %>%
   mutate(prev_move = ifelse(move_tminus1_num == 0, 'not moving at t-1', 'moving at t-1'),
          stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
                             ifelse(stim_type == 'l', 'lion',
-                                   'human'))) %>% 
+                                   'human'))) %>%
   mutate(stim_type = factor(stim_type,
-                            levels = c('dove (control)', 'lion', 'human'))) %>% 
+                            levels = c('dove (control)', 'lion', 'human'))) %>%
   ggplot()+
   geom_violin(aes(x = comparison,
                   y = contrast,
@@ -1412,7 +1410,7 @@ get_prior(formula = move_index ~ 1 + mo(f_age_num) + age_combo + stim_type +   #
 
 priors <- c(
   # focal age
-  prior(normal(0,0.25),   class = b,    coef = mof_age_num),
+  prior(normal(0,1),   class = b,    coef = mof_age_num),
   prior(dirichlet(2,2,2), class = simo, coef = mof_age_num1),
   # interaction age
   prior(normal(0,1),     class = b,    coef = age_combo1_2),
@@ -1437,7 +1435,7 @@ priors <- c(
   prior(normal(0,1),        class = b,    coef = safter_stim_1),
   #prior(student_t(3,0,2.5), class = sds,  coef = s(after_stim)), # included in move, wasn't in movement direction but not sure why?
   # action in previous second
-  prior(normal(0,0.333),  class = b,    coef = momove_tminus1_num),
+  prior(normal(1,1),  class = b,    coef = momove_tminus1_num),
   prior(dirichlet(2,2,2,2),     class = simo, coef = momove_tminus1_num1))
 
 #### prior predictive check ####
@@ -1481,72 +1479,73 @@ save.image('movement_direction/movement_ordinal_model1_run.RData') # save.image(
 
 # inspect model
 summary(mom1_fit)
-# Family: cumulative
-# Links: mu = logit; disc = identity
-# Formula: move_index ~ 1 + mo(f_age_num) + age_combo + stim_type + s(after_stim) + mo(move_tminus1_num) + (1 | focal_id) + (1 | stim_id) + (1 | playback_id)
-# Data: move_no_na (Number of observations: 29814)
-# Draws: 4 chains, each with iter = 2000; warmup = 1000; thin = 1; total post-warmup draws = 4000
-#
-# Smooth Terms:
+# Family: cumulative 
+# Links: mu = logit; disc = identity 
+# Formula: move_index ~ 1 + mo(f_age_num) + age_combo + stim_type + s(after_stim) + mo(move_tminus1_num) + (1 | focal_id) + (1 | stim_id) + (1 | playback_id) 
+# Data: move_no_na (Number of observations: 29814) 
+# Draws: 4 chains, each with iter = 2000; warmup = 1000; thin = 1;
+# total post-warmup draws = 4000
+# 
+# Smooth Terms: 
 #                    Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sds(safter_stim_1)     0.36      0.35     0.02     1.31 1.00     1670     2441
-#
-# Group-Level Effects:
-#   ~focal_id (Number of levels: 155)
+# sds(safter_stim_1)     0.39      0.40     0.01     1.51 1.01     1063     1288
+# 
+# Group-Level Effects: 
+#   ~focal_id (Number of levels: 155) 
 #               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sd(Intercept)     0.17      0.06     0.03     0.28 1.01      628      579
-#
-# ~playback_id (Number of levels: 45)
+# sd(Intercept)     0.17      0.06     0.03     0.28 1.00      690      695
+# 
+# ~playback_id (Number of levels: 45) 
 #               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sd(Intercept)     0.07      0.05     0.00     0.18 1.00      994     1087
-#
-# ~stim_id (Number of levels: 29)
+# sd(Intercept)     0.08      0.05     0.00     0.19 1.00     1094     1749
+# 
+# ~stim_id (Number of levels: 29) 
 #               Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sd(Intercept)     0.08      0.05     0.01     0.20 1.00     1267     1524
-#
-# Population-Level Effects:
+# sd(Intercept)     0.09      0.05     0.01     0.21 1.00      962      983
+# 
+# Population-Level Effects: 
 #                    Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# Intercept[1]           3.90      0.22     3.47     4.33 1.00     1532     2131
-# Intercept[2]          10.21      0.24     9.74    10.67 1.00     1689     2370
-# Intercept[3]          13.65      0.25    13.16    14.14 1.00     1844     2672
-# Intercept[4]          19.71      0.27    19.19    20.25 1.00     1859     2452
-# age_combo1_2           0.10      0.24    -0.35     0.55 1.00     1778     2564
-# age_combo1_3           0.03      0.24    -0.43     0.50 1.00     1713     2506
-# age_combo1_4           0.23      0.31    -0.37     0.84 1.00     2452     2722
-# age_combo2_1           0.04      0.24    -0.42     0.51 1.00     1145     2058
-# age_combo2_2           0.02      0.21    -0.38     0.43 1.01      808     1391
-# age_combo2_3           0.09      0.20    -0.29     0.50 1.01      788     1346
-# age_combo2_4          -0.01      0.23    -0.45     0.44 1.00      818     1985
-# age_combo3_1          -0.06      0.28    -0.62     0.49 1.00      727     1646
-# age_combo3_2          -0.02      0.26    -0.51     0.49 1.01      623     1283
-# age_combo3_3          -0.01      0.26    -0.50     0.50 1.01      649     1304
-# age_combo3_4          -0.28      0.28    -0.80     0.27 1.00      723     1595
-# age_combo4_1           0.01      0.43    -0.85     0.86 1.00     1000     2028
-# age_combo4_2           0.12      0.37    -0.61     0.82 1.01      695     1491
-# age_combo4_3           0.25      0.36    -0.47     0.93 1.01      762     1283
-# age_combo4_4           0.09      0.38    -0.66     0.80 1.00      772     1287
-# stim_typeh            -0.04      0.09    -0.22     0.15 1.00     3490     3163
-# stim_typel            -0.07      0.11    -0.28     0.15 1.00     3343     3054
-# safter_stim_1          0.36      0.59    -0.71     1.73 1.00     2403     2225
-# mof_age_num           -0.07      0.13    -0.33     0.19 1.00      972     1743
-# momove_tminus1_num     5.87      0.05     5.78     5.96 1.00     3745     2876
-#
-# Simplex Parameters:
+# Intercept[1]           3.97      0.23     3.49     4.42 1.00     1135     2211
+# Intercept[2]          10.39      0.25     9.89    10.87 1.00     1219     2248
+# Intercept[3]          13.90      0.26    13.38    14.40 1.00     1183     2039
+# Intercept[4]          20.07      0.28    19.51    20.61 1.00     1284     2026
+# age_combo1_2           0.10      0.24    -0.39     0.56 1.00     1598     2826
+# age_combo1_3           0.02      0.26    -0.49     0.52 1.00     1155     2388
+# age_combo1_4           0.23      0.33    -0.41     0.87 1.00     1866     2203
+# age_combo2_1           0.06      0.25    -0.42     0.53 1.00      875     1558
+# age_combo2_2           0.04      0.21    -0.39     0.47 1.00      665     1441
+# age_combo2_3           0.10      0.21    -0.30     0.52 1.00      630     1065
+# age_combo2_4           0.01      0.23    -0.44     0.46 1.00      777     1637
+# age_combo3_1          -0.02      0.31    -0.61     0.59 1.00      605     1296
+# age_combo3_2           0.03      0.28    -0.53     0.59 1.00      494      956
+# age_combo3_3           0.03      0.28    -0.52     0.59 1.00      484      990
+# age_combo3_4          -0.24      0.30    -0.81     0.36 1.00      551     1154
+# age_combo4_1           0.07      0.48    -0.92     0.98 1.00      709     1514
+# age_combo4_2           0.19      0.42    -0.66     0.99 1.00      514      881
+# age_combo4_3           0.31      0.42    -0.54     1.11 1.00      510      901
+# age_combo4_4           0.15      0.43    -0.73     0.98 1.00      506     1001
+# stim_typeh            -0.04      0.09    -0.23     0.15 1.00     2445     2715
+# stim_typel            -0.07      0.12    -0.30     0.16 1.00     2170     2806
+# safter_stim_1          0.40      0.64    -0.81     1.87 1.00     2257     2092
+# mof_age_num           -0.10      0.16    -0.41     0.23 1.01      541     1003
+# momove_tminus1_num     5.98      0.05     5.89     6.08 1.00     2507     2772
+# 
+# Simplex Parameters: 
 #                        Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# mof_age_num1[1]            0.33      0.18     0.05     0.72 1.00     3839     2640
-# mof_age_num1[2]            0.33      0.17     0.05     0.70 1.00     4989     2890
-# mof_age_num1[3]            0.34      0.18     0.05     0.72 1.00     4998     2813
-# momove_tminus1_num1[1]     0.30      0.00     0.30     0.31 1.00     4088     2820
-# momove_tminus1_num1[2]     0.21      0.00     0.20     0.21 1.00     4109     2995
-# momove_tminus1_num1[3]     0.21      0.00     0.20     0.21 1.00     3944     2887
-# momove_tminus1_num1[4]     0.28      0.00     0.28     0.29 1.00     6570     3332
-#
-# Family Specific Parameters:
+# mof_age_num1[1]            0.33      0.18     0.05     0.72 1.00     2603     2814
+# mof_age_num1[2]            0.32      0.17     0.05     0.71 1.00     3440     2381
+# mof_age_num1[3]            0.34      0.18     0.06     0.72 1.00     3364     2748
+# momove_tminus1_num1[1]     0.30      0.00     0.30     0.31 1.00     3093     2328
+# momove_tminus1_num1[2]     0.21      0.00     0.20     0.21 1.00     2956     2542
+# momove_tminus1_num1[3]     0.21      0.00     0.20     0.21 1.00     3242     3034
+# momove_tminus1_num1[4]     0.28      0.00     0.28     0.29 1.00     4908     3061
+# 
+# Family Specific Parameters: 
 #      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # disc     1.00      0.00     1.00     1.00   NA       NA       NA
-
+# 
 # Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS and Tail_ESS are effective sample size measures, and Rhat is the potential scale reduction factor on split chains (at convergence, Rhat = 1).
-# Warning message: There were 23 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
+# Warning message: There were 20 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
 
 print(paste0('model fitted at ', Sys.time()))
 
@@ -1994,7 +1993,7 @@ ggplot(data = draws_cut,
        aes(x = position, y = draw, colour = as.factor(chain)))+
   geom_line()+
   facet_wrap(. ~ parameter, scales = 'free_y')+
-  theme(legend.position = 'none') # mixing doesn't move brilliant, esp. for bsp_mofocal_age, but only horrendous one is playback ID
+  theme(legend.position = 'none')
 
 ## move at intercepts (estimates of cutpoints between categories on linear model scale)
 b_int1 <- draws_cut %>% filter(parameter == 'b_Intercept[1]')
@@ -2128,7 +2127,6 @@ save.image('movement_direction/movement_ordinal_model1_run.RData') # save.image(
 dev.off()
 
 #### predict from model ####
-pdf('../outputs/movement_ordinal_model_1/movement_ordinal_model1_modelpredictions.pdf')
 load('movement_direction/movement_ordinal_model1_run.RData')
 rm(list = ls()[! ls() %in% c('mom1_fit','move_no_na')]) ; gc()
 
@@ -2179,7 +2177,8 @@ rm(pred1, pred2, pred3, pred4, pred5) ; gc()
 print(paste0('predictions calculated at ',Sys.time()))
 
 #### plot predictions ####
-load('movement_direction/movement_ordinal_model1_predictions.RData')
+# load('movement_direction/movement_ordinal_model1_predictions.RData')
+pdf('../outputs/movement_ordinal_model_1/movement_ordinal_model1_modelpredictions.pdf')
 
 ## make labels for movement in previous second
 prevsec_labels <- c('direct away at t-1',
@@ -2575,27 +2574,27 @@ alt_vs_org_twdsdirect <- age_mtx_alt[,,5] - age_mtx_org[,,5]
 
 ## calculate contrast values -- for all, standard deviation > median or mean, so difference is centered on zero
 mean(alt_vs_org_awaydirect); sd(alt_vs_org_awaydirect)
-#        -0.0002071437     ±     0.005378194
+#        -0.0001810536     ±     0.00530079
 mean(alt_vs_org_awayangle) ; sd(alt_vs_org_awayangle)
-#         0.0003584539     ±     0.008211262
+#         0.0003541493     ±     0.00817211
 mean(alt_vs_org_neither)   ; sd(alt_vs_org_neither)
-#          5.19391e-05     ±     0.006590041
+#         5.665387e-05     ±     0.006526196
 mean(alt_vs_org_twdsangle) ; sd(alt_vs_org_twdsangle)
-#        -5.684145e-05     ±      0.00796264
+#        -7.949314e-05     ±      0.007870975
 mean(alt_vs_org_twdsdirect); sd(alt_vs_org_twdsdirect)
-#        -0.0001464078     ±     0.006000429
+#        -0.0001502564     ±     0.005908253
 
 ## repeat excluding age category 4 because different contrast
-mean(alt_vs_org_awaydirect[,which(age_move_org$f_age_num != 4)])     # 0.0001407432
-sd(  alt_vs_org_awaydirect[,which(age_move_org$f_age_num != 4)])     # 0.005066347
-mean(alt_vs_org_awayangle[,which(age_move_org$f_age_num != 4)])      # 0.0003296887
-sd(  alt_vs_org_awayangle[,which(age_move_org$f_age_num != 4)])      # 0.008527676
-mean(alt_vs_org_neither[,which(age_move_org$f_age_num != 4)])        # -6.212857e-06
-sd(  alt_vs_org_neither[,which(age_move_org$f_age_num != 4)])        # 0.006209619
-mean(alt_vs_org_twdsangle[,which(age_move_org$f_age_num != 4)])      # 0.000144165
-sd(  alt_vs_org_twdsangle[,which(age_move_org$f_age_num != 4)])      # 0.008230058
-mean(alt_vs_org_twdsdirect[,which(age_move_org$f_age_num != 4)])     # -0.0006083841
-sd(  alt_vs_org_twdsdirect[,which(age_move_org$f_age_num != 4)])     # 0.005444133
+mean(alt_vs_org_awaydirect[,which(age_move_org$f_age_num != 4)])     # 0.0001895325
+sd(  alt_vs_org_awaydirect[,which(age_move_org$f_age_num != 4)])     # 0.004956435
+mean(alt_vs_org_awayangle[,which(age_move_org$f_age_num != 4)])      # 0.0003270455
+sd(  alt_vs_org_awayangle[,which(age_move_org$f_age_num != 4)])      # 0.008470525
+mean(alt_vs_org_neither[,which(age_move_org$f_age_num != 4)])        # -8.505571e-06
+sd(  alt_vs_org_neither[,which(age_move_org$f_age_num != 4)])        # 0.00610414
+mean(alt_vs_org_twdsangle[,which(age_move_org$f_age_num != 4)])      # 0.0001317071
+sd(  alt_vs_org_twdsangle[,which(age_move_org$f_age_num != 4)])      # 0.008111076
+mean(alt_vs_org_twdsdirect[,which(age_move_org$f_age_num != 4)])     # -0.0006397795
+sd(  alt_vs_org_twdsdirect[,which(age_move_org$f_age_num != 4)])     # 0.005307881
 
 ## split contrasts by original age category
 age1v2_ad <- alt_vs_org_awaydirect[,which(age_move_org$f_age_num == 1)]
@@ -2620,26 +2619,30 @@ age3v4_td <- alt_vs_org_twdsdirect[,which(age_move_org$f_age_num == 3)]
 age1v4_td <- alt_vs_org_twdsdirect[,which(age_move_org$f_age_num == 4)] * (-1)
 
 ## calculate contrast values
-mean(age1v2_ad) ; sd(age1v2_ad) #   0.001304186 ± 0.004696869
-mean(age2v3_ad) ; sd(age2v3_ad) #   0.002283829 ± 0.004453934
-mean(age3v4_ad) ; sd(age3v4_ad) #  -0.002026502 ± 0.004746689
-mean(age1v4_ad) ; sd(age1v4_ad) #   0.002155958 ± 0.006534138
-mean(age1v2_aa) ; sd(age1v2_aa) #  0.0004473055 ± 0.008646302
-mean(age2v3_aa) ; sd(age2v3_aa) #  0.0004431893 ± 0.007971412
-mean(age3v4_aa) ; sd(age3v4_aa) #  0.0002039822 ± 0.008977904
-mean(age1v4_aa) ; sd(age1v4_aa) # -0.0005195924 ± 0.006142011
-mean(age1v2_n)  ; sd(age1v2_n)  # -0.0004030411 ± 0.006850727
-mean(age2v3_n)  ; sd(age2v3_n)  #  0.0001901263 ± 0.006156954
-mean(age3v4_n)  ; sd(age3v4_n)  # -0.0001065396 ± 0.006118789
-mean(age1v4_n)  ; sd(age1v4_n)  # -0.0003776982 ± 0.008401226
-mean(age1v2_ta) ; sd(age1v2_ta) #   8.82818e-05 ± 0.009274127
-mean(age2v3_ta) ; sd(age2v3_ta) # -4.280603e-05 ± 0.007600419
-mean(age3v4_ta) ; sd(age3v4_ta) #  0.0003243425 ± 0.008551451
-mean(age1v4_ta) ; sd(age1v4_ta) #   0.001182852 ± 0.006136129
-mean(age1v2_td) ; sd(age1v2_td) #  -0.001436732 ± 0.006333778
-mean(age2v3_td) ; sd(age2v3_td) #  -0.002874339 ± 0.004793162
-mean(age3v4_td) ; sd(age3v4_td) #   0.001604717 ± 0.004893596
-mean(age1v4_td) ; sd(age1v4_td) #  -0.002441519 ± 0.007986037
+mean(age1v2_ad) ; sd(age1v2_ad) #   0.001370572 ± 0.004465607
+mean(age2v3_ad) ; sd(age2v3_ad) #   0.002269465 ± 0.004438561
+mean(age3v4_ad) ; sd(age3v4_ad) #   -0.00192397 ± 0.00460628
+mean(age1v4_ad) ; sd(age1v4_ad) #   0.002257025 ± 0.006542623
+
+mean(age1v2_aa) ; sd(age1v2_aa) #  0.0005025695 ± 0.008551905
+mean(age2v3_aa) ; sd(age2v3_aa) #  0.0004826847 ± 0.008181879
+mean(age3v4_aa) ; sd(age3v4_aa) #  0.0001518902 ± 0.008704744
+mean(age1v4_aa) ; sd(age1v4_aa) # -0.0005059808 ± 0.0062398
+
+mean(age1v2_n)  ; sd(age1v2_n)  # -0.0003872208 ± 0.006713184
+mean(age2v3_n)  ; sd(age2v3_n)  #  0.0001858154 ± 0.006212655
+mean(age3v4_n)  ; sd(age3v4_n)  # -0.0001105394 ± 0.005869819
+mean(age1v4_n)  ; sd(age1v4_n)  # -0.0004216679 ± 0.008502711
+
+mean(age1v2_ta) ; sd(age1v2_ta) #  8.109591e-05 ± 0.009118722
+mean(age2v3_ta) ; sd(age2v3_ta) # -9.345049e-05 ± 0.007666525
+mean(age3v4_ta) ; sd(age3v4_ta) #   0.000345428 ± 0.008286134
+mean(age1v4_ta) ; sd(age1v4_ta) #   0.001262607 ± 0.006229494
+
+mean(age1v2_td) ; sd(age1v2_td) #  -0.001567017 ± 0.006088521
+mean(age2v3_td) ; sd(age2v3_td) #  -0.002844514 ± 0.004753865
+mean(age3v4_td) ; sd(age3v4_td) #   0.001537191 ± 0.004709222
+mean(age1v4_td) ; sd(age1v4_td) #  -0.002591983 ± 0.007985443
 
 ## summarise contrasts
 contrasts <- move_no_na %>%
