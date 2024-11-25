@@ -264,7 +264,7 @@ mbm_fit <- brm(
 # 3: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable. Running the chains for more iterations may help. See https://mc-stan.org/misc/warnings.html#tail-ess
 
 # save workspace
-save.image('movement_direction/movement_binomial_run.RData') # save.image('ele_playbacks/movement_direction/movement_binomial_run.RData')
+save.image('movement_direction/binomial_withprev/movement_binomial_run.RData') # save.image('ele_playbacks/movement_direction/movement_binomial_run.RData')
 
 # inspect model
 summary(mbm_fit)
@@ -313,7 +313,7 @@ summary(mbm_fit)
 print(paste0('model fitted at ', Sys.time()))
 
 #### check outputs ####
-# load('movement_direction/movement_binomial_run.RData') # load('ele_playbacks/movement_direction/movement_binomial_run.RData')
+# load('movement_direction/binomial_withprev/movement_binomial_run.RData') # load('ele_playbacks/movement_direction/movement_binomial_run.RData')
 
 ## check Stan code
 mbm_fit$model
@@ -666,7 +666,7 @@ plot(density(prevsec$draw), main = 't-1 slope') ; abline(v = 0, lty = 2)
 # plot(density(time8$draw), main = 'time spline 8') ; abline(v = 0, lty = 2)
 
 print(paste0('posterior predictive check and traceplots completed at ',Sys.time()))
-save.image('movement_direction/movement_binomial_run.RData')
+save.image('movement_direction/binomial_withprev/movement_binomial_run.RData')
 
 #### plot raw ####
 ## define labels for plotting
@@ -689,17 +689,17 @@ move_no_na %>%
 print(paste0('raw data plotted at ',Sys.time()))
 
 ## reset plotting
-save.image('movement_direction/movement_binomial_run.RData') # save.image('ele_playbacks/movement_direction/movement_binomial_run.RData')
+save.image('movement_direction/binomial_withprev/movement_binomial_run.RData') # save.image('ele_playbacks/movement_direction/movement_binomial_run.RData')
 dev.off()
 
 #### predict from model ####
 pdf('../outputs/movement_binomial_model/movement_binomial_modelpredictions.pdf')
-# load('movement_direction/movement_binomial_run.RData')
+# load('movement_direction/binomial_withprev/movement_binomial_run.RData')
 rm(list = ls()[! ls() %in% c('mbm_fit','move_no_na','move','focals')]) ; gc()
 
 pred <- posterior_epred(object = mbm_fit,
                         newdata = move_no_na)
-save.image('movement_direction/movement_binomial_predictions.RData')
+save.image('movement_direction/binomial_withprev/movement_binomial_predictions.RData')
 
 ## convert to data frame
 move_no_na$data_row <- 1:nrow(move_no_na)
@@ -711,12 +711,12 @@ pred <- pred %>%
   mutate(data_row = as.integer(data_row)) %>%
   left_join(move_no_na, by = 'data_row')
 
-save.image('movement_direction/movement_binomial_predictions.RData')
+save.image('movement_direction/binomial_withprev/movement_binomial_predictions.RData')
 
 print(paste0('predictions calculated at ',Sys.time()))
 
 #### plot predictions ####
-# load('movement_direction/movement_binomial_predictions.RData')
+# load('movement_direction/binomial_withprev/movement_binomial_predictions.RData')
 
 ## make labels for movement in previous second
 prevsec_labels <- c('not moving at t-1',
@@ -793,7 +793,7 @@ pdf('../outputs/movement_binomial_model/movement_binomial_modelcontrasts.pdf')
 rm(list = ls()[! ls() %in% c('move','focals')]) ; gc()
 
 #### calculate posterior contrasts from predictions ####
-load('movement_direction/movement_binomial_predictions.RData')
+load('movement_direction/binomial_withprev/movement_binomial_predictions.RData')
 
 ## stim type ####
 move_new <- move_no_na %>%
@@ -844,16 +844,27 @@ contrasts_long <- contrasts %>%
   select(-mu, -ctd_vs_lion_sd, -ctd_vs_human_sd, -lion_vs_human_sd)
 
 ## save contrasts
-save.image('movement_direction/movement_binomial_stimuluscontrasts.RData')
+save.image('movement_direction/binomial_withprev/movement_binomial_stimuluscontrasts.RData')
 
 ## produce values for reporting
-median(ctd_vs_lion)  ; mean(ctd_vs_lion)  ; sd(ctd_vs_lion)
-# 0.00688384         ; 0.01209256         ; 0.01565171
-median(ctd_vs_human) ; mean(ctd_vs_human) ; sd(ctd_vs_human)
-# 0.006664593        ; 0.01158384         ; 0.01539733
-median(lion_vs_human); mean(lion_vs_human); sd(lion_vs_human)
-# -9.648387e-05      ; -0.0005087185      ; 0.009427985
-
+print('dove vs lion')
+mean(ctd_vs_lion)  ; sd(ctd_vs_lion)
+# 0.01209256       ; 0.01565171
+quantile(ctd_vs_lion, prob = c(0.025, 0.5, 0.975))
+#         2.5%          50%        97.5% 
+# 0.0006750686 0.0068838401 0.0596907419 
+print('dove vs human')
+mean(ctd_vs_human) ; sd(ctd_vs_human)
+# 0.01158384       ; 0.01539733
+quantile(ctd_vs_human, prob = c(0.025, 0.5, 0.975))
+#         2.5%          50%        97.5% 
+# 0.0004724996 0.0066645927 0.0591628562 
+print('lion vs human')
+mean(lion_vs_human); sd(lion_vs_human)
+# -0.0005087185    ; 0.009427985
+quantile(lion_vs_human, prob = c(0.025, 0.5, 0.975))
+#          2.5%           50%         97.5% 
+# -2.034395e-02 -9.648387e-05  1.749618e-02
 ## plot contrasts
 contrasts_long %>%
   mutate(contrast = ifelse(contrast == 'ctd_vs_human',
@@ -865,11 +876,11 @@ contrasts_long %>%
   scale_colour_viridis_d()+
   labs(colour = 'effect of changing stimulus')
 
-save.image('movement_direction/movement_binomial_stimuluscontrasts.RData')
+save.image('movement_direction/binomial_withprev/movement_binomial_stimuluscontrasts.RData')
 rm(ctd_move, lion_move, human_move, ctd_mtx, human_mtx, lion_mtx) ; gc()
 
 ## focal age ####
-load('movement_direction/movement_binomial_stimuluscontrasts.RData')
+load('movement_direction/binomial_withprev/movement_binomial_stimuluscontrasts.RData')
 move_new <- move_new %>%
   mutate(unique_data_combo = as.integer(as.factor(paste0(stim_type, move_tminus1_num, after_stim,
                                                          focal_id, stim_id, playback_id))))
@@ -889,7 +900,7 @@ age_mtx_alt <- posterior_epred(object = mbm_fit, newdata = age_move_alt)
 colnames(age_mtx_alt) <- age_move_alt$unique_data_combo
 #age_mtx_alt <- age_mtx_alt[c(1:100,1001:1100,2001:2100,3001:3100),]
 
-save.image('movement_direction/movement_binomial_agecontrasts.RData')
+save.image('movement_direction/binomial_withprev/movement_binomial_agecontrasts.RData')
 
 ## calculate contrasts
 age_contrast <- age_mtx_alt - age_mtx_org
@@ -922,7 +933,7 @@ median(age1_vs_age4) ; mean(age1_vs_age4) ; sd(age1_vs_age4)
 # -0.006148561       ; -0.009458391       ; 0.01100978
 
 ## save output
-save.image('movement_direction/movement_binomial_agecontrasts.RData')
+save.image('movement_direction/binomial_withprev/movement_binomial_agecontrasts.RData')
 
 ## plot predictions
 pred <- pred %>%
@@ -1084,7 +1095,7 @@ ggsave(plot = last_plot(), device = 'png',
        height = 1600, width = 1600, unit = 'px')
 
 ## time since stimulus -- including all 0 times ####
-load('movement_direction/movement_binomial_agecontrasts.RData')
+load('movement_direction/binomial_withprev/movement_binomial_agecontrasts.RData')
 rm(list = ls()[!ls() %in% c('mbm_fit','move_no_na','move','focals')]) ; gc()
 
 ## create new data frame to calculate from
@@ -1139,10 +1150,10 @@ time_mtx_alt_1.00 <- posterior_epred(object = mbm_fit, newdata = time_move_alt_1
 colnames(time_mtx_alt_1.00) <- time_move_alt_1.00$unique_data_combo
 time_mtx_alt_1.00 <- time_mtx_alt_1.00[c(1:100,1001:1100,2001:2100,3001:3100),]
 
-save.image('movement_direction/movement_binomial_timecontrasts.RData')
+save.image('movement_direction/binomial_withprev/movement_binomial_timecontrasts.RData')
 
 ## summarise and convert to long format
-load('movement_direction/movement_binomial_timecontrasts.RData')
+load('movement_direction/binomial_withprev/movement_binomial_timecontrasts.RData')
 time_pred <- time_move_org %>%
   mutate(time_org_0.00_mu = apply(time_mtx_org, 2, mean),
          time_org_0.00_sd = apply(time_mtx_org, 2, sd),
@@ -1231,10 +1242,10 @@ contrasts_long %>%
   geom_vline(xintercept = 0, linetype = 2)+
   facet_wrap(contrast ~ .)#, scales = 'free')
 
-save.image('movement_direction/movement_binomial_timecontrasts.RData')
+save.image('movement_direction/binomial_withprev/movement_binomial_timecontrasts.RData')
 
 ## time since stimulus -- starting from 1 second after stim starts ####
-# load('movement_direction/movement_binomial_timecontrasts.RData')
+# load('movement_direction/binomial_withprev/movement_binomial_timecontrasts.RData')
 
 ## calculate contrasts
 alt0.25_vs_0.00_nozeros <- alt0.25_vs_0.00[,which(time_move_org$after_stim > 0)]
@@ -1289,7 +1300,7 @@ contrasts_long_nozeros %>%
   geom_vline(xintercept = 0, linetype = 2)+
   facet_wrap(contrast ~ ., scales = 'free'
   )
-save.image('movement_direction/movement_binomial_timecontrasts.RData')
+save.image('movement_direction/binomial_withprev/movement_binomial_timecontrasts.RData')
 dev.off()
 print(paste0('probability of moving complete at ',Sys.time()))
 
@@ -1475,7 +1486,7 @@ mom1_fit <- brm(
 # 2: Examine the pairs() plot to diagnose sampling problems
 
 # save workspace
-save.image('movement_direction/movement_ordinal_model1_run.RData') # save.image('ele_playbacks/movement_direction/movement_ordinal_model1_run.RData')
+save.image('movement_direction/ordinal_withprev/movement_ordinal_model1_run.RData') # save.image('ele_playbacks/movement_direction/movement_ordinal_model1_run.RData')
 
 # inspect model
 summary(mom1_fit)
@@ -1550,7 +1561,7 @@ summary(mom1_fit)
 print(paste0('model fitted at ', Sys.time()))
 
 #### check outputs ####
-# load('movement_direction/movement_ordinal_model1_run.RData') # load('ele_playbacks/movement_direction/movement_ordinal_model1_run.RData')
+# load('movement_direction/ordinal_withprev/movement_ordinal_model1_run.RData') # load('ele_playbacks/movement_direction/movement_ordinal_model1_run.RData')
 ## check Stan code
 mom1_fit$model
 # // generated with brms 2.20.4
@@ -2054,7 +2065,7 @@ plot(density(prevsec3$draw), main = 't-1 older') ; abline(v = 0, lty = 2)
 # plot(density(time8$draw), main = 'time spline 8') ; abline(v = 0, lty = 2)
 
 print(paste0('posterior predictive check and traceplots completed at ',Sys.time()))
-save.image('movement_direction/movement_ordinal_model1_run.RData')
+save.image('movement_direction/ordinal_withprev/movement_ordinal_model1_run.RData')
 
 #### plot raw ####
 ## define labels for plotting
@@ -2123,16 +2134,16 @@ move_no_na %>%
 print(paste0('raw data plotted at ',Sys.time()))
 
 ## reset plotting
-save.image('movement_direction/movement_ordinal_model1_run.RData') # save.image('ele_playbacks/movement_direction/movement_ordinal_model1_run.RData')
+save.image('movement_direction/ordinal_withprev/movement_ordinal_model1_run.RData') # save.image('ele_playbacks/movement_direction/movement_ordinal_model1_run.RData')
 dev.off()
 
 #### predict from model ####
-load('movement_direction/movement_ordinal_model1_run.RData')
+load('movement_direction/ordinal_withprev/movement_ordinal_model1_run.RData')
 rm(list = ls()[! ls() %in% c('mom1_fit','move_no_na')]) ; gc()
 
 pred <- posterior_epred(object = mom1_fit,
                         newdata = move_no_na)
-save.image('movement_direction/movement_ordinal_model1_predictions.RData')
+save.image('movement_direction/ordinal_withprev/movement_ordinal_model1_predictions.RData')
 
 ## convert to data frame
 extract_predictions <- function(prediction_array, layer, df){
@@ -2171,13 +2182,13 @@ pred4 <- extract_predictions(prediction_array = pred, layer = 4, df = move_no_na
 pred5 <- extract_predictions(prediction_array = pred, layer = 5, df = move_no_na)
 
 pred <- rbind(pred1, pred2, pred3, pred4, pred5)
-save.image('movement_direction/movement_ordinal_model1_predictions.RData')
+save.image('movement_direction/ordinal_withprev/movement_ordinal_model1_predictions.RData')
 rm(pred1, pred2, pred3, pred4, pred5) ; gc()
 
 print(paste0('predictions calculated at ',Sys.time()))
 
 #### plot predictions ####
-# load('movement_direction/movement_ordinal_model1_predictions.RData')
+# load('movement_direction/ordinal_withprev/movement_ordinal_model1_predictions.RData')
 pdf('../outputs/movement_ordinal_model_1/movement_ordinal_model1_modelpredictions.pdf')
 
 ## make labels for movement in previous second
@@ -2285,7 +2296,7 @@ pdf('../outputs/movement_ordinal_model_1/movement_ordinal_model1_modelcontrasts.
 
 #### calculate posterior contrasts from predictions ####
 rm(list = ls()) ; gc()
-load('movement_direction/movement_ordinal_model1_predictions.RData')
+load('movement_direction/ordinal_withprev/movement_ordinal_model1_predictions.RData')
 
 ## stim type ####
 move_new <- move_no_na %>%
@@ -2314,10 +2325,10 @@ human_mtx <- posterior_epred(object = mom1_fit, newdata = human_move)
 colnames(human_mtx) <- human_move$unique_data_combo
 human_mtx <- human_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
 
-save.image('movement_direction/movement_ordinal_model1_stimuluscontrasts.RData')
+save.image('movement_direction/ordinal_withprev/movement_ordinal_model1_stimuluscontrasts.RData')
 
 ## probability of each prediction
-# load('movement_direction/movement_ordinal_model1_stimuluscontrasts.RData')
+# load('movement_direction/ordinal_withprev/movement_ordinal_model1_stimuluscontrasts.RData')
 # count_values <- function(vector, levels = c(1,2,3)) {
 #   x <- tabulate(factor(vector, levels), length(levels))
 #   return(list(x))
@@ -2480,10 +2491,10 @@ contrasts_long %>%
   geom_density(aes(x = difference))+
   facet_grid(pred_type ~ contrast)
 
-save.image('movement_direction/movement_ordinal_model1_stimuluscontrasts.RData')
+save.image('movement_direction/ordinal_withprev/movement_ordinal_model1_stimuluscontrasts.RData')
 
 ## focal age ####
-# load('movement_direction/movement_ordinal_model1_stimuluscontrasts.RData')
+# load('movement_direction/ordinal_withprev/movement_ordinal_model1_stimuluscontrasts.RData')
 rm(list = ls()[!ls() %in% c('mom1_fit','move_no_na')]) ; gc()
 
 ## create new dataframe to predict from
@@ -2509,10 +2520,10 @@ age_move_alt <- age_new %>%
 age_mtx_alt <- posterior_epred(object = mom1_fit, newdata = age_move_alt)
 colnames(age_mtx_alt) <- age_move_alt$unique_data_combo
 age_mtx_alt <- age_mtx_alt[c(1:100,1001:1100,2001:2100,3001:3100),,]
-save.image('movement_direction/movement_ordinal_model1_agecontrasts.RData')
+save.image('movement_direction/ordinal_withprev/movement_ordinal_model1_agecontrasts.RData')
 
 ## summarise and convert to long format
-# rm(list = ls()) ; gc() ; load('movement_direction/movement_ordinal_model1_agecontrasts.RData')
+# rm(list = ls()) ; gc() ; load('movement_direction/ordinal_withprev/movement_ordinal_model1_agecontrasts.RData')
 age_pred <- age_move_org %>%
   #dplyr::select(-f_age_num) %>%
   mutate(age_org_prop1_mu = apply(age_mtx_org[,,1], 2, mean),
@@ -2743,7 +2754,7 @@ contrasts_long %>%
   scale_fill_viridis_d(begin = 0.5, end = 0)+
   labs(colour = 'categories\ndifferent',
        fill = 'categories\ndifferent')
-save.image('movement_direction/movement_ordinal_model1_agecontrasts.RData')
+save.image('movement_direction/ordinal_withprev/movement_ordinal_model1_agecontrasts.RData')
 
 ## clean up a bit
 rm(list = ls()[! ls() %in% c('alt_vs_org_awaydirect','alt_vs_org_awayangle',
@@ -2823,7 +2834,7 @@ ggsave(plot = last_plot(), device = 'svg',
        width = 2400, height = 3200, unit = 'px')
 
 ## time since stimulus ####
-load('movement_direction/movement_ordinal_model1_agecontrasts.RData')
+load('movement_direction/ordinal_withprev/movement_ordinal_model1_agecontrasts.RData')
 rm(list = ls()[!ls() %in% c('mom1_fit','move_no_na')]) ; gc()
 
 ## create new data frame to calculate from
@@ -2878,10 +2889,10 @@ time_mtx_alt_1.00 <- posterior_epred(object = mom1_fit, newdata = time_move_alt_
 colnames(time_mtx_alt_1.00) <- time_move_alt_1.00$unique_data_combo
 time_mtx_alt_1.00 <- time_mtx_alt_1.00[c(1:100,1001:1100,2001:2100,3001:3100),,]
 
-save.image('movement_direction/movement_ordinal_model1_timecontrasts.RData')
+save.image('movement_direction/ordinal_withprev/movement_ordinal_model1_timecontrasts.RData')
 
 ## summarise and convert to long format
-rm(list = ls()) ; gc() ; load('movement_direction/movement_ordinal_model1_timecontrasts.RData')
+rm(list = ls()) ; gc() ; load('movement_direction/ordinal_withprev/movement_ordinal_model1_timecontrasts.RData')
 time_pred <- time_move_org %>%
   mutate(time_org_0.00_prop1_mu = apply(time_mtx_org[,,1], 2, mean),
          time_org_0.00_prop2_mu = apply(time_mtx_org[,,2], 2, mean),
@@ -3091,5 +3102,5 @@ contrasts_long %>%
   ggplot()+
   geom_density(aes(x = difference))+
   facet_grid(pred_type ~ contrast, scales = 'free')
-save.image('movement_direction/movement_ordinal_model1_timecontrasts.RData')
+save.image('movement_direction/ordinal_withprev/movement_ordinal_model1_timecontrasts.RData')
 dev.off()
