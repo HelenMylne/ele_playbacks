@@ -1533,14 +1533,14 @@ age_pred_all %>%
   facet_wrap(stim_type ~ f_age_num, scales = 'free_y')
 
 contrasts_long <- contrasts_long %>%
-  separate(look_pred, into = c('look_pred','ages'),
-           sep = 4, remove = T) %>% 
+  # separate(look_pred, into = c('look_pred','ages'),
+  #          sep = 4, remove = T) %>%
   mutate(pred_type = ifelse(look_pred == 'away', 'look away',
                             ifelse(look_pred == 'side', 'side on', 'look at'))) %>%
   mutate(pred_type = factor(pred_type,
                             levels = c('look away','side on','look at'))) %>%
   mutate(f_age_new = ifelse(f_age_num == 4, 1, f_age_num+1)) %>%
-  select(pred_type, f_age_num, f_age_new, difference, stim_type, after_stim, look_tminus1_num) %>%
+  select(pred_type, f_age_num, f_age_new, p_age_cat, age_combo, difference, stim_type, after_stim, look_tminus1_num) %>%
   mutate(contrast = paste0('org: ',f_age_num,', new: ', f_age_new)) %>%
   mutate(look_tminus1 = ifelse(look_tminus1_num == 1,
                              'look away at t-1',
