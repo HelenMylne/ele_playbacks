@@ -309,13 +309,13 @@ priors <- c(
 
 ## prior predictive check
 num_chains <- 4
-num_iter <- 2000
+num_iter <- 3000
 nbm_prior <- brm(
   formula = action ~ 0 + age_combo + stim_type * bda +
     (1|focal) + (1|stim_num) + (1|pb_num),
   data = nn, family = bernoulli("logit"),
   prior = priors, chains = num_chains, cores = num_chains,
-  iter = num_iter, warmup = num_iter/2, seed = 12345,
+  iter = num_iter, warmup = num_iter/3, seed = 12345,
   sample_prior = 'only')
 pp_check(nbm_prior)
 
@@ -325,7 +325,9 @@ nbm_fit <- brm(
     (1|focal) + (1|stim_num) + (1|pb_num),
   data = nn, family = bernoulli("logit"),
   prior = priors, chains = num_chains, cores = num_chains,
-  iter = num_iter, warmup = num_iter/2, seed = 12345)
+  iter = num_iter, warmup = num_iter/3, seed = 12345,
+  control = list(adapt_delta = 0.999,
+                 max_treedepth = 12))
 # Warning messages:
 # 1: There were 226 divergent transitions after warmup. See https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup # to find out why this is a problem and how to eliminate them.
 # 2: There were 3770 transitions after warmup that exceeded the maximum treedepth. Increase max_treedepth above 10. See https://mc-stan.org/misc/warnings.html#maximum-treedepth-exceeded
