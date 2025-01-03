@@ -975,40 +975,7 @@ quantile(human_during_vs_after, prob = c(0.025, 0.5, 0.975))
 # 0.009883111
 #          2.5%           50%         97.5%
 # -0.0219530454 -0.0001636495  0.0236350634
-# 53.60621 reporting
-print('dove vs lion')
-median(ctd_vs_lion)  ; mean(ctd_vs_lion)  ; sd(ctd_vs_lion)
-quantile(ctd_vs_lion, prob = c(0.025, 0.5, 0.975))
-( length(which(ctd_vs_lion < 0)) / length(ctd_vs_lion) ) * 100
-# "dove vs lion"
-# -0.0004605589
-# -4.565231e-18
-# 0.0699219
-#          2.5%           50%         97.5%
-# -0.1575119041 -0.0004605589  0.1680367291
-# 51.46744
-print('dove vs human')
-median(ctd_vs_human) ; mean(ctd_vs_human) ; sd(ctd_vs_human)
-quantile(ctd_vs_human, prob = c(0.025, 0.5, 0.975))
-( length(which(ctd_vs_human < 0)) / length(ctd_vs_human) ) * 100
-# "dove vs human"
-# 0.0002963235
-# -2.178451e-17
-# 0.03985889
-#          2.5%           50%         97.5%
-# -0.0952208346  0.0002963235  0.0863320812
-# 47.98952
-print('lion vs human')
-median(lion_vs_human); mean(lion_vs_human); sd(lion_vs_human)
-quantile(lion_vs_human, prob = c(0.025, 0.5, 0.975))
-( length(which(lion_vs_human < 0)) / length(lion_vs_human) ) * 100
-# "lion vs human"
-# 0.0009349954
-# 3.443366e-17
-# 0.06412674
-#          2.5%           50%         97.5%
-# -0.1553148927  0.0009349954  0.1377219975
-# 47.22305
+# 53.60621
 
 ## plot contrasts
 contrasts_long %>%
