@@ -10,130 +10,884 @@ library(ggridges, lib.loc = '../../packages/')
 
 theme_set(theme_bw())
 
-#### movement binomial c -- probability of  changing  behaviour ####
-pdf('../outputs/movement_binomial_model/niceplots_movementbinomial.pdf')
-load('movement_direction/binomial_withprev/movement_binomial_agecontrasts.RData')
-rm(ctd_vs_human, ctd_vs_lion, lion_vs_human, contrasts, contrasts_long) ; gc()
-rm(age_move_alt, age1_vs_age2, age2_vs_age3, age3_vs_age4, age1_vs_age4) ; gc()
+#### create function for extracting predictions ####
+extract_predictions <- function(array, slice, df){
+  matrix <- array[,,slice]
+  colnames(matrix) <- 1:nrow(df)
+  pred <- matrix %>%
+    as.data.frame() %>%
+    pivot_longer(cols = everything(), names_to = 'data_id', values_to = 'epred') %>%
+    mutate(data_id = as.integer(data_id)) %>%
+    left_join(df, by = 'data_id')%>%
+    mutate(stim_type_long = ifelse(stim_type == 'ctd','dove (control)',
+                                   ifelse(stim_type == 'l','lion','human'))) %>%
+    mutate(stim_type_long = factor(stim_type_long,
+                                   levels = c('dove (control)','lion','human'))) %>%
+    mutate(predicted_direction = slice)
+  return(pred)
+}
+
+# #### create ridge plotting functions            ####
+# ridge_pred_altogether <- function(pred_df, type, prev, prediction){
+#   if(type == 'move_prob'){
+#     if(prev == TRUE){
+#       pred_df <- pred_df %>%
+#         mutate(move_tminus1 = ifelse(move_tminus1 == 'not_moving',
+#                                      'not moving at t-1','moving at t-1')) %>%
+#         mutate(prev_action = factor(move_tminus1, levels = c('moving at t-1',
+#                                                              'not moving at t-1')))
+#     }
+#   }
+#   
+#   if(type == 'move_dir'){
+#     if(prev == TRUE){
+#       pred_df <- pred_df %>%
+#         mutate(move_tminus1 = ifelse(move_tminus1_num == 1, 'move directly away',
+#                                      ifelse(move_tminus1_num == 2, 'move away at an angle',
+#                                             ifelse(move_tminus1_num == 3, 'neither towards or away',
+#                                                    ifelse(move_tminus1_num == 4,
+#                                                           'approach at an angle',
+#                                                           'approach directly'))))) %>%
+#         mutate(prev_action = factor(move_tminus1, levels = c('move directly away',
+#                                                              'move away at an angle',
+#                                                              'neither towards or away',
+#                                                              'approach at an angle',
+#                                                              'approach directly')))
+#     }
+#   }
+#   
+#   if(type == 'look'){
+#     if(prev == TRUE){
+#       pred_df <- pred_df %>%
+#         mutate(look_tminus1 = ifelse(prev_num == 1, 'look away',
+#                                      ifelse(prev_num == 2, 'side-on',
+#                                             'look towards'))) %>%
+#         mutate(prev_action = factor(look_tminus1, levels = c('look away',
+#                                                              'side-on',
+#                                                              'look towards')))
+#     }
+#   }
+#   
+#   pred_df <- pred_df %>% 
+#     mutate(f_age_cat = ifelse(f_age_num == 1, '10-15 yrs',
+#                               ifelse(f_age_num == 2, '16-20 yrs',
+#                                      ifelse(f_age_num == 3, '21-25 yrs',
+#                                             '26-35 yrs'))))
+#   plot <- pred_df %>%
+#     ggplot()+
+#     geom_density_ridges(aes(x = epred,
+#                             y = f_age_cat,
+#                             fill = f_age_cat),
+#                         alpha = 0.6,
+#                         scale = 0.9)+
+#     labs(fill = 'target age category',
+#          x = 'predicted probability',
+#          y = 'probability density',
+#          title = prediction)+
+#     scale_fill_viridis_d()+
+#     theme(legend.position = 'bottom',
+#           axis.text.x = element_text(angle = 90))
+#   
+#   if(prev == TRUE){
+#     plot <- plot + facet_grid(prev_action ~ stim_type,
+#                       scales = 'free_x')
+#   }
+#   if(prev == FALSE){
+#     plot <- plot + facet_grid(. ~ stim_type,
+#                       scales = 'free_x')
+#   }
+#   return(plot)
+# }
+# 
+# ridge_pred_splitpartner <- function(pred, type, prev){
+#   if(type == 'move_dir'){
+#     predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'move directly away',
+#                                   ifelse(pred$predicted_direction[1] == 2, 'move away at an angle',
+#                                          ifelse(pred$predicted_direction[1] == 3, 'move neither towards or away',
+#                                                 ifelse(pred$predicted_direction[1] == 4, 'approach at an angle',
+#                                                        'approach directly'))))
+#     if(prev == TRUE){
+#       pred <- pred %>%
+#         mutate(move_tminus1 = ifelse(move_tminus1_num == 1, 'move directly away',
+#                                      ifelse(move_tminus1_num == 2, 'move away at an angle',
+#                                             ifelse(move_tminus1_num == 3, 'neither towards or away',
+#                                                    ifelse(move_tminus1_num == 4,
+#                                                           'approach at an angle',
+#                                                           'approach directly'))))) %>%
+#         mutate(prev_action = factor(move_tminus1, levels = c('move directly away',
+#                                                              'move away at an angle',
+#                                                              'neither towards or away',
+#                                                              'approach at an angle',
+#                                                              'approach directly')))
+#     }
+#   }
+#   
+#   if(type == 'look'){
+#     predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'look away',
+#                                   ifelse(pred$predicted_direction[1] == 2, 'side-on',
+#                                          'look towards'))
+#     if(prev == TRUE){
+#       pred <- pred %>%
+#         mutate(look_tminus1 = ifelse(prev_num == 1, 'look away',
+#                                      ifelse(prev_num == 2, 'side-on',
+#                                             'look towards'))) %>%
+#         mutate(prev_action = factor(look_tminus1, levels = c('look away',
+#                                                              'side-on',
+#                                                              'look towards')))
+#     }
+#   }
+#   
+#   pred <- pred %>% 
+#     mutate(f_age_cat = ifelse(f_age_num == 1, '10-15 yrs',
+#                               ifelse(f_age_num == 2, '16-20 yrs',
+#                                      ifelse(f_age_num == 3, '21-25 yrs',
+#                                             '26-35 yrs')))) %>% 
+#     separate(age_combo, into = c('f','p_age_cat'), remove = F) %>%
+#     mutate(p_age_cat = ifelse(p_age_cat == '1', '10-15 yrs',
+#                               ifelse(p_age_cat == '2', '16-20 yrs',
+#                                      ifelse(p_age_cat == '3', '21-25 yrs', '26-35 yrs')))) %>% 
+#     mutate(stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
+#                               ifelse(stim_type == 'l', 'lion', 'human'))) %>% 
+#     mutate(stim_type = factor(stim_type, levels = c('dove (control)','lion','human')))
+#   plot <- pred %>%
+#     ggplot()+
+#     geom_density_ridges(aes(x = epred,
+#                             y = f_age_cat,
+#                             fill = p_age_cat),
+#                         alpha = 0.6,
+#                         scale = 0.9)+
+#     labs(fill = 'target age category',
+#          x = 'predicted probability',
+#          y = 'probability density',
+#          title = predicted_direction)+
+#     scale_fill_viridis_d()+
+#     theme(legend.position = 'bottom',
+#           axis.text.x = element_text(angle = 90))
+#   
+#   if(prev == TRUE){
+#     plot <- plot + facet_grid(prev_action ~ stim_type,
+#                       scales = 'free_x')
+#   }
+#   if(prev == FALSE){
+#     plot <- plot + facet_grid(. ~ stim_type,
+#                       scales = 'free_x')
+#   }
+#   return(plot)
+# }
+# 
+#### create contrast plotting functions         ####
+contrast_plot_altogether <- function(contrasts, type, direction, #prev,
+                                     free_y){
+  if(type == 'move'){
+    contrasts <- contrasts %>%
+      filter(move_pred == direction)
+    
+    # if(prev == TRUE){
+    #   contrasts <- contrasts %>%
+    #     mutate(prev_action = ifelse(move_tminus1_num == 1, 'move away directly',
+    #                                 ifelse(move_tminus1_num == 2,'move away at an angle',
+    #                                        ifelse(move_tminus1_num == 3, 'neither towards or away',
+    #                                               ifelse(move_tminus1_num == 4,
+    #                                                      'approach at an angle',
+    #                                                      'approach directly'))))) %>%
+    #     mutate(prev_action = factor(prev_action,
+    #                                 levels = c('move away directly',
+    #                                            'move away at an angle',
+    #                                            'neither towards or away',
+    #                                            'approach at an angle',
+    #                                            'approach directly')))
+    # }
+    plot_title <- ifelse(direction == 'awayangle',
+                         'away at an angle',
+                         ifelse(direction == 'awaydirect',
+                                'away directly',
+                                ifelse(direction == 'neither',
+                                       'neither towards or away',
+                                       ifelse(direction == 'twdsangle',
+                                              'towards at an angle',
+                                              'towards directly'))))
+  }
+  
+  if(type == 'look'){
+    contrasts <- contrasts %>%
+      filter(look_pred == direction)
+    # if(prev == TRUE){
+    #   contrasts <- contrasts %>%
+    #     mutate(prev_action = factor(prev_action,
+    #                                 levels = c('look directly away',
+    #                                            'side-on',
+    #                                            'look at directly')))
+    # }
+    plot_title <- ifelse(direction == 'away', 'look away',
+                         ifelse(direction == 'side', 'side-on',
+                                'look towards'))
+  }
+  
+  plot <- contrasts %>%
+    rename(f_age_cat_org = f_age_cat,
+           f_age_num_org = f_age_num) %>%
+    mutate(f_age_num_alt = ifelse(f_age_num_org == 4, 1,
+                                  f_age_num_org + 1)) %>%
+    mutate(f_age_cat_alt = ifelse(f_age_num_alt == 1,'10-15 yrs',
+                                  ifelse(f_age_num_alt == 2, '16-20 yrs',
+                                         ifelse(f_age_num_alt == 3, '21-25 yrs',
+                                                '26-35 yrs')))) %>%
+    mutate(comparison = paste0(f_age_cat_org,' to ',f_age_cat_alt),
+           stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
+                              ifelse(stim_type == 'l', 'lion', 'human'))) %>% 
+    mutate(stim_type = factor(stim_type,
+                              levels = c('dove (control)',
+                                         'lion',
+                                         'human')),
+           bda = factor(bda, levels = c('before','during','after'))) %>%
+    ggplot()+
+    geom_hline(yintercept = 0, lty = 3)+
+    geom_violin(aes(x = comparison,
+                    y = difference,
+                    fill = comparison),
+                position = position_dodge(0.5))+
+    scale_fill_viridis_d()+
+    labs(fill = 'comparison',
+         title = plot_title)+
+    theme(legend.position = 'bottom',
+          axis.text.x = element_text(angle = 90, vjust = 0.5))+
+    facet_grid(bda ~ stim_type)
+  
+  # if(prev == TRUE){
+  #   plot <- plot + facet_grid(prev_action ~ stim_type,
+  #              scales = ifelse(free_y == T, 'free_y', 'fixed'))
+  # }
+  # if(prev == FALSE){
+  #   plot <- plot + facet_grid(. ~ stim_type,
+  #              scales = ifelse(free_y == T, 'free_y', 'fixed'))
+  # }
+  return(plot)
+}
+
+contrast_plot_splitpartner <- function(contrasts, type, direction, #prev, 
+                                       free_y){
+  if(type == 'move'){
+    contrasts <- contrasts %>%
+      filter(move_pred == direction)
+    # if(prev == TRUE){
+    #   contrasts <- contrasts %>%
+    #     mutate(prev_action = ifelse(move_tminus1 == 'move away directly',
+    #                                 'move away directly',
+    #                                 ifelse(move_tminus1 == 'move away at an angle',
+    #                                        'move away at an angle',
+    #                                        ifelse(move_tminus1 == 'move directly with',
+    #                                               'neither towards or away',
+    #                                               ifelse(move_tminus1 == 'approach at an angle',
+    #                                                      'approach at an angle',
+    #                                                      'approach directly'))))) %>%
+    #     mutate(prev_action = factor(prev_action,
+    #                                 levels = c('move away directly',
+    #                                            'move away at an angle',
+    #                                            'neither towards or away',
+    #                                            'approach at an angle',
+    #                                            'approach directly')))
+    # }
+    plot_title <- ifelse(direction == 'awayangle',
+                         'away at an angle',
+                         ifelse(direction == 'awaydirect',
+                                'away directly',
+                                ifelse(direction == 'neither',
+                                       'neither towards or away',
+                                       ifelse(direction == 'twdsangle',
+                                              'towards at an angle',
+                                              'towards directly'))))
+  }
+  
+  if(type == 'look'){
+    contrasts <- contrasts %>%
+      filter(look_pred == direction)
+    # if(prev == TRUE){
+    #   contrasts <- contrasts %>%
+    #     mutate(prev_action = factor(prev_action,
+    #                                 levels = c('look directly away',
+    #                                            'side-on',
+    #                                            'look at directly')))
+    # }
+    plot_title <- ifelse(direction == 'away', 'look away',
+                         ifelse(direction == 'side', 'side-on',
+                                'look towards'))
+  }
+  
+  plot <- contrasts %>%
+    rename(f_age_cat_org = f_age_cat,
+           f_age_num_org = f_age_num) %>%
+    mutate(f_age_num_alt = ifelse(f_age_num_org == 4, 1,
+                                  f_age_num_org + 1)) %>%
+    mutate(f_age_cat_alt = ifelse(f_age_num_alt == 1,'10-15 yrs',
+                                  ifelse(f_age_num_alt == 2, '16-20 yrs',
+                                         ifelse(f_age_num_alt == 3, '21-25 yrs',
+                                                '26-35 yrs')))) %>%
+    mutate(comparison = paste0(f_age_cat_org,' to ',f_age_cat_alt),
+           stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
+                              ifelse(stim_type == 'l', 'lion', 'human')),
+           bda = factor(bda, levels = c('before','during','after'))) %>%
+    ggplot()+
+    geom_hline(yintercept = 0, lty = 3)+
+    geom_violin(aes(x = comparison,
+                    y = difference,
+                    fill = comparison),
+                position = position_dodge(0.5))+
+    scale_fill_viridis_d()+
+    facet_grid(p_age_cat ~ stim_type,
+               scales = ifelse(free_y == T, 'free_y', 'fixed'))+
+    labs(fill = 'comparison',
+         title = plot_title)+
+    theme(legend.position = 'bottom',
+          axis.text.x = element_text(angle = 90, vjust = 0.5))
+  return(plot)
+}
+
+#### movement ordinal   ####
+pdf('../outputs/looking_ordinal_model_2bda/niceplots_movementordinal2_noprev.pdf')
+rm(list = ls()[!ls() %in% c('extract_predictions',
+                            'ridge_pred_altogether','ridge_pred_splitpartner',
+                            'contrast_plot_altogether','contrast_plot_splitpartner')]) ; gc()
+load('movement_direction/ordinal_noprev/moving_noprev_2bda_modelpredictions.RData')
 
 ## plot predictions
-pred <- pred %>%
-  mutate(draw_id = rep(1:4000, each = nrow(age_move_org)),
-         stim_type_long = ifelse(stim_type == 'ctd','dove (control)',
-                                 ifelse(stim_type == 'l','lion','human'))) %>%
-  mutate(stim_type_long = factor(stim_type_long,
-                                 levels = c('dove (control)','lion','human')))
+dir <- c('move directly away','move away at an angle','move neither towards or away','approach at an angle','approach directly')
 
-pred %>%
-  mutate(move_tminus1 = ifelse(move_tminus1 == 'not_moving', 'no', 'yes')) %>%
-  mutate(move_tminus1 = factor(move_tminus1, levels = c('yes','no'))) %>%
-  ggplot()+
-  geom_boxplot(aes(x = f_age_cat,
-                   # fill = as.factor(move_index), # successfully predicts actual data
-                   fill = move_tminus1,
-                   y = epred))+
-  labs(x = 'focal age category',
-       y = 'predicted probability of moving',
-       fill = 'moving in previous second')+
-  facet_wrap(. ~ stim_type_long)+
-  scale_fill_viridis_d()+
-  theme(legend.position = 'bottom')
+for(prediction_direction in 1:5){
+  pred_slice <- pred %>%
+    filter(pred_type == dir[prediction_direction]) %>%
+    separate(age_combo, into = c('f','p_age_cat'), remove = F) %>%
+    mutate(f_age_cat = ifelse(f_age_num == 1, '10-15 yrs',
+                              ifelse(f_age_num == 2, '16-20 yrs',
+                                     ifelse(f_age_num == 3, '21-25 yrs',
+                                            '26-35 yrs'))),
+           p_age_cat = ifelse(p_age_cat == '1', '10-15 yrs',
+                              ifelse(p_age_cat == '2', '16-20 yrs',
+                                     ifelse(p_age_cat == '3', '21-25 yrs', '26-35 yrs'))),
+           stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
+                              ifelse(stim_type == 'l', 'lion','human'))) %>%
+    mutate(p_age_cat = paste0('T: ',p_age_cat),
+           stim_type = factor(stim_type, levels = c('dove (control)','lion','human')),
+           bda = factor(bda, levels = c('before','during','after')))
 
-pred %>%
-  mutate(move_tminus1 = ifelse(move_tminus1 == 'not_moving',
-                               'not moving at t-1','moving at t-1')) %>%
-  mutate(move_tminus1 = factor(move_tminus1, levels = c('moving at t-1',
-                                                        'not moving at t-1'))) %>%
-  ggplot()+
-  geom_density(aes(x = epred,
-                   fill = f_age_cat),
-               alpha = 0.4)+
-  labs(fill = 'focal age category',
-       x = 'predicted probability of moving',
-       y = 'probability density')+
-  facet_grid(move_tminus1 ~ stim_type_long,
-             scales = 'free')+
-  scale_fill_viridis_d()+
-  theme(legend.position = 'bottom')
+  direction <- ifelse(prediction_direction == 1,'awaydirect',
+                      ifelse(prediction_direction == 2,'awayangle',
+                             ifelse(prediction_direction == 3,'neither',
+                                    ifelse(prediction_direction == 4,'twdsangle',
+                                           'twdsdirect'))))
+  # ridge_pred_altogether(pred_df = pred_slice, type = 'move_dir',
+  #                       prev = FALSE, prediction = dir[prediction_direction])
+  pred_slice %>%
+    ggplot()+
+    geom_density_ridges(aes(x = epred,
+                            y = f_age_cat,
+                            fill = f_age_cat),
+                        alpha = 0.6,
+                        scale = 0.9)+
+    labs(fill = 'focal age category',
+         x = 'predicted probability',
+         y = 'probability density',
+         title = dir[prediction_direction])+
+    scale_fill_viridis_d()+
+    theme(legend.position = 'bottom',
+          axis.text.x = element_text(angle = 90))+
+    facet_grid(. ~ stim_type, scales = 'free_x')
+  ggsave(filename = paste0('mom_predicted_ridges_',direction,'_altogether.png'),
+         path = '../outputs/movement_ordinal_model_2bda/',
+         plot = last_plot(),
+         device = 'png', height = 1800, width = 2800, units = 'px')
+  # ridge_pred_splitpartner(pred_slice, type = 'move_dir', prev = FALSE)
+  pred_slice %>%
+    ggplot()+
+    geom_density_ridges(aes(x = epred,
+                            y = f_age_cat,
+                            fill = p_age_cat),
+                        alpha = 0.6,
+                        scale = 0.9)+
+    labs(fill = 'target age category',
+         x = 'predicted probability',
+         y = 'probability density',
+         title = dir[prediction_direction])+
+    scale_fill_viridis_d()+
+    theme(legend.position = 'bottom',
+          axis.text.x = element_text(angle = 90))+
+    facet_grid(. ~ stim_type, scales = 'free_x')
+  ggsave(filename = paste0('mom_predicted_ridges_',direction,'_splitpartner.png'),
+         path = '../outputs/movement_ordinal_model_2bda/',
+         plot = last_plot(),
+         device = 'png', height = 1800, width = 2800, units = 'px')
 
-pred %>%
-  mutate(move_tminus1 = ifelse(move_tminus1 == 'not_moving',
-                               'not moving at t-1','moving at t-1')) %>%
-  mutate(move_tminus1 = factor(move_tminus1, levels = c('moving at t-1',
-                                                        'not moving at t-1'))) %>%
-  ggplot()+
-  geom_density_ridges(aes(x = epred,
-                          y = f_age_cat,
-                          fill = f_age_cat),
-                      alpha = 0.6)+
-  labs(fill = 'focal age category',
-       x = 'predicted probability of moving',
-       y = 'probability density')+
-  facet_grid(stim_type_long ~ move_tminus1,
-             scales = 'free_x')+
-  scale_fill_viridis_d()+
-  theme(legend.position = 'bottom')
-ggsave(filename = 'mbm_predicted_ridges.png',
-       path = '../outputs/movement_binomial_model/',
-       device = 'png', height = 1800, width = 1500, units = 'px')
+  pred_slice %>%
+    ggplot()+
+    geom_density_ridges(aes(x = epred,
+                            y = f_age_cat,
+                            fill = bda,
+                            linetype = bda,
+                            colour = bda),
+                        alpha = 0.6,
+                        size = 0.3,
+                        scale = 0.9)+
+    scale_fill_viridis_d()+
+    scale_linetype_manual(values = c(1,2,1),
+                          breaks = c('before','during','after'))+
+    scale_colour_manual(values = c('transparent','black','black'),
+                        breaks = c('before','during','after'))+
+    scale_y_discrete(expand = c(0,0))+
+    labs(fill = 'time relative to stimulus',
+         colour = 'time relative to stimulus',
+         linetype = 'time relative to stimulus',
+         x = 'predicted probability',
+         y = 'focal age category',
+         title = direction)+
+    facet_grid(stim_type ~ p_age_cat)+
+    theme(legend.position = 'bottom')+
+    guides(fill = guide_legend(nrow = 3),
+           linetype = guide_legend(nrow = 3))
+  ggsave(filename = paste0('mom_predicted_ridges_',direction,'_splittime.png'),
+         path = '../outputs/movement_ordinal_model_2bda/',
+         plot = last_plot(),
+         device = 'png', height = 1800, width = 2800, units = 'px')
+}
 
-rm(pred) ; gc()
+## plot contrasts
+rm(list = ls()[!ls() %in% c('extract_predictions',
+                            'ridge_pred_altogether','ridge_pred_splitpartner',
+                            'contrast_plot_altogether','contrast_plot_splitpartner')]) ; gc()
+load('movement_direction/ordinal_noprev/moving_noprev_2bda_agecontrasts.RData')
+for(plot in c('awaydirect','awayangle','neither','twdsangle','twdsdirect')){
+  contrast_plot_altogether(contrasts_long, type = 'move', direction = plot,#prev = F,
+                           free_y = F)
+  ggsave(plot = last_plot(), device = 'png',
+         filename = paste0('mom_noprev_contrasts_fixedscales_',plot,'_altogether.png'),
+         path = '../outputs/movement_ordinal_model_2bda/',
+         height = 3000, width = 2100, unit = 'px')
 
-## clean up data
-age_contrast_long <- age_contrast %>%
-  as.data.frame() %>%
-  pivot_longer(cols = everything(),
-               names_to = 'unique_data_combo',
-               values_to = 'contrast') %>%
-  mutate(unique_data_combo = as.integer(unique_data_combo)) %>%
-  left_join(distinct(age_move_org), by = 'unique_data_combo') %>%
-  rename(f_age_num_org = f_age_num) %>%
-  mutate(f_age_num_alt = ifelse(f_age_num_org == 4, 1, f_age_num_org + 1)) %>%
-  mutate(f_age_cat_org = ifelse(f_age_num_org == 1, '10-15 yrs',
-                                ifelse(f_age_num_org == 2, '16-20 yrs',
-                                       ifelse(f_age_num_org == 3, '21-25 yrs',
-                                              ifelse(f_age_num_org == 4, '26-35 yrs',
-                                                     '>36 yrs')))),
-         f_age_cat_alt = ifelse(f_age_num_alt == 1, '10-15 yrs',
+  contrast_plot_altogether(contrasts_long, type = 'move', direction = plot,#prev = F,
+                           free_y = F)
+  ggsave(plot = last_plot(), device = 'png',
+         filename = paste0('mom_noprev_contrasts_freescales_',plot,'_altogether.png'),
+         path = '../outputs/movement_ordinal_model_2bda/',
+         height = 3000, width = 2100, unit = 'px')
+
+  contrast_plot_splitpartner(contrasts_long, type = 'move', direction = plot,#prev = F,
+                             free_y = F)
+  ggsave(plot = last_plot(), device = 'png',
+         filename = paste0('mom_noprev_contrasts_fixedscales_',plot,'_splitpartner.png'),
+         path = '../outputs/movement_ordinal_model_2bda/',
+         height = 3000, width = 2100, unit = 'px')
+
+  contrast_plot_splitpartner(contrasts_long, type = 'move', direction = plot,#prev = F,
+                             free_y = F)
+  ggsave(plot = last_plot(), device = 'png',
+         filename = paste0('mom_noprev_contrasts_freescales_',plot,'_splitpartner.png'),
+         path = '../outputs/movement_ordinal_model_2bda/',
+         height = 3000, width = 2100, unit = 'px')
+}
+
+plot_contrasts <- contrasts_long %>%
+  rename(f_age_cat_org = f_age_cat,
+         f_age_num_org = f_age_num) %>%
+  mutate(f_age_num_alt = ifelse(f_age_num_org == 4, 1,
+                                f_age_num_org + 1)) %>%
+  mutate(f_age_cat_alt = ifelse(f_age_num_alt == 1,'10-15 yrs',
                                 ifelse(f_age_num_alt == 2, '16-20 yrs',
                                        ifelse(f_age_num_alt == 3, '21-25 yrs',
-                                              ifelse(f_age_num_alt == 4, '26-35 yrs',
-                                                     '>36 yrs')))),
-         contrast = ifelse(f_age_num_org == 4, contrast*(-1), contrast)) %>%
-  relocate(f_age_num_alt, .after = (f_age_num_org)) %>%
-  relocate(f_age_cat_org, .after = (f_age_num_alt)) %>%
-  relocate(f_age_cat_alt, .after = (f_age_cat_org)) %>%
-  mutate(comparison = ifelse(f_age_num_org == 4,
-                             paste0(f_age_cat_alt, ' to ', f_age_cat_org),
-                             paste0(f_age_cat_org, ' to ', f_age_cat_alt)))
-save.image('movement_direction/binomial_withprev/movement_binomial_ageplotting.RData')
-
-## plot
-age_contrast_long %>%
-  mutate(prev_move = ifelse(move_tminus1_num == 0, 'not moving at t-1', 'moving at t-1'),
+                                              '26-35 yrs'))),
+         move_pred = ifelse(move_pred == 'awaydirect',
+                            'directly away',
+                            ifelse(move_pred == 'awayangle',
+                                   'away at an angle',
+                                   ifelse(move_pred == 'neither',
+                                          'neither towards or away',
+                                          ifelse(move_pred == 'twdsangle',
+                                                 'approach at an angle',
+                                                 'directly approach')))),
          stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
-                            ifelse(stim_type == 'l', 'lion',
-                                   'human'))) %>%
-  ggplot()+
-  geom_violin(aes(x = comparison,
-                  y = contrast,
-                  fill = stim_type),
-              position = position_dodge(0.5))+
-  geom_hline(yintercept = 0, lty = 2)+
-  scale_fill_viridis_d()+
-  facet_wrap(. ~ prev_move, scales = 'free_y')+
-  labs(fill = 'moving in previous second')+
-  theme(legend.position = 'bottom',
-        axis.text.x = element_text(angle = 90, vjust = 0.5))
-ggsave(plot = last_plot(), device = 'png',
-       filename = 'mbm_violin_contrasts.png',
-       path = '../outputs/movement_binomial_model/',
-       height = 1600, width = 1600, unit = 'px')
+                            ifelse(stim_type == 'l', 'lion', 'human'))) %>%
+  mutate(comparison = paste0(f_age_cat_org,' to ',f_age_cat_alt),
+         move_pred = factor(move_pred,
+                            levels = c('directly away', 'away at an angle',
+                                       'neither towards or away',
+                                       'approach at an angle', 'directly approach')))
 
-print('movement binomial complete')
+for(stimulus in c("dove (control)","lion","human")){
+  plot <- plot_contrasts %>%
+    mutate(p_age_cat = paste0('T: ',p_age_cat,' yrs')) %>%
+    filter(stim_type == stimulus) %>%
+    ggplot()+
+    geom_hline(yintercept = 0, lty = 3)+
+    geom_violin(aes(x = comparison,
+                    y = difference),
+                fill = '#21918c',
+                colour = 'transparent')+
+    facet_grid(move_pred ~ p_age_cat,
+               scales = 'fixed')+
+    theme(legend.position = 'bottom',
+          axis.text.x = element_text(angle = 90, vjust = 0.5))
+  print(plot)
+}
+
+plot_contrasts %>%
+  mutate(p_age_cat = paste0('T: ',p_age_cat,' yrs'),
+         stim_type = factor(stim_type, levels = c('human','lion','dove (control)'))) %>%
+  filter(comparison != '26-35 to 10-15 yrs') %>%
+  ggplot()+
+  geom_vline(xintercept = 0, linetype = 3)+
+  geom_density_ridges(aes(y = stim_type,
+                          x = difference,
+                          fill = comparison,
+                          linetype = comparison,
+                          colour = comparison),
+                      alpha = 0.6,
+                      size = 0.3,
+                      scale = 0.9)+
+  scale_fill_viridis_d()+
+
+  scale_linetype_manual(values = c(1,2,1),
+                        breaks = c('10-15 to 16-20 yrs',
+                                   '16-20 to 21-25 yrs',
+                                   '21-25 to 26-35 yrs'))+
+  scale_colour_manual(values = c('transparent','black','black'),
+                      breaks = c('10-15 to 16-20 yrs',
+                                 '16-20 to 21-25 yrs',
+                                 '21-25 to 26-35 yrs'))+
+  scale_y_discrete(expand = c(0,0))+
+  labs(y = 'stimulus type',
+       fill = 'focal age change',
+       linetype = 'focal age change',
+       colour = 'focal age change',
+       x = 'contrast')+
+  facet_grid(move_pred ~ p_age_cat,
+             scales = 'fixed')+
+  theme(legend.position = 'bottom',
+        axis.text.x = element_text(angle = 90, vjust = 0.5))+
+  guides(fill = guide_legend(nrow = 3),
+         linetype = guide_legend(nrow = 3))
+ggsave(plot = last_plot(),
+       filename = 'mom_noprev_contrastridges_alldata.png',
+       path = '../outputs/movement_ordinal_model_2bda/',
+       device = 'png', height = 2800, width = 1900, unit = 'px')
+
+plot_contrasts %>%
+  mutate(p_age_cat = paste0('T: ',p_age_cat,' yrs'),
+         stim_type = factor(stim_type, levels = c('human','lion','dove (control)')),
+         bda = factor(bda, levels = c('before','during','after'))) %>%
+  filter(comparison != '26-35 to 10-15 yrs') %>%
+  ggplot()+
+  geom_vline(xintercept = 0, linetype = 3)+
+  geom_density_ridges(aes(y = stim_type,
+                          x = difference,
+                          fill = comparison,
+                          linetype = bda,
+                          colour = bda),
+                      alpha = 0.6,
+                      size = 0.3,
+                      scale = 0.9)+
+  scale_fill_viridis_d()+
+  scale_linetype_manual(values = c(1,2,1),
+                        breaks = c('before','during','after'))+
+  scale_colour_manual(values = c('transparent','black','black'),
+                      breaks = c('before','during','after'))+
+  scale_y_discrete(expand = c(0,0))+
+  labs(y = 'stimulus type',
+       fill = 'focal age change',
+       linetype = 'time relative to stimulus',
+       colour = 'time relative to stimulus',
+       x = 'contrast')+
+  facet_grid(move_pred ~ p_age_cat,
+             scales = 'fixed')+
+  theme(legend.position = 'bottom',
+        axis.text.x = element_text(angle = 90, vjust = 0.5))+
+  guides(fill = guide_legend(nrow = 3),
+         linetype = guide_legend(nrow = 3))
+ggsave(plot = last_plot(),
+       filename = 'mom_noprev_contrastridges_splitbybda.png',
+       path = '../outputs/movement_ordinal_model_2bda/',
+       device = 'png', height = 2800, width = 1900, unit = 'px')
+
+
+# load('movement_direction/ordinal_noprev/moving_noprev_2bda_stimuluscontrasts.RData')
+plot_contrasts <- contrasts_long %>%
+  rename(f_age_cat_org = f_age_cat,
+         f_age_num_org = f_age_num) %>%
+  mutate(f_age_num_alt = ifelse(f_age_num_org == 4, 1,
+                                f_age_num_org + 1)) %>%
+  mutate(f_age_cat_alt = ifelse(f_age_num_alt == 1,'10-15 yrs',
+                                ifelse(f_age_num_alt == 2, '16-20 yrs',
+                                       ifelse(f_age_num_alt == 3, '21-25 yrs',
+                                              '26-35 yrs'))),
+         move_pred = ifelse(move_pred == 'awaydirect',
+                            'directly away',
+                            ifelse(move_pred == 'awayangle',
+                                   'away at an angle',
+                                   ifelse(move_pred == 'neither',
+                                          'neither towards or away',
+                                          ifelse(move_pred == 'twdsangle',
+                                                 'approach at an angle',
+                                                 'directly approach')))),
+         stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
+                            ifelse(stim_type == 'l', 'lion', 'human'))) %>%
+  mutate(comparison = paste0(f_age_cat_org,' to ',f_age_cat_alt),
+         move_pred = factor(move_pred,
+                            levels = c('directly away', 'away at an angle',
+                                       'neither towards or away',
+                                       'approach at an angle', 'directly approach')))
+
+plot_contrasts %>%
+  mutate(p_age_cat = paste0('T: ',p_age_cat,' yrs'),
+         stim_type = factor(stim_type, levels = c('human','lion','dove (control)'))) %>%
+  filter(comparison != '26-35 to 10-15 yrs') %>%
+  ggplot()+
+  geom_vline(xintercept = 0, linetype = 3)+
+  geom_density_ridges(aes(y = stim_type,
+                          x = difference,
+                          fill = comparison,
+                          linetype = comparison,
+                          colour = comparison),
+                      alpha = 0.6,
+                      size = 0.3,
+                      scale = 0.9)+
+  scale_fill_viridis_d()+
+  scale_linetype_manual(values = c(1,2,1),
+                        breaks = c('10-15 to 16-20 yrs',
+                                   '16-20 to 21-25 yrs',
+                                   '21-25 to 26-35 yrs'))+
+  scale_colour_manual(values = c('transparent','black','black'),
+                      breaks = c('10-15 to 16-20 yrs',
+                                 '16-20 to 21-25 yrs',
+                                 '21-25 to 26-35 yrs'))+
+  scale_y_discrete(expand = c(0,0))+
+  labs(y = 'stimulus type',
+       fill = 'focal age change',
+       linetype = 'focal age change',
+       colour = 'focal age change',
+       x = 'contrast')+
+  facet_grid(move_pred ~ p_age_cat,
+             scales = 'fixed')+
+  theme(legend.position = 'bottom',
+        axis.text.x = element_text(angle = 90, vjust = 0.5))+
+  guides(fill = guide_legend(nrow = 3),
+         linetype = guide_legend(nrow = 3))
+ggsave(plot = last_plot(),
+       filename = 'mom_noprev_contrastridges_alldata.png',
+       path = '../outputs/movement_ordinal_model_2bda/',
+       device = 'png', height = 2800, width = 1900, unit = 'px')
+
+plot_contrasts %>%
+  mutate(p_age_cat = paste0('T: ',p_age_cat,' yrs'),
+         stim_type = factor(stim_type, levels = c('human','lion','dove (control)')),
+         bda = factor(bda, levels = c('before','during','after'))) %>%
+  filter(comparison != '26-35 to 10-15 yrs') %>%
+  ggplot()+
+  geom_vline(xintercept = 0, linetype = 3)+
+  geom_density_ridges(aes(y = stim_type,
+                          x = difference,
+                          fill = comparison,
+                          linetype = bda,
+                          colour = bda),
+                      alpha = 0.6,
+                      size = 0.3,
+                      scale = 0.9)+
+  scale_fill_viridis_d()+
+  scale_linetype_manual(values = c(1,2,1),
+                        breaks = c('before','during','after'))+
+  scale_colour_manual(values = c('transparent','black','black'),
+                      breaks = c('before','during','after'))+
+  scale_y_discrete(expand = c(0,0))+
+  labs(y = 'stimulus type',
+       fill = 'focal age change',
+       linetype = 'time relative to stimulus',
+       colour = 'time relative to stimulus',
+       x = 'contrast')+
+  facet_grid(move_pred ~ p_age_cat,
+             scales = 'fixed')+
+  theme(legend.position = 'bottom',
+        axis.text.x = element_text(angle = 90, vjust = 0.5))+
+  guides(fill = guide_legend(nrow = 3),
+         linetype = guide_legend(nrow = 3))
+ggsave(plot = last_plot(),
+       filename = 'mom_noprev_contrastridges_splitbybda.png',
+       path = '../outputs/movement_ordinal_model_2bda/',
+       device = 'png', height = 2800, width = 1900, unit = 'px')
+
+print('movement ignoring t-1 behaviour complete')
 dev.off()
 
-#### movement binomial p -- probability of performing behaviour ####
+#### looking ordinal    ####
+pdf('../outputs/looking_ordinal_model_2bda/niceplots_lookingordinal2_noprev.pdf')
+rm(list = ls()[!ls() %in% c('extract_predictions',
+                            'ridge_pred_altogether','ridge_pred_splitpartner',
+                            'contrast_plot_altogether','contrast_plot_splitpartner')]) ; gc()
+load('looking_direction/looking_noprev_model2bda_predictions.RData')
+ls()
+
+str(look)
+str(pred)
+unique(pred$pred_type)
+unique(pred$pred_type_num)
+saveRDS(pred, '../data_processed/look_pred.RDS')
+saveRDS(pred[sample(x = 1:nrow(pred), size = (nrow(pred)/1000), replace = F),],
+        '../data_processed/look_pred_cut.RDS')
+
+## plot predictions
+look$data_id <- 1:nrow(look)
+trim <- sample(x = 1:((num_iter/2)*num_chains), size = 400, replace = F)
+for(prediction_matrix in 1:3){
+  pred_slice <- pred %>%
+    filter(pred_type_num == prediction_matrix)
+  str(pred_slice)
+  direction <- ifelse(prediction_matrix == 1,'look away',
+                      ifelse(prediction_matrix == 2,'side-on','look towards'))
+  print(direction)
+  gc()
+
+  num_pred <- length(unique(pred_slice$data_row))
+  pred_slice <- pred_slice %>%
+    arrange(data_row) %>%
+    mutate(draw_id = rep(1:((num_iter/2)*num_chains),
+                         num_pred)) %>%
+    filter(draw_id %in% trim)
+  gc()
+
+  pred_slice <- pred_slice %>%
+    tidyr::separate(age_combo, into = c('f','p_age_cat'), remove = F) %>%
+    dplyr::mutate(f_age_cat = ifelse(f_age_num == 1, '10-15 yrs',
+                                     ifelse(f_age_num == 2, '16-20 yrs',
+                                            ifelse(f_age_num == 3, '21-25 yrs',
+                                                   '26-35 yrs'))),
+                  p_age_cat = ifelse(p_age_cat == '1', '10-15 yrs',
+                                     ifelse(p_age_cat == '2', '16-20 yrs',
+                                            ifelse(p_age_cat == '3', '21-25 yrs', '26-35 yrs'))),
+                  stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
+                                     ifelse(stim_type == 'l', 'lion','human'))) %>%
+    dplyr::mutate(p_age_cat = paste0('T: ',p_age_cat),
+                  stim_type = factor(stim_type, levels = c('dove (control)','lion','human')),
+                  bda = factor(bda, levels = c('before','during','after')))
+  saveRDS(pred_slice, paste0('../data_processed/look_pred_dir',prediction_matrix,'.RDS'))
+  print('data prepped')
+
+  # ridge_pred_altogether(pred_slice, type = 'look', prev = FALSE)
+  pred_slice %>%
+    ggplot()+
+    geom_density_ridges(aes(x = epred,
+                            y = f_age_cat,
+                            fill = f_age_cat),
+                        alpha = 0.6,
+                        scale = 0.9)+
+    labs(fill = 'focal age category',
+         x = 'predicted probability',
+         y = 'probability density',
+         title = direction)+
+    scale_fill_viridis_d()+
+    theme(legend.position = 'bottom',
+          axis.text.x = element_text(angle = 90))+
+    facet_grid(. ~ stim_type, scales = 'free_x')
+  ggsave(filename = paste0('lom_noprev_predicted_ridges_',direction,'_altogether.png'),
+         path = '../outputs/looking_ordinal_model_2bda/',
+         plot = last_plot(),
+         device = 'png', height = 1800, width = 2800, units = 'px')
+  warnings()
+  print('altogether done')
+}
+rm(list = ls()[! ls() %in% c('contrast_plot_altogether,contrast_plot_splitpartner')]) ; gc()
+
+for(prediction_matrix in 1:3){
+  pred_slice <- readRDS(paste0('../data_processed/look_pred_dir',prediction_matrix,'.RDS'))
+    # ridge_pred_splitpartner(pred_slice, type = 'look', prev = FALSE)
+  pred_slice %>%
+    ggplot()+
+    geom_density_ridges(aes(x = epred,
+                            y = f_age_cat,
+                            fill = p_age_cat),
+                        alpha = 0.6,
+                        scale = 0.9)+
+    labs(fill = 'target age category',
+         x = 'predicted probability',
+         y = 'probability density',
+         title = direction)+
+    scale_fill_viridis_d()+
+    theme(legend.position = 'bottom',
+          axis.text.x = element_text(angle = 90))+
+    facet_grid(. ~ stim_type, scales = 'free_x')
+  ggsave(filename = paste0('lom_noprev_predicted_ridges_',direction,'_splitpartner.png'),
+         path = '../outputs/looking_ordinal_model_2bda/',
+         plot = last_plot(),
+         device = 'png', height = 1800, width = 2800, units = 'px')
+  warnings()
+  print('split partner done')
+  gc()
+
+  pred_slice %>%
+    ggplot()+
+    geom_density_ridges(aes(x = epred,
+                            y = f_age_cat,
+                            fill = bda,
+                            linetype = bda,
+                            colour = bda),
+                        alpha = 0.6,
+                        size = 0.3,
+                        scale = 0.9)+
+    scale_fill_viridis_d()+
+    scale_linetype_manual(values = c(1,2,1),
+                          breaks = c('before','during','after'))+
+    scale_colour_manual(values = c('transparent','black','black'),
+                        breaks = c('before','during','after'))+
+    scale_y_discrete(expand = c(0,0))+
+    labs(fill = 'time relative to stimulus',
+         colour = 'time relative to stimulus',
+         linetype = 'time relative to stimulus',
+         x = 'predicted probability',
+         y = 'focal age category',
+         title = direction)+
+    facet_grid(stim_type ~ p_age_cat)+
+    theme(legend.position = 'bottom')+
+    guides(fill = guide_legend(nrow = 3),
+           linetype = guide_legend(nrow = 3))
+  ggsave(filename = paste0('lom_noprev_predicted_ridges_',direction,'_splittime.png'),
+         path = '../outputs/looking_ordinal_model_2bda/',
+         plot = last_plot(),
+         device = 'png', height = 1800, width = 2800, units = 'px')
+  warnings()
+  print('split time done')
+  gc()
+}
+
+## plot contrasts
+load('looking_direction/looking_noprev_agecontrasts.RData')
+ls()
+for(plot in c('away','side','twds')){
+  contrast_plot_altogether(contrasts_long, type = 'look', direction = plot,#prev = F,
+                           free_y = F)
+  ggsave(plot = last_plot(), device = 'png',
+         filename = paste0('lom_noprev_contrasts_fixedscales_',plot,'_altogether.png'),
+         path = '../outputs/looking_ordinal_model_2bda/',
+         height = 3000, width = 2100, unit = 'px')
+
+  contrast_plot_altogether(contrasts_long, type = 'look', direction = plot,#prev = F,
+                           free_y = F)
+  ggsave(plot = last_plot(), device = 'png',
+         filename = paste0('lom_noprev_contrasts_freescales_',plot,'_altogether.png'),
+         path = '../outputs/looking_ordinal_model_2bda/',
+         height = 3000, width = 2100, unit = 'px')
+
+  contrast_plot_splitpartner(contrasts_long, type = 'look', direction = plot,#prev = F,
+                             free_y = F)
+  ggsave(plot = last_plot(), device = 'png',
+         filename = paste0('lom_noprev_contrasts_fixedscales_',plot,'_splitpartner.png'),
+         path = '../outputs/looking_ordinal_model_2bda/',
+         height = 3000, width = 2100, unit = 'px')
+
+  contrast_plot_splitpartner(contrasts_long, type = 'look', direction = plot,#prev = F,
+                             free_y = F)
+  ggsave(plot = last_plot(), device = 'png',
+         filename = paste0('lom_noprev_contrasts_freescales_',plot,'_splitpartner.png'),
+         path = '../outputs/looking_ordinal_model_2bda/',
+         height = 3000, width = 2100, unit = 'px')
+}
+
+print('looking noprev complete')
+dev.off()
+
+#### movement binomial  ####
 pdf('../outputs/movement_binomial_model/niceplots_movementbinomial_noprev.pdf')
 load('movement_direction/binomial_noprev/movement_noprev_agecontrasts.RData')
 rm(ctd_vs_human, ctd_vs_lion, lion_vs_human, contrasts, contrasts_long) ; gc()
@@ -150,50 +904,56 @@ pred <- pred %>%
 
 pred %>%
   ggplot()+
-  geom_boxplot(aes(x = f_age_cat,
-                   # fill = as.factor(move_index), # successfully predicts actual data
-                   fill = stim_type_long,
-                   y = epred))+
-  labs(x = 'focal age category',
-       y = 'predicted probability of moving',
-       fill = 'moving in previous second')+
-  facet_wrap(. ~ bda)+
-  scale_fill_viridis_d()+
-  theme(legend.position = 'bottom')
-
-pred %>%
-  ggplot()+
-  geom_density(aes(x = epred,
-                   fill = f_age_cat),
-               alpha = 0.4)+
+  geom_density_ridges(aes(x = epred,
+                          y = f_age_cat,
+                          colour = f_age_cat,
+                          fill = f_age_cat),
+                      alpha = 0.6,
+                      scale = 0.9)+
   labs(fill = 'focal age category',
-       x = 'predicted probability of moving',
+       x = 'predicted probability',
        y = 'probability density')+
-  facet_grid(bda ~ stim_type_long,
-             scales = 'free')+
   scale_fill_viridis_d()+
-  theme(legend.position = 'bottom')
+  scale_colour_viridis_d()+
+  theme(legend.position = 'bottom',
+        axis.text.x = element_text(angle = 90))+
+  facet_grid(bda ~ stim_type_long, scales = 'free_x')
+ggsave(filename = 'mbm_noprev_predicted_ridges_altogether.png',
+       path = '../outputs/movement_binomial_model/',
+       plot = last_plot(),
+       device = 'png', height = 1800, width = 1500, units = 'px')
 
 pred %>%
   ggplot()+
   geom_density_ridges(aes(x = epred,
                           y = f_age_cat,
-                          fill = f_age_cat),
-                      alpha = 0.6)+
-  labs(fill = 'focal age category',
-       x = 'predicted probability of moving',
-       y = 'probability density')+
-  facet_grid(bda ~ stim_type_long,
-             scales = 'free_x')+
+                          fill = bda,
+                          linetype = bda,
+                          colour = bda),
+                      alpha = 0.6,
+                      scale = 0.9)+
   scale_fill_viridis_d()+
-  theme(legend.position = 'bottom')
-ggsave(filename = 'mbm_noprev_predicted_ridges.png',
+  scale_linetype_manual(values = c(1,2,1),
+                        breaks = c('before','during','after'))+
+  scale_colour_manual(values = c('transparent','black','black'),
+                      breaks = c('before','during','after'))+
+  scale_y_discrete(expand = c(0,0))+
+  labs(fill = 'time relative to stimulus',
+       colour = 'time relative to stimulus',
+       linetype = 'time relative to stimulus',
+       x = 'predicted probability',
+       y = 'focal age category')+
+  facet_grid(stim_type_long ~ .)+
+  theme(legend.position = 'bottom')+
+  guides(fill = guide_legend(nrow = 3),
+         linetype = guide_legend(nrow = 3))
+ggsave(filename = 'mbm_noprev_predicted_ridges_splittime.png',
        path = '../outputs/movement_binomial_model/',
+       plot = last_plot(),
        device = 'png', height = 1800, width = 1500, units = 'px')
 
-rm(pred) ; gc()
-
 ## clean up data
+colnames(age_contrast) <- age_move_org$unique_data_combo
 age_contrast_long <- age_contrast %>%
   as.data.frame() %>%
   pivot_longer(cols = everything(),
@@ -221,21 +981,26 @@ age_contrast_long <- age_contrast %>%
                              paste0(f_age_cat_alt, ' to ', f_age_cat_org),
                              paste0(f_age_cat_org, ' to ', f_age_cat_alt)))
 save.image('movement_direction/binomial_noprev/movement_binomial_ageplotting.RData')
+write_csv(age_contrast_long, '../data_processed/movement_binomial_agecontrasts_check.csv')
+write_csv(age_contrast_long[1:(ncol(age_contrast)*2),], '../data_processed/movement_binomial_agecontrasts_check_short.csv')
 
 ## plot
+length(which(is.na(age_contrast_long$comparison) == TRUE)) # should be 691956000 -- would explain why previous run gave warning message about rows non-finite outside scale range (stat_ydensity)
 age_contrast_long %>%
   mutate(stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
                             ifelse(stim_type == 'l', 'lion',
                                    'human'))) %>%
+  mutate(stim_type = factor(stim_type, levels = c('dove (control)','lion','human')),
+         bda = factor(bda, levels = c('before','during','after'))) %>%
   ggplot()+
+  geom_hline(yintercept = 0, lty = 3)+
   geom_violin(aes(x = comparison,
                   y = contrast,
                   fill = comparison),
               position = position_dodge(0.5))+
-  geom_hline(yintercept = 0, lty = 2)+
   scale_fill_viridis_d()+
-  facet_grid(stim_type ~ bda, scales = 'free_y')+
-  labs(fill = 'moving in previous second')+
+  facet_grid(bda ~ stim_type, scales = 'free_y')+
+  labs(fill = 'comparison')+
   theme(legend.position = 'bottom',
         axis.text.x = element_text(angle = 90, vjust = 0.5))
 ggsave(plot = last_plot(), device = 'png',
@@ -243,2286 +1008,125 @@ ggsave(plot = last_plot(), device = 'png',
        path = '../outputs/movement_binomial_model/',
        height = 1600, width = 1600, unit = 'px')
 
+# load('movement_direction/binomial_noprev/movement_binomial_ageplotting.RData')
+as.data.frame(head(age_contrast_long))
+plot_contrasts <- age_contrast_long %>%
+  # rename(f_age_cat_org = f_age_cat,
+  #        f_age_num_org = f_age_num) %>%
+  mutate(f_age_num_alt = ifelse(f_age_num_org == 4, 1,
+                                f_age_num_org + 1)) %>%
+  mutate(f_age_cat_alt = ifelse(f_age_num_alt == 1,'10-15 yrs',
+                                ifelse(f_age_num_alt == 2, '16-20 yrs',
+                                       ifelse(f_age_num_alt == 3, '21-25 yrs',
+                                              '26-35 yrs'))),
+         stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
+                            ifelse(stim_type == 'l', 'lion', 'human'))) %>%
+  mutate(comparison = paste0(f_age_cat_org,' to ',f_age_cat_alt))
+
+for(stimulus in c("dove (control)","lion","human")){
+  plot <- plot_contrasts %>%
+    filter(stim_type == stimulus) %>%
+    ggplot()+
+    geom_hline(yintercept = 0, lty = 3)+
+    geom_violin(aes(x = comparison,
+                    y = contrast),
+                fill = '#21918c',
+                colour = 'transparent')+
+    theme(legend.position = 'bottom',
+          axis.text.x = element_text(angle = 90, vjust = 0.5))+
+    labs(y = 'difference')
+  print(plot)
+}
+
+unique(plot_contrasts$comparison)
+
+plot_contrasts %>%
+  mutate(stim_type = factor(stim_type, levels = c('human','lion','dove (control)'))) %>%
+  filter(comparison != '26-35 yrs to 10-15 yrs') %>%
+  ggplot()+
+  geom_vline(xintercept = 0, linetype = 3)+
+  geom_density_ridges(aes(y = stim_type,
+                          x = contrast,
+                          fill = comparison,
+                          linetype = comparison,
+                          colour = comparison),
+                      alpha = 0.6,
+                      size = 0.3,
+                      scale = 0.9)+
+  scale_fill_viridis_d()+
+  scale_linetype_manual(values = c(1,2,1),
+                        breaks = c('10-15 to 16-20 yrs',
+                                   '16-20 to 21-25 yrs',
+                                   '21-25 to 26-35 yrs'))+
+  scale_colour_manual(values = c('transparent','black','black'),
+                      breaks = c('10-15 to 16-20 yrs',
+                                 '16-20 to 21-25 yrs',
+                                 '21-25 to 26-35 yrs'))+
+  scale_y_discrete(expand = c(0,0))+
+  labs(y = 'stimulus type',
+       fill = 'focal age change',
+       linetype = 'focal age change',
+       colour = 'focal age change',
+       x = 'contrast')+
+  theme(legend.position = 'bottom',
+        axis.text.x = element_text(angle = 90, vjust = 0.5))+
+  guides(fill = guide_legend(nrow = 3),
+         linetype = guide_legend(nrow = 3))
+ggsave(plot = last_plot(),
+       filename = 'mbm_noprev_contrastridges_alldata.png',
+       path = '../outputs/movement_binomial_model/',
+       device = 'png', height = 2800, width = 1900, unit = 'px')
+
+plot_contrasts %>%
+  mutate(stim_type = factor(stim_type, levels = c('human','lion','dove (control)')),
+         bda = factor(bda, levels = c('before','during','after'))) %>%
+  filter(comparison != '26-35 yrs to 10-15 yrs') %>%
+  ggplot()+
+  geom_vline(xintercept = 0, linetype = 3)+
+  geom_density_ridges(aes(y = stim_type,
+                          x = contrast,
+                          fill = comparison,
+                          linetype = bda,
+                          colour = bda),
+                      alpha = 0.6,
+                      size = 0.3,
+                      scale = 0.9)+
+  scale_fill_viridis_d()+
+  scale_linetype_manual(values = c(1,2,1),
+                        breaks = c('before','during','after'))+
+  scale_colour_manual(values = c('transparent','black','black'),
+                      breaks = c('before','during','after'))+
+  scale_y_discrete(expand = c(0,0))+
+  labs(y = 'stimulus type',
+       fill = 'focal age change',
+       linetype = 'time relative to stimulus',
+       colour = 'time relative to stimulus',
+       x = 'contrast')+
+  theme(legend.position = 'bottom',
+        axis.text.x = element_text(angle = 90, vjust = 0.5))+
+  guides(fill = guide_legend(nrow = 3),
+         linetype = guide_legend(nrow = 3))
+ggsave(plot = last_plot(),
+       filename = 'mbm_noprev_contrastridges_splitbybda.png',
+       path = '../outputs/movement_binomial_model/',
+       device = 'png', height = 2800, width = 1900, unit = 'px')
+
 print('movement binomial complete')
 dev.off()
 
-#### movement ordinal1 c -- probability of  changing  behaviour ####
-pdf('../outputs/movement_ordinal_model_1/niceplots_movementordinal1.pdf')
-rm(list = ls()) ; gc() ; load('movement_direction/ordinal_withprev/movement_ordinal_model1_agecontrasts.RData')
-
-## plot predictions
-age_move_org$data_id <- 1:nrow(age_move_org)
-extract_predictions <- function(array, slice, df){
-  matrix <- array[,,slice]
-  colnames(matrix) <- 1:nrow(df)
-  pred <- matrix %>%
-    as.data.frame() %>%
-    pivot_longer(cols = everything(), names_to = 'data_id', values_to = 'epred') %>%
-    mutate(data_id = as.integer(data_id)) %>%
-    left_join(df, by = 'data_id')%>%
-    mutate(stim_type_long = ifelse(stim_type == 'ctd','dove (control)',
-                                   ifelse(stim_type == 'l','lion','human'))) %>%
-    mutate(stim_type_long = factor(stim_type_long,
-                                   levels = c('dove (control)','lion','human'))) %>%
-    mutate(predicted_direction = slice)
-  return(pred)
-}
-pred_ad <- extract_predictions(array = age_mtx_org, slice = 1, df = age_move_org)
-pred_aa <- extract_predictions(array = age_mtx_org, slice = 2, df = age_move_org)
-pred_nt <- extract_predictions(array = age_mtx_org, slice = 3, df = age_move_org)
-pred_ta <- extract_predictions(array = age_mtx_org, slice = 4, df = age_move_org)
-pred_td <- extract_predictions(array = age_mtx_org, slice = 5, df = age_move_org)
-
-boxplot_pred <- function(pred){
-  predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'move directly away',
-                                ifelse(pred$predicted_direction[1] == 2, 'move away at an angle',
-                                       ifelse(pred$predicted_direction[1] == 3, 'move neither towards or away',
-                                              ifelse(pred$predicted_direction[1] == 4, 'approach at an angle',
-                                                     'approach directly'))))
-
-  pred %>%
-    mutate(move_tminus1 = ifelse(move_tminus1_num == 1, 'move directly away',
-                                 ifelse(move_tminus1_num == 2, 'move away at an angle',
-                                        ifelse(move_tminus1_num == 3, 'move neither towards or away',
-                                               ifelse(move_tminus1_num == 4,
-                                                      'approach at an angle',
-                                                      'approach directly')))),
-           f_age_cat = ifelse(f_age_num == 1, '10-15 years',
-                              ifelse(f_age_num == 2, '16-20 years',
-                                     ifelse(f_age_num == 3, '21-25 years',
-                                            '26-35 years')))) %>%
-    mutate(move_tminus1 = factor(move_tminus1, levels = c('move directly away',
-                                                          'move away at an angle',
-                                                          'move neither towards or away',
-                                                          'approach at an angle',
-                                                          'approach directly'))) %>%
-    ggplot()+
-    geom_boxplot(aes(x = f_age_cat,
-                     # fill = as.factor(move_index), # successfully predicts actual data
-                     fill = move_tminus1,
-                     y = epred))+
-    labs(x = 'focal age category',
-         y = 'predicted probability of moving direction',
-         fill = 'movement in previous second',
-         title = predicted_direction)+
-    facet_grid(move_tminus1 ~ stim_type_long)+ # looks a bit rubbish, but freeing y then gives crazy scales. I ideally want one where I can limit the y to 0-0.2 for all but move_tminus1 = prediction_direction which can then go 0.8-1
-    scale_fill_viridis_d()+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90))
-
-}
-(box_ad <- boxplot_pred(pred_ad))
-(box_aa <- boxplot_pred(pred_aa))
-(box_nt <- boxplot_pred(pred_nt))
-(box_ta <- boxplot_pred(pred_ta))
-(box_td <- boxplot_pred(pred_td))
-
-density_pred <- function(pred){
-  predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'move directly away',
-                                ifelse(pred$predicted_direction[1] == 2, 'move away at an angle',
-                                       ifelse(pred$predicted_direction[1] == 3, 'move neither towards or away',
-                                              ifelse(pred$predicted_direction[1] == 4, 'approach at an angle',
-                                                     'approach directly'))))
-
-  pred %>%
-    mutate(move_tminus1 = ifelse(move_tminus1_num == 1, 'move directly away',
-                                 ifelse(move_tminus1_num == 2, 'move away at an angle',
-                                        ifelse(move_tminus1_num == 3, 'move neither towards or away',
-                                               ifelse(move_tminus1_num == 4,
-                                                      'approach at an angle',
-                                                      'approach directly')))),
-           f_age_cat = ifelse(f_age_num == 1, '10-15 years',
-                              ifelse(f_age_num == 2, '16-20 years',
-                                     ifelse(f_age_num == 3, '21-25 years',
-                                            '26-35 years')))) %>%
-    mutate(move_tminus1 = factor(move_tminus1, levels = c('move directly away',
-                                                          'move away at an angle',
-                                                          'move neither towards or away',
-                                                          'approach at an angle',
-                                                          'approach directly'))) %>%
-    ggplot()+
-    geom_density(aes(x = epred,
-                     fill = f_age_cat),
-                 alpha = 0.4)+
-    labs(fill = 'focal age category',
-         x = 'predicted probability of moving',
-         y = 'probability density',
-         title = predicted_direction)+
-    facet_grid(move_tminus1 ~ stim_type_long,
-               scales = 'free')+
-    scale_fill_viridis_d()+
-    theme(legend.position = 'bottom')
-
-}
-(dens_ad <- density_pred(pred_ad))
-(dens_aa <- density_pred(pred_aa))
-(dens_nt <- density_pred(pred_nt))
-(dens_ta <- density_pred(pred_ta))
-(dens_td <- density_pred(pred_td))
-
-ridge_pred <- function(pred){
-  predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'move directly away',
-                                ifelse(pred$predicted_direction[1] == 2, 'move away at an angle',
-                                       ifelse(pred$predicted_direction[1] == 3, 'move neither towards or away',
-                                              ifelse(pred$predicted_direction[1] == 4, 'approach at an angle',
-                                                     'approach directly'))))
-
-  pred %>%
-    mutate(move_tminus1 = ifelse(move_tminus1_num == 1, 'move directly away',
-                                 ifelse(move_tminus1_num == 2, 'move away at an angle',
-                                        ifelse(move_tminus1_num == 3, 'neither towards or away',
-                                               ifelse(move_tminus1_num == 4,
-                                                      'approach at an angle',
-                                                      'approach directly')))),
-           f_age_cat = ifelse(f_age_num == 1, '10-15 years',
-                              ifelse(f_age_num == 2, '16-20 years',
-                                     ifelse(f_age_num == 3, '21-25 years',
-                                            '26-35 years')))) %>%
-    mutate(move_tminus1 = factor(move_tminus1, levels = c('move directly away',
-                                                          'move away at an angle',
-                                                          'neither towards or away',
-                                                          'approach at an angle',
-                                                          'approach directly'))) %>%
-    ggplot()+
-    geom_density_ridges(aes(x = epred,
-                            y = f_age_cat,
-                            fill = f_age_cat),
-                        alpha = 0.6)+
-    labs(fill = 'focal age category',
-         x = 'predicted probability of moving direction',
-         y = 'probability density',
-         title = predicted_direction)+
-    facet_grid(stim_type_long ~ move_tminus1,
-               scales = 'free_x')+
-    scale_fill_viridis_d()+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90))
-}
-(ridge_ad <- ridge_pred(pred_ad))
-(ridge_aa <- ridge_pred(pred_aa))
-(ridge_nt <- ridge_pred(pred_nt))
-(ridge_ta <- ridge_pred(pred_ta))
-(ridge_td <- ridge_pred(pred_td))
-
-ggsave(filename = 'mom1_predicted_ridges_directlyaway.png',
-       path = '../outputs/movement_ordinal_model_1/',
-       plot = ridge_ad,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom1_predicted_ridges_angleaway.png',
-       path = '../outputs/movement_ordinal_model_1/',
-       plot = ridge_aa,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom1_predicted_ridges_neither.png',
-       path = '../outputs/movement_ordinal_model_1/',
-       plot = ridge_nt,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom1_predicted_ridges_angleapproach.png',
-       path = '../outputs/movement_ordinal_model_1/',
-       plot = ridge_ta,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom1_predicted_ridges_directlyapproach.png',
-       path = '../outputs/movement_ordinal_model_1/',
-       plot = ridge_td,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-
-## plot
-contrast_plot <- function(contrasts, direction, free_y = T){
-  contrasts %>%
-    filter(move_pred == direction) %>%
-    rename(f_age_cat_org = f_age_cat,
-           f_age_num_org = f_age_num) %>%
-    mutate(f_age_num_alt = ifelse(f_age_num_org == 4, 1,
-                                  f_age_num_org + 1)) %>%
-    mutate(f_age_cat_alt = ifelse(f_age_num_alt == 1,'10-15 yrs',
-                                  ifelse(f_age_num_alt == 2, '16-20 yrs',
-                                         ifelse(f_age_num_alt == 3, '21-25 yrs',
-                                                '26-35 yrs')))) %>%
-    mutate(comparison = paste0(f_age_cat_org,' to ',f_age_cat_alt),
-           stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
-                              ifelse(stim_type == 'l', 'lion', 'human')),
-           move_tminus1 = ifelse(move_tminus1 == 'move away directly',
-                                 'move away directly',
-                                 ifelse(move_tminus1 == 'move away at an angle',
-                                        'move away at an angle',
-                                        ifelse(move_tminus1 == 'move directly with',
-                                               'neither towards or away',
-                                               ifelse(move_tminus1 == 'approach at an angle',
-                                                      'approach at an angle',
-                                                      'approach directly'))))) %>%
-    mutate(move_tminus1 = factor(move_tminus1,
-                                 levels = c('move away directly',
-                                            'move away at an angle',
-                                            'neither towards or away',
-                                            'approach at an angle',
-                                            'approach directly'))) %>%
-    ggplot()+
-    geom_hline(yintercept = 0, lty = 2)+
-    geom_violin(aes(x = comparison,
-                    y = difference,
-                    fill = comparison),
-                position = position_dodge(0.5))+
-    scale_fill_viridis_d()+
-    facet_grid(move_tminus1 ~ stim_type,
-               scales = ifelse(free_y == T, 'free_y', 'fixed')
-               )+
-    labs(fill = 'comparison',
-         title = ifelse(direction == 'awayangle',
-                            'away at an angle',
-                            ifelse(direction == 'awaydirect',
-                                   'away directly',
-                                   ifelse(direction == 'neither',
-                                          'neither towards or away',
-                                          ifelse(direction == 'twdsangle',
-                                                 'towards at an angle',
-                                                 'towards directly')))))+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90, vjust = 0.5))
-}
-for(plot in c('awaydirect','awayangle','neither','twdsangle','twdsdirect')){
-  contrast_plot(contrasts_long, plot, free_y = F)
-  ggsave(plot = last_plot(), device = 'png',
-         filename = paste0('mom1_contrasts_fixedscales_',plot,'.png'),
-         path = '../outputs/movement_ordinal_model_1/',
-         height = 3000, width = 2100, unit = 'px')
-}
-for(plot in c('awaydirect','awayangle','neither','twdsangle','twdsdirect')){
-  contrast_plot(contrasts_long, plot, free_y = T)
-  ggsave(plot = last_plot(), device = 'png',
-         filename = paste0('mom1_contrasts_freescales_',plot,'.png'),
-         path = '../outputs/movement_ordinal_model_1/',
-         height = 3000, width = 2100, unit = 'px')
-}
-
-dev.off()
-pdf('../outputs/movement_ordinal_model_1/niceplots_movementordinal1_splitpartner.pdf')
-
-ridge_pred <- function(pred){
-  predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'move directly away',
-                                ifelse(pred$predicted_direction[1] == 2, 'move away at an angle',
-                                       ifelse(pred$predicted_direction[1] == 3, 'move neither towards or away',
-                                              ifelse(pred$predicted_direction[1] == 4, 'approach at an angle',
-                                                     'approach directly'))))
-  
-  pred2 <- pred %>%
-    mutate(move_tminus1 = ifelse(move_tminus1_num == 1, 'move directly away',
-                                 ifelse(move_tminus1_num == 2, 'move away at an angle',
-                                        ifelse(move_tminus1_num == 3, 'neither towards or away',
-                                               ifelse(move_tminus1_num == 4,
-                                                      'approach at an angle',
-                                                      'approach directly')))),
-           f_age_cat = ifelse(f_age_num == 1, '10-15 yrs',
-                              ifelse(f_age_num == 2, '16-20 yrs',
-                                     ifelse(f_age_num == 3, '21-25 yrs',
-                                            '26-35 yrs'))),
-           p_age_cat = ifelse(p_age_num == 1, '10-15 yrs',
-                              ifelse(p_age_num == 2, '16-20 yrs',
-                                     ifelse(p_age_num == 3, '21-25 yrs',
-                                            '26-35 yrs')))) %>%
-    mutate(move_tminus1 = factor(move_tminus1, levels = c('move directly away',
-                                                          'move away at an angle',
-                                                          'neither towards or away',
-                                                          'approach at an angle',
-                                                          'approach directly')))
-  pred2 %>%
-    ggplot()+
-    geom_density_ridges(aes(x = epred,
-                            y = f_age_cat,
-                            fill = p_age_cat),
-                        alpha = 0.6)+
-    labs(fill = 'target age category',
-         x = 'predicted probability of moving direction',
-         y = 'probability density',
-         title = predicted_direction)+
-    facet_grid(stim_type_long ~ move_tminus1,
-               scales = 'free_x')+
-    scale_fill_viridis_d()+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90))
-}
-(ridge_ad <- ridge_pred(pred_ad))
-(ridge_aa <- ridge_pred(pred_aa))
-(ridge_nt <- ridge_pred(pred_nt))
-(ridge_ta <- ridge_pred(pred_ta))
-(ridge_td <- ridge_pred(pred_td))
-
-ggsave(filename = 'mom1_predicted_ridges_directlyaway_splitpartner.png',
-       path = '../outputs/movement_ordinal_model_1/',
-       plot = ridge_ad,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom1_predicted_ridges_angleaway_splitpartner.png',
-       path = '../outputs/movement_ordinal_model_1/',
-       plot = ridge_aa,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom1_predicted_ridges_neither_splitpartner.png',
-       path = '../outputs/movement_ordinal_model_1/',
-       plot = ridge_nt,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom1_predicted_ridges_angleapproach_splitpartner.png',
-       path = '../outputs/movement_ordinal_model_1/',
-       plot = ridge_ta,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom1_predicted_ridges_directlyapproach_splitpartner.png',
-       path = '../outputs/movement_ordinal_model_1/',
-       plot = ridge_td,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-
-## plot
-contrast_plot <- function(contrasts, direction, free_y = T){
-  contrasts %>%
-    filter(move_pred == direction) %>%
-    rename(f_age_cat_org = f_age_cat,
-           f_age_num_org = f_age_num) %>%
-    mutate(f_age_num_alt = ifelse(f_age_num_org == 4, 1,
-                                  f_age_num_org + 1)) %>%
-    mutate(f_age_cat_alt = ifelse(f_age_num_alt == 1,'10-15 yrs',
-                                  ifelse(f_age_num_alt == 2, '16-20 yrs',
-                                         ifelse(f_age_num_alt == 3, '21-25 yrs',
-                                                '26-35 yrs')))) %>%
-    mutate(comparison = paste0(f_age_cat_org,' to ',f_age_cat_alt),
-           stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
-                              ifelse(stim_type == 'l', 'lion', 'human')),
-           move_tminus1 = ifelse(move_tminus1 == 'move away directly',
-                                 'move away directly',
-                                 ifelse(move_tminus1 == 'move away at an angle',
-                                        'move away at an angle',
-                                        ifelse(move_tminus1 == 'move directly with',
-                                               'neither towards or away',
-                                               ifelse(move_tminus1 == 'approach at an angle',
-                                                      'approach at an angle',
-                                                      'approach directly'))))) %>%
-    mutate(move_tminus1 = factor(move_tminus1,
-                                 levels = c('move away directly',
-                                            'move away at an angle',
-                                            'neither towards or away',
-                                            'approach at an angle',
-                                            'approach directly'))) %>%
-    ggplot()+
-    geom_hline(yintercept = 0, lty = 2)+
-    geom_violin(aes(x = comparison,
-                    y = difference,
-                    fill = p_age_cat),
-                position = position_dodge(0.5))+
-    scale_fill_viridis_d()+
-    facet_grid(move_tminus1 ~ stim_type,
-               scales = ifelse(free_y == T, 'free_y', 'fixed')
-    )+
-    labs(fill = 'target age',
-         title = ifelse(direction == 'awayangle',
-                        'away at an angle',
-                        ifelse(direction == 'awaydirect',
-                               'away directly',
-                               ifelse(direction == 'neither',
-                                      'neither towards or away',
-                                      ifelse(direction == 'twdsangle',
-                                             'towards at an angle',
-                                             'towards directly')))))+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90, vjust = 0.5))
-}
-for(plot in c('awaydirect','awayangle','neither','twdsangle','twdsdirect')){
-  contrast_plot(contrasts_long, plot, free_y = F)
-  ggsave(plot = last_plot(), device = 'png',
-         filename = paste0('mom1_contrasts_fixedscales_',plot,'_splitpartner.png'),
-         path = '../outputs/movement_ordinal_model_1/',
-         height = 3000, width = 2100, unit = 'px')
-}
-for(plot in c('awaydirect','awayangle','neither','twdsangle','twdsdirect')){
-  contrast_plot(contrasts_long, plot, free_y = T)
-  ggsave(plot = last_plot(), device = 'png',
-         filename = paste0('mom1_contrasts_freescales_',plot,'_splitpartner.png'),
-         path = '../outputs/movement_ordinal_model_1/',
-         height = 3000, width = 2100, unit = 'px')
-}
-
-print('movement ordinal 1 complete')
-dev.off()
-
-#### movement ordinal2 c -- probability of  changing  behaviour ####
-pdf('../outputs/looking_ordinal_model_2bda/niceplots_movementordinal2.pdf')
-rm(list = ls()) ; gc() ; load('movement_direction/ordinal_withprev/moving_ordinal_2bda_agecontrasts.RData')
-rm(age1v2_aa,age1v2_ad,age1v2_n,age1v2_ta,age1v2_td,
-   age1v4_aa,age1v4_ad,age1v4_n,age1v4_ta,age1v4_td,
-   age2v3_aa,age2v3_ad,age2v3_n,age2v3_ta,age2v3_td,
-   age3v4_aa,age3v4_ad,age3v4_n,age3v4_ta,age3v4_td) ; gc()
-rm(age_move_alt,age_new,age_pred,alt_vs_org_awayangle,alt_vs_org_awaydirect,alt_vs_org_neither,alt_vs_org_twdsangle,alt_vs_org_twdsdirect,behav,contrasts) ; gc()
-# save.image('movement_direction/ordinal_withprev/moving_ordinal_2bda_ageplotting.RData')
-load('movement_direction/ordinal_withprev/moving_ordinal_2bda_ageplotting.RData')
-
-## plot predictions
-age_move_org$data_id <- 1:nrow(age_move_org)extract_predictions <- function(array, slice, df){
-  matrix <- array[,,slice]
-  colnames(matrix) <- 1:nrow(df)
-  pred <- matrix %>%
-    as.data.frame() %>%
-    pivot_longer(cols = everything(), names_to = 'data_id', values_to = 'epred') %>%
-    mutate(data_id = as.integer(data_id)) %>%
-    left_join(df, by = 'data_id')%>%
-    mutate(stim_type_long = ifelse(stim_type == 'ctd','dove (control)',
-                                   ifelse(stim_type == 'l','lion','human'))) %>%
-    mutate(stim_type_long = factor(stim_type_long,
-                                   levels = c('dove (control)','lion','human'))) %>%
-    mutate(predicted_direction = slice)
-  return(pred)
-}
-pred_ad <- extract_predictions(array = age_mtx_org, slice = 1, df = age_move_org)
-pred_aa <- extract_predictions(array = age_mtx_org, slice = 2, df = age_move_org)
-pred_nt <- extract_predictions(array = age_mtx_org, slice = 3, df = age_move_org)
-pred_ta <- extract_predictions(array = age_mtx_org, slice = 4, df = age_move_org)
-pred_td <- extract_predictions(array = age_mtx_org, slice = 5, df = age_move_org)
-
-boxplot_pred <- function(pred){
-  predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'move directly away',
-                                ifelse(pred$predicted_direction[1] == 2, 'move away at an angle',
-                                       ifelse(pred$predicted_direction[1] == 3, 'move neither towards or away',
-                                              ifelse(pred$predicted_direction[1] == 4, 'approach at an angle',
-                                                     'approach directly'))))
-
-  pred %>%
-    mutate(move_tminus1 = ifelse(prev_num == 1, 'move directly away',
-                                 ifelse(prev_num == 2, 'move away at an angle',
-                                        ifelse(prev_num == 3, 'move neither towards or away',
-                                               ifelse(prev_num == 4,
-                                                      'approach at an angle',
-                                                      'approach directly')))),
-           f_age_cat = ifelse(f_age_num == 1, '10-15 years',
-                              ifelse(f_age_num == 2, '16-20 years',
-                                     ifelse(f_age_num == 3, '21-25 years',
-                                            '26-35 years')))) %>%
-    mutate(move_tminus1 = factor(move_tminus1, levels = c('move directly away',
-                                                          'move away at an angle',
-                                                          'move neither towards or away',
-                                                          'approach at an angle',
-                                                          'approach directly'))) %>%
-    ggplot()+
-    geom_boxplot(aes(x = f_age_cat,
-                     # fill = as.factor(move_index), # successfully predicts actual data
-                     fill = move_tminus1,
-                     y = epred))+
-    labs(x = 'focal age category',
-         y = 'predicted probability of moving direction',
-         fill = 'movement in previous second',
-         title = predicted_direction)+
-    facet_grid(move_tminus1 ~ stim_type_long)+ # looks a bit rubbish, but freeing y then gives crazy scales. I ideally want one where I can limit the y to 0-0.2 for all but move_tminus1 = prediction_direction which can then go 0.8-1
-    scale_fill_viridis_d()+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90))
-}
-(box_ad <- boxplot_pred(pred_ad))
-(box_aa <- boxplot_pred(pred_aa))
-(box_nt <- boxplot_pred(pred_nt))
-(box_ta <- boxplot_pred(pred_ta))
-(box_td <- boxplot_pred(pred_td))
-
-density_pred <- function(pred){
-  predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'move directly away',
-                                ifelse(pred$predicted_direction[1] == 2, 'move away at an angle',
-                                       ifelse(pred$predicted_direction[1] == 3, 'move neither towards or away',
-                                              ifelse(pred$predicted_direction[1] == 4, 'approach at an angle',
-                                                     'approach directly'))))
-
-  pred %>%
-    mutate(move_tminus1 = ifelse(prev_num == 1, 'move directly away',
-                                 ifelse(prev_num == 2, 'move away at an angle',
-                                        ifelse(prev_num == 3, 'move neither towards or away',
-                                               ifelse(prev_num == 4,
-                                                      'approach at an angle',
-                                                      'approach directly')))),
-           f_age_cat = ifelse(f_age_num == 1, '10-15 years',
-                              ifelse(f_age_num == 2, '16-20 years',
-                                     ifelse(f_age_num == 3, '21-25 years',
-                                            '26-35 years')))) %>%
-    mutate(move_tminus1 = factor(move_tminus1, levels = c('move directly away',
-                                                          'move away at an angle',
-                                                          'move neither towards or away',
-                                                          'approach at an angle',
-                                                          'approach directly'))) %>%
-    ggplot()+
-    geom_density(aes(x = epred,
-                     fill = f_age_cat),
-                 alpha = 0.4)+
-    labs(fill = 'focal age category',
-         x = 'predicted probability of moving',
-         y = 'probability density',
-         title = predicted_direction)+
-    facet_grid(move_tminus1 ~ stim_type_long,
-               scales = 'free')+
-    scale_fill_viridis_d()+
-    theme(legend.position = 'bottom')
-
-}
-(dens_ad <- density_pred(pred_ad))
-(dens_aa <- density_pred(pred_aa))
-(dens_nt <- density_pred(pred_nt))
-(dens_ta <- density_pred(pred_ta))
-(dens_td <- density_pred(pred_td))
-
-ridge_pred <- function(pred){
-  predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'move directly away',
-                                ifelse(pred$predicted_direction[1] == 2, 'move away at an angle',
-                                       ifelse(pred$predicted_direction[1] == 3, 'move neither towards or away',
-                                              ifelse(pred$predicted_direction[1] == 4, 'approach at an angle',
-                                                     'approach directly'))))
-
-  pred %>%
-    mutate(move_tminus1 = ifelse(prev_num == 1, 'move directly away',
-                                 ifelse(prev_num == 2, 'move away at an angle',
-                                        ifelse(prev_num == 3, 'neither towards or away',
-                                               ifelse(prev_num == 4,
-                                                      'approach at an angle',
-                                                      'approach directly')))),
-           f_age_cat = ifelse(f_age_num == 1, '10-15 years',
-                              ifelse(f_age_num == 2, '16-20 years',
-                                     ifelse(f_age_num == 3, '21-25 years',
-                                            '26-35 years')))) %>%
-    mutate(move_tminus1 = factor(move_tminus1, levels = c('move directly away',
-                                                          'move away at an angle',
-                                                          'neither towards or away',
-                                                          'approach at an angle',
-                                                          'approach directly'))) %>%
-    ggplot()+
-    geom_density_ridges(aes(x = epred,
-                            y = f_age_cat,
-                            fill = f_age_cat),
-                        alpha = 0.6)+
-    labs(fill = 'focal age category',
-         x = 'predicted probability of moving direction',
-         y = 'probability density',
-         title = predicted_direction)+
-    facet_grid(stim_type_long ~ move_tminus1,
-               scales = 'free_x')+
-    scale_fill_viridis_d()+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90))
-}
-(ridge_ad <- ridge_pred(pred_ad))
-(ridge_aa <- ridge_pred(pred_aa))
-(ridge_nt <- ridge_pred(pred_nt))
-(ridge_ta <- ridge_pred(pred_ta))
-(ridge_td <- ridge_pred(pred_td))
-
-ggsave(filename = 'mom2_predicted_ridges_directlyaway.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       plot = ridge_ad,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom2_predicted_ridges_angleaway.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       plot = ridge_aa,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom2_predicted_ridges_neither.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       plot = ridge_nt,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom2_predicted_ridges_angleapproach.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       plot = ridge_ta,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom2_predicted_ridges_directlyapproach.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       plot = ridge_td,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-
-## plot
-contrast_plot <- function(contrasts, direction, free_y = T){
-  contrasts %>%
-    filter(move_pred == direction) %>%
-    rename(f_age_cat_org = f_age_cat,
-           f_age_num_org = f_age_num) %>%
-    mutate(f_age_num_alt = ifelse(f_age_num_org == 4, 1,
-                                  f_age_num_org + 1)) %>%
-    mutate(f_age_cat_alt = ifelse(f_age_num_alt == 1,'10-15 yrs',
-                                  ifelse(f_age_num_alt == 2, '16-20 yrs',
-                                         ifelse(f_age_num_alt == 3, '21-25 yrs',
-                                                '26-35 yrs')))) %>%
-    mutate(comparison = paste0(f_age_cat_org,' to ',f_age_cat_alt),
-           stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
-                              ifelse(stim_type == 'l', 'lion', 'human')),
-           prev_action = ifelse(prev_action == 'move away directly',
-                                 'move away directly',
-                                 ifelse(prev_action == 'move away at an angle',
-                                        'move away at an angle',
-                                        ifelse(prev_action == 'move directly with',
-                                               'neither towards or away',
-                                               ifelse(prev_action == 'approach at an angle',
-                                                      'approach at an angle',
-                                                      'approach directly'))))) %>%
-    mutate(prev_action = factor(prev_action,
-                                 levels = c('move away directly',
-                                            'move away at an angle',
-                                            'neither towards or away',
-                                            'approach at an angle',
-                                            'approach directly'))) %>%
-    ggplot()+
-    geom_violin(aes(x = comparison,
-                    y = difference,
-                    fill = comparison),
-                position = position_dodge(0.5))+
-    scale_fill_viridis_d()+
-    facet_grid(prev_action ~ stim_type,
-               scales = ifelse(free_y == T, 'free_y', 'fixed')
-    )+
-    labs(fill = 'comparison',
-         title = ifelse(direction == 'awayangle',
-                        'away at an angle',
-                        ifelse(direction == 'awaydirect',
-                               'away directly',
-                               ifelse(direction == 'neither',
-                                      'neither towards or away',
-                                      ifelse(direction == 'twdsangle',
-                                             'towards at an angle',
-                                             'towards directly')))))+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90, vjust = 0.5))
-}
-(contrasts_ad_fixed <- contrast_plot(contrasts_long, 'awaydirect', free_y = F))
-(contrasts_aa_fixed <- contrast_plot(contrasts_long, 'awayangle', free_y = F))
-(contrasts_nt_fixed <- contrast_plot(contrasts_long, 'neither', free_y = F))
-(contrasts_ta_fixed <- contrast_plot(contrasts_long, 'twdsangle', free_y = F))
-(contrasts_td_fixed <- contrast_plot(contrasts_long, 'twdsdirect', free_y = F))
-
-(contrasts_ad_free <- contrast_plot(contrasts_long, 'awaydirect', free_y = T))
-(contrasts_aa_free <- contrast_plot(contrasts_long, 'awayangle', free_y = T))
-(contrasts_nt_free <- contrast_plot(contrasts_long, 'neither', free_y = T))
-(contrasts_ta_free <- contrast_plot(contrasts_long, 'twdsangle', free_y = T))
-(contrasts_td_free <- contrast_plot(contrasts_long, 'twdsdirect', free_y = T))
-
-for(plot in c('awaydirect','awayangle','neither','twdsangle','twdsdirect')){
-  contrast_plot(contrasts_long, plot, free_y = F)
-  ggsave(plot = last_plot(), device = 'png',
-         filename = paste0('mom2_contrasts_fixedscales_',plot,'.png'),
-         path = '../outputs/movement_ordinal_model_2bda/',
-         height = 3000, width = 2100, unit = 'px')
-}
-for(plot in c('awaydirect','awayangle','neither','twdsangle','twdsdirect')){
-  contrast_plot(contrasts_long, plot, free_y = T)
-  ggsave(plot = last_plot(), device = 'png',
-         filename = paste0('mom2_contrasts_freescales_',plot,'.png'),
-         path = '../outputs/movement_ordinal_model_2bda/',
-         height = 3000, width = 2100, unit = 'px')
-}
-
-dev.off()
-pdf('../outputs/looking_ordinal_model_2bda/niceplots_movementordinal2_splitpartner.pdf')
-
-ridge_pred <- function(pred){
-  predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'move directly away',
-                                ifelse(pred$predicted_direction[1] == 2, 'move away at an angle',
-                                       ifelse(pred$predicted_direction[1] == 3, 'move neither towards or away',
-                                              ifelse(pred$predicted_direction[1] == 4, 'approach at an angle',
-                                                     'approach directly'))))
-  
-  pred %>%
-    mutate(move_tminus1 = ifelse(prev_num == 1, 'move directly away',
-                                 ifelse(prev_num == 2, 'move away at an angle',
-                                        ifelse(prev_num == 3, 'neither towards or away',
-                                               ifelse(prev_num == 4,
-                                                      'approach at an angle',
-                                                      'approach directly')))),
-           f_age_cat = ifelse(f_age_num == 1, '10-15 years',
-                              ifelse(f_age_num == 2, '16-20 years',
-                                     ifelse(f_age_num == 3, '21-25 years',
-                                            '26-35 years')))) %>%
-    mutate(move_tminus1 = factor(move_tminus1, levels = c('move directly away',
-                                                          'move away at an angle',
-                                                          'neither towards or away',
-                                                          'approach at an angle',
-                                                          'approach directly'))) %>%
-    separate(age_combo, into = c('f','p_age_cat'), remove = F) %>%
-    mutate(p_age_cat = ifelse(p_age_cat == '1', '10-15 yrs',
-                              ifelse(p_age_cat == '2', '16-20 yrs',
-                                     ifelse(p_age_cat == '3', '21-25 yrs', '26-35 yrs')))) %>%
-    ggplot()+
-    geom_density_ridges(aes(x = epred,
-                            y = f_age_cat,
-                            fill = p_age_cat),
-                        alpha = 0.6)+
-    labs(fill = 'target age category',
-         x = 'predicted probability of moving direction',
-         y = 'probability density',
-         title = predicted_direction)+
-    facet_grid(stim_type_long ~ move_tminus1,
-               scales = 'free_x')+
-    scale_fill_viridis_d()+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90))
-}
-(ridge_ad <- ridge_pred(pred_ad))
-(ridge_aa <- ridge_pred(pred_aa))
-(ridge_nt <- ridge_pred(pred_nt))
-(ridge_ta <- ridge_pred(pred_ta))
-(ridge_td <- ridge_pred(pred_td))
-
-ggsave(filename = 'mom2_predicted_ridges_directlyaway_splitpartner.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       plot = ridge_ad,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom2_predicted_ridges_angleaway_splitpartner.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       plot = ridge_aa,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom2_predicted_ridges_neither_splitpartner.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       plot = ridge_nt,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom2_predicted_ridges_angleapproach_splitpartner.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       plot = ridge_ta,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom2_predicted_ridges_directlyapproach_splitpartner.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       plot = ridge_td,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-
-## plot
-contrast_plot <- function(contrasts, direction, free_y = T){
-  contrasts %>%
-    filter(move_pred == direction) %>%
-    rename(f_age_cat_org = f_age_cat,
-           f_age_num_org = f_age_num) %>%
-    mutate(f_age_num_alt = ifelse(f_age_num_org == 4, 1,
-                                  f_age_num_org + 1)) %>%
-    mutate(f_age_cat_alt = ifelse(f_age_num_alt == 1,'10-15 yrs',
-                                  ifelse(f_age_num_alt == 2, '16-20 yrs',
-                                         ifelse(f_age_num_alt == 3, '21-25 yrs',
-                                                '26-35 yrs')))) %>%
-    mutate(comparison = paste0(f_age_cat_org,' to ',f_age_cat_alt),
-           stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
-                              ifelse(stim_type == 'l', 'lion', 'human')),
-           prev_action = ifelse(prev_action == 'move away directly',
-                                'move away directly',
-                                ifelse(prev_action == 'move away at an angle',
-                                       'move away at an angle',
-                                       ifelse(prev_action == 'move directly with',
-                                              'neither towards or away',
-                                              ifelse(prev_action == 'approach at an angle',
-                                                     'approach at an angle',
-                                                     'approach directly'))))) %>%
-    mutate(prev_action = factor(prev_action,
-                                levels = c('move away directly',
-                                           'move away at an angle',
-                                           'neither towards or away',
-                                           'approach at an angle',
-                                           'approach directly'))) %>%
-    ggplot()+
-    geom_violin(aes(x = comparison,
-                    y = difference,
-                    fill = p_age_cat),
-                position = position_dodge(0.5))+
-    scale_fill_viridis_d()+
-    facet_grid(prev_action ~ stim_type,
-               scales = ifelse(free_y == T, 'free_y', 'fixed')
-    )+
-    labs(fill = 'target age',
-         title = ifelse(direction == 'awayangle',
-                        'away at an angle',
-                        ifelse(direction == 'awaydirect',
-                               'away directly',
-                               ifelse(direction == 'neither',
-                                      'neither towards or away',
-                                      ifelse(direction == 'twdsangle',
-                                             'towards at an angle',
-                                             'towards directly')))))+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90, vjust = 0.5))
-}
-(contrasts_ad_fixed <- contrast_plot(contrasts_long, 'awaydirect', free_y = F))
-(contrasts_aa_fixed <- contrast_plot(contrasts_long, 'awayangle', free_y = F))
-(contrasts_nt_fixed <- contrast_plot(contrasts_long, 'neither', free_y = F))
-(contrasts_ta_fixed <- contrast_plot(contrasts_long, 'twdsangle', free_y = F))
-(contrasts_td_fixed <- contrast_plot(contrasts_long, 'twdsdirect', free_y = F))
-
-(contrasts_ad_free <- contrast_plot(contrasts_long, 'awaydirect', free_y = T))
-(contrasts_aa_free <- contrast_plot(contrasts_long, 'awayangle', free_y = T))
-(contrasts_nt_free <- contrast_plot(contrasts_long, 'neither', free_y = T))
-(contrasts_ta_free <- contrast_plot(contrasts_long, 'twdsangle', free_y = T))
-(contrasts_td_free <- contrast_plot(contrasts_long, 'twdsdirect', free_y = T))
-
-for(plot in c('awaydirect','awayangle','neither','twdsangle','twdsdirect')){
-  contrast_plot(contrasts_long, plot, free_y = F)
-  ggsave(plot = last_plot(), device = 'png',
-         filename = paste0('mom2_contrasts_fixedscales_',plot,'_splitpartner.png'),
-         path = '../outputs/movement_ordinal_model_2bda/',
-         height = 3000, width = 2100, unit = 'px')
-}
-for(plot in c('awaydirect','awayangle','neither','twdsangle','twdsdirect')){
-  contrast_plot(contrasts_long, plot, free_y = T)
-  ggsave(plot = last_plot(), device = 'png',
-         filename = paste0('mom2_contrasts_freescales_',plot,'_splitpartner.png'),
-         path = '../outputs/movement_ordinal_model_2bda/',
-         height = 3000, width = 2100, unit = 'px')
-}
-
-print('movement ordinal 2 complete')
-dev.off()
-
-#### movement ordinal2 p -- probability of performing behaviour ####
-pdf('../outputs/looking_ordinal_model_2bda/niceplots_movementordinal2_noprev.pdf')
-rm(list = ls()) ; gc() ; load('movement_direction/ordinal_noprev/moving_noprev_2bda_modelpredictions.RData')
-ls()
-
-# pred_ad <- readRDS('../data_processed/move_dir_noprev_predictions_awaydirect.RDS')
-# pred_aa <- readRDS('../data_processed/move_dir_noprev_predictions_awayangle.RDS')
-# pred_nt <- readRDS('../data_processed/move_dir_noprev_predictions_neitherdir.RDS')
-# pred_ta <- readRDS('../data_processed/move_dir_noprev_predictions_towardangle.RDS')
-# pred_td <- readRDS('../data_processed/move_dir_noprev_predictions_towarddirect.RDS')
-
-pred_ad <- pred %>% filter(pred_type == 'move directly away')
-pred_aa <- pred %>% filter(pred_type == 'move away at an angle')
-pred_nt <- pred %>% filter(pred_type == 'move neither towards or away')
-pred_ta <- pred %>% filter(pred_type == 'approach at an angle')
-pred_td <- pred %>% filter(pred_type == 'approach directly')
-print('plot data created')
-
-boxplot_pred <- function(pred){
-  predicted_direction <- ifelse(pred$pred_type_num[1] == 1, 'move directly away',
-                                ifelse(pred$pred_type_num[1] == 2, 'move away at an angle',
-                                       ifelse(pred$pred_type_num[1] == 3, 'move neither towards or away',
-                                              ifelse(pred$pred_type_num[1] == 4, 'approach at an angle',
-                                                     'approach directly'))))
-
-  pred %>%
-    mutate(stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
-                              ifelse(stim_type == 'l','lion','human'))) %>%
-    mutate(stim_type = factor(stim_type, levels = c('dove (control)','lion','human')),
-           bda = factor(bda, levels = c('before','during','after'))) %>%
-    ggplot()+
-    geom_boxplot(aes(x = f_age_cat,
-                     # fill = as.factor(move_index),
-                     fill = p_age_cat,
-                     y = epred))+
-    labs(x = 'focal age category',
-         y = 'predicted probability of moving direction',
-         fill = 'target age category',
-         title = predicted_direction)+
-    facet_grid(bda ~ stim_type)+
-    scale_fill_viridis_d()+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90))
-}
-(box_ad <- boxplot_pred(pred_ad))
-(box_aa <- boxplot_pred(pred_aa))
-(box_nt <- boxplot_pred(pred_nt))
-(box_ta <- boxplot_pred(pred_ta))
-(box_td <- boxplot_pred(pred_td))
-print('boxplots drawn')
-
-ridge_pred <- function(pred){
-  predicted_direction <- ifelse(pred$pred_type_num[1] == 1, 'move directly away',
-                                ifelse(pred$pred_type_num[1] == 2, 'move away at an angle',
-                                       ifelse(pred$pred_type_num[1] == 3, 'move neither towards or away',
-                                              ifelse(pred$pred_type_num[1] == 4, 'approach at an angle',
-                                                     'approach directly'))))
-
-  pred %>%
-    mutate(stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
-                              ifelse(stim_type == 'l','lion','human'))) %>%
-    mutate(stim_type = factor(stim_type, levels = c('dove (control)','lion','human')),
-           bda = factor(bda, levels = c('before','during','after'))) %>%
-    ggplot()+
-    geom_density_ridges(aes(x = epred,
-                            y = f_age_cat,
-                            fill = f_age_cat),
-                        alpha = 0.6)+
-    labs(fill = 'focal age category',
-         x = 'predicted probability of moving direction',
-         y = 'focal age category',
-         title = predicted_direction)+
-    facet_grid(bda ~ stim_type,
-               scales = 'free_x')+
-    scale_fill_viridis_d()+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90))
-}
-(ridge_ad <- ridge_pred(pred_ad))
-(ridge_aa <- ridge_pred(pred_aa))
-(ridge_nt <- ridge_pred(pred_nt))
-(ridge_ta <- ridge_pred(pred_ta))
-(ridge_td <- ridge_pred(pred_td))
-print('first ggridges plots created')
-
-ggsave(filename = 'mom_noprev_predicted_simpleridges_directlyaway.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       plot = ridge_ad,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom_noprev_predicted_simpleridges_angleaway.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       plot = ridge_aa,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom_noprev_predicted_simpleridges_neither.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       plot = ridge_nt,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom_noprev_predicted_simpleridges_angleapproach.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       plot = ridge_ta,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom_noprev_predicted_simpleridges_directlyapproach.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       plot = ridge_td,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-print('first ggridges plots saved')
-
-ridge_pred <- function(pred){
-  predicted_direction <- ifelse(pred$pred_type_num[1] == 1, 'move directly away',
-                                ifelse(pred$pred_type_num[1] == 2, 'move away at an angle',
-                                       ifelse(pred$pred_type_num[1] == 3, 'move neither towards or away',
-                                              ifelse(pred$pred_type_num[1] == 4, 'approach at an angle',
-                                                     'approach directly'))))
-
-  pred %>%
-    mutate(stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
-                              ifelse(stim_type == 'l','lion','human'))) %>%
-    mutate(stim_type = factor(stim_type, levels = c('dove (control)','lion','human')),
-           bda = factor(bda, levels = c('before','during','after'))) %>%
-    ggplot()+
-    geom_density_ridges(aes(x = epred,
-                            y = f_age_cat,
-                            fill = p_age_cat),
-                        alpha = 0.6)+
-    labs(fill = 'target age category',
-         x = 'predicted probability of moving direction',
-         y = 'focal age category',
-         title = predicted_direction)+
-    facet_grid(bda ~ stim_type,
-               scales = 'free_x')+
-    scale_fill_viridis_d()+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90))
-}
-(ridge_ad <- ridge_pred(pred_ad))
-(ridge_aa <- ridge_pred(pred_aa))
-(ridge_nt <- ridge_pred(pred_nt))
-(ridge_ta <- ridge_pred(pred_ta))
-(ridge_td <- ridge_pred(pred_td))
-print('second ggridges plots created')
-
-ggsave(filename = 'mom_noprev_predicted_partnerridges_directlyaway.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       plot = ridge_ad,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom_noprev_predicted_partnerridges_angleaway.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       plot = ridge_aa,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom_noprev_predicted_partnerridges_neither.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       plot = ridge_nt,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom_noprev_predicted_partnerridges_angleapproach.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       plot = ridge_ta,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-ggsave(filename = 'mom_noprev_predicted_partnerridges_directlyapproach.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       plot = ridge_td,
-       device = 'png', height = 1800, width = 2800, units = 'px')
-print('second ggridges plots saved')
-
-## plot
-load('movement_direction/ordinal_noprev/moving_noprev_2bda_agecontrasts.RData')
-
-# contrasts_short <- contrasts_long[1:(nrow(contrasts_long)/100),]
-# saveRDS(contrasts_short, '../data_processed/move_noprev_agecontrasts_test.RDS')
-#
-# contrasts_short <- readRDS('../data_processed/move_noprev_agecontrasts_test.RDS')
-
-contrast_plot <- function(contrasts, free_y = T){
-  contrasts %>%
-    rename(f_age_cat_org = f_age_cat,
-           f_age_num_org = f_age_num) %>%
-    mutate(f_age_num_alt = ifelse(f_age_num_org == 4, 1,
-                                  f_age_num_org + 1)) %>%
-    mutate(f_age_cat_alt = ifelse(f_age_num_alt == 1,'10-15 yrs',
-                                  ifelse(f_age_num_alt == 2, '16-20 yrs',
-                                         ifelse(f_age_num_alt == 3, '21-25 yrs',
-                                                '26-35 yrs'))),
-           move_pred = ifelse(move_pred == 'awayangle',
-                              'away at an angle',
-                              ifelse(move_pred == 'awaydirect',
-                                     'away directly',
-                                     ifelse(move_pred == 'neither',
-                                            'neither towards or away',
-                                            ifelse(move_pred == 'twdsangle',
-                                                   'towards at an angle',
-                                                   'towards directly'))))) %>%
-    mutate(comparison = paste0(f_age_cat_org,' to ',f_age_cat_alt),
-           stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
-                              ifelse(stim_type == 'l', 'lion', 'human'))) %>%
-    ggplot()+
-    geom_violin(aes(x = comparison,
-                    y = difference,
-                    fill = comparison),
-                position = position_dodge(0.5))+
-    scale_fill_viridis_d()+
-    facet_grid(move_pred ~ stim_type,
-               scales = ifelse(free_y == T, 'free_y', 'fixed')
-    )+
-    labs(fill = 'comparison')+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90, vjust = 0.5))
-}
-contrast_plot(contrasts_long, free_y = F)
-ggsave(plot = last_plot(), device = 'png',
-       filename = 'mom_noprev_contrasts_fixedscales.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       height = 3000, width = 2100, unit = 'px')
-contrast_plot(contrasts_long, free_y = T)
-ggsave(plot = last_plot(), device = 'png',
-       filename = 'mom_noprev_contrasts_freescales.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       height = 3000, width = 2100, unit = 'px')
-print('simple plots created')
-
-contrast_plot <- function(contrasts, stim, free_y = T){
-  title <- ifelse(stim == 'ctd', 'dove (control)',
-                  ifelse(stim == 'l', 'lion', 'human'))
-  contrasts %>%
-    filter(stim_type == stim) %>%
-    rename(f_age_cat_org = f_age_cat,
-           f_age_num_org = f_age_num) %>%
-    mutate(f_age_num_alt = ifelse(f_age_num_org == 4, 1,
-                                  f_age_num_org + 1)) %>%
-    mutate(f_age_cat_alt = ifelse(f_age_num_alt == 1,'10-15 yrs',
-                                  ifelse(f_age_num_alt == 2, '16-20 yrs',
-                                         ifelse(f_age_num_alt == 3, '21-25 yrs',
-                                                '26-35 yrs'))),
-           p_age_cat = paste0('T: ', p_age_cat, ' yrs'),
-           move_pred = ifelse(move_pred == 'awayangle',
-                              'away at an angle',
-                              ifelse(move_pred == 'awaydirect',
-                                     'away directly',
-                                     ifelse(move_pred == 'neither',
-                                            'neither towards or away',
-                                            ifelse(move_pred == 'twdsangle',
-                                                   'towards at an angle',
-                                                   'towards directly'))))) %>%
-    mutate(comparison = paste0(f_age_cat_org,' to ',f_age_cat_alt)) %>%
-    ggplot()+
-    geom_violin(aes(x = comparison,
-                    y = difference,
-                    fill = comparison),
-                position = position_dodge(0.5))+
-    scale_fill_viridis_d()+
-    facet_grid(move_pred ~ p_age_cat,
-               scales = ifelse(free_y == T, 'free_y', 'fixed')
-    )+
-    labs(fill = 'focal comparison',
-         title = title)+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90, vjust = 0.5))
-}
-for(stimulus in c('ctd','l','h')){
-  contrast_plot(contrasts_long, stim = stimulus, free_y = F)
-  ggsave(plot = last_plot(), device = 'png',
-         filename = paste0('mom_noprev_contrasts_fixedscales_splitpartner_',stimulus,'.png'),
-         path = '../outputs/movement_ordinal_model_2bda/',
-         height = 3000, width = 2100, unit = 'px')
-}
-for(stimulus in c('ctd','l','h')){
-  contrast_plot(contrasts_long, stim = stimulus, free_y = T)
-  ggsave(plot = last_plot(), device = 'png',
-         filename = paste0('mom_noprev_contrasts_freescales_splitpartner_',stimulus,'.png'),
-         path = '../outputs/movement_ordinal_model_2bda/',
-         height = 3000, width = 2100, unit = 'px')
-}
-print('complex plots created')
-
-print('movement ignoring t-1 behaviour complete')
-dev.off()
-
-#### looking ordinal 1 c -- probability of  changing  behaviour ####
-pdf('../outputs/looking_ordinal_model_1/niceplots_lookingordinal1.pdf')
-rm(list = ls()) ; gc() ; load('looking_direction/looking_ordinal_model1_agecontrasts.RData')
-rm(age_new, age_pred, age_pred_all, age_pred_i, alt_vs_org_away, alt_vs_org_side, alt_vs_org_twds, away_12, away_14, away_23, away_34, plot, side_12, side_14, side_23, side_34, twds_12, twds_23, twds_14, twds_34) ; gc()
-save.image('looking_direction/looking_ordinal_model1_ageplotting.RData')
-
-## plot predictions
-age_look_org$data_id <- 1:nrow(age_look_org)
-extract_predictions <- function(array, slice, df){
-  matrix <- array[,,slice]
-  colnames(matrix) <- 1:nrow(df)
-  pred <- matrix %>%
-    as.data.frame() %>%
-    pivot_longer(cols = everything(), names_to = 'data_id', values_to = 'epred') %>%
-    mutate(data_id = as.integer(data_id)) %>%
-    left_join(df, by = 'data_id')%>%
-    mutate(stim_type_long = ifelse(stim_type == 'ctd','dove (control)',
-                                   ifelse(stim_type == 'l','lion','human'))) %>%
-    mutate(stim_type_long = factor(stim_type_long,
-                                   levels = c('dove (control)','lion','human'))) %>%
-    mutate(predicted_direction = slice)
-  return(pred)
-}
-pred_a <- extract_predictions(array = age_mtx_org, slice = 1, df = age_look_org)
-pred_s <- extract_predictions(array = age_mtx_org, slice = 2, df = age_look_org)
-pred_t <- extract_predictions(array = age_mtx_org, slice = 3, df = age_look_org)
-
-boxplot_pred <- function(pred){
-  predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'look away',
-                                ifelse(pred$predicted_direction[1] == 2, 'side-on',
-                                       'look at'))
-
-  pred %>%
-    mutate(look_tminus1 = ifelse(look_tminus1_num == 1, 'look away',
-                                 ifelse(look_tminus1_num == 2, 'side-on',
-                                        'look at')),
-           f_age_cat = ifelse(f_age_num == 1, '10-15 years',
-                              ifelse(f_age_num == 2, '16-20 years',
-                                     ifelse(f_age_num == 3, '21-25 years',
-                                            '26-35 years')))) %>%
-    mutate(look_tminus1 = factor(look_tminus1, levels = c('look away',
-                                                          'side-on',
-                                                          'look at'))) %>%
-    ggplot()+
-    geom_boxplot(aes(x = f_age_cat,
-                     # fill = as.factor(move_index), # successfully predicts actual data
-                     fill = look_tminus1,
-                     y = epred))+
-    labs(x = 'focal age category',
-         y = 'predicted probability of looking direction',
-         fill = 'looking in previous second',
-         title = predicted_direction)+
-    facet_grid(look_tminus1 ~ stim_type_long)+ # looks a bit rubbish, but freeing y then gives crazy scales. I ideally want one where I can limit the y to 0-0.2 for all but move_tminus1 = prediction_direction which can then go 0.8-1
-    scale_fill_viridis_d()+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90))
-
-}
-(box_a <- boxplot_pred(pred_a))
-(box_s <- boxplot_pred(pred_s))
-(box_t <- boxplot_pred(pred_t))
-
-density_pred <- function(pred){
-  predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'look away',
-                                ifelse(pred$predicted_direction[1] == 2, 'side-on',
-                                       'look at'))
-
-  pred %>%
-    mutate(look_tminus1 = ifelse(look_tminus1_num == 1, 'look away',
-                                 ifelse(look_tminus1_num == 2, 'side-on',
-                                        'look at')),
-           f_age_cat = ifelse(f_age_num == 1, '10-15 years',
-                              ifelse(f_age_num == 2, '16-20 years',
-                                     ifelse(f_age_num == 3, '21-25 years',
-                                            '26-35 years')))) %>%
-    mutate(look_tminus1 = factor(look_tminus1, levels = c('look away',
-                                                          'side-on',
-                                                          'look at'))) %>%
-    ggplot()+
-    geom_density(aes(x = epred,
-                     fill = f_age_cat),
-                 alpha = 0.4)+
-    labs(fill = 'focal age category',
-         x = 'predicted probability of looking',
-         y = 'probability density',
-         title = predicted_direction)+
-    facet_grid(look_tminus1 ~ stim_type_long,
-               scales = 'free')+
-    scale_fill_viridis_d()+
-    theme(legend.position = 'bottom')
-
-}
-(dens_a <- density_pred(pred_a))
-(dens_s <- density_pred(pred_s))
-(dens_t <- density_pred(pred_t))
-
-ridge_pred <- function(pred){
-  predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'look away',
-                                ifelse(pred$predicted_direction[1] == 2, 'side-on',
-                                       'look at'))
-
-  pred %>%
-    mutate(look_tminus1 = ifelse(look_tminus1_num == 1, 'look away',
-                                 ifelse(look_tminus1_num == 2, 'side-on',
-                                        'look at')),
-           f_age_cat = ifelse(f_age_num == 1, '10-15 years',
-                              ifelse(f_age_num == 2, '16-20 years',
-                                     ifelse(f_age_num == 3, '21-25 years',
-                                            '26-35 years')))) %>%
-    mutate(look_tminus1 = factor(look_tminus1, levels = c('look away',
-                                                          'side-on',
-                                                          'look at'))) %>%
-    ggplot()+
-    geom_density_ridges(aes(x = epred,
-                            y = f_age_cat,
-                            fill = f_age_cat),
-                        alpha = 0.6)+
-    labs(fill = 'focal age category',
-         x = 'predicted probability of looking direction',
-         y = 'probability density',
-         title = predicted_direction)+
-    facet_grid(stim_type_long ~ look_tminus1,
-               scales = 'free_x')+
-    scale_fill_viridis_d()+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90))
-}
-(ridge_a <- ridge_pred(pred_a))
-(ridge_s <- ridge_pred(pred_s))
-(ridge_t <- ridge_pred(pred_t))
-
-ggsave(filename = 'lom1_predicted_ridges_away.png',
-       path = '../outputs/looking_ordinal_model_1/',
-       plot = ridge_a,
-       device = 'png', height = 1800, width = 2700, units = 'px')
-ggsave(filename = 'lom1_predicted_ridges_sideon.png',
-       path = '../outputs/looking_ordinal_model_1/',
-       plot = ridge_s,
-       device = 'png', height = 1800, width = 2700, units = 'px')
-ggsave(filename = 'lom1_predicted_ridges_towards.png',
-       path = '../outputs/looking_ordinal_model_1/',
-       plot = ridge_t,
-       device = 'png', height = 1800, width = 2700, units = 'px')
-
-## plot
-contrast_plot <- function(contrasts, direction, free_y = T){
-  contrasts %>%
-    filter(pred_type == direction) %>%
-    rename(f_age_num_alt = f_age_new,
-           f_age_num_org = f_age_num) %>%
-    mutate(f_age_cat_org = ifelse(f_age_num_org == 1,'10-15 yrs',
-                                  ifelse(f_age_num_org == 2, '16-20 yrs',
-                                         ifelse(f_age_num_org == 3, '21-25 yrs',
-                                                '26-35 yrs'))),
-           f_age_cat_alt = ifelse(f_age_num_alt == 1,'10-15 yrs',
-                                  ifelse(f_age_num_alt == 2, '16-20 yrs',
-                                         ifelse(f_age_num_alt == 3, '21-25 yrs',
-                                                '26-35 yrs')))) %>%
-    mutate(comparison = paste0(f_age_cat_org,' to ',f_age_cat_alt),
-           stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
-                              ifelse(stim_type == 'l', 'lion', 'human'))) %>%
-    mutate(look_tminus1 = factor(look_tminus1,
-                                 levels = c('look away at t-1',
-                                            'side on at t-1',
-                                            'look at at t-1'))) %>%
-    ggplot()+
-    geom_hline(yintercept = 0, lty = 2)+
-    geom_violin(aes(x = comparison,
-                    y = difference,
-                    fill = comparison),
-                position = position_dodge(0.5))+
-    scale_fill_viridis_d()+
-    facet_grid(look_tminus1 ~ stim_type,
-               scales = ifelse(free_y == T, 'free_y', 'fixed')
-    )+
-    labs(fill = 'comparison',
-         title = direction)+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90, vjust = 0.5))
-}
-for(plot in c('look away','side on','look at')){
-  contrast_plot(contrasts_long, plot, free_y = F)
-  ggsave(plot = last_plot(), device = 'png',
-         filename = paste0('lom1_contrasts_fixedscales_',plot,'.png'),
-         path = '../outputs/looking_ordinal_model_1/',
-         height = 3000, width = 2100, unit = 'px')
-}
-for(plot in c('look away','side on','look at')){
-  contrast_plot(contrasts_long, plot, free_y = T)
-  ggsave(plot = last_plot(), device = 'png',
-         filename = paste0('lom1_contrasts_freescales_',plot,'.png'),
-         path = '../outputs/looking_ordinal_model_1/',
-         height = 3000, width = 2100, unit = 'px')
-}
-
-dev.off()
-pdf('../outputs/looking_ordinal_model_1/niceplots_lookingordinal1_splitpartner.pdf')
-
-ridge_pred <- function(pred){
-  predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'look away',
-                                ifelse(pred$predicted_direction[1] == 2, 'side-on',
-                                       'look at'))
-  
-  pred %>%
-    separate(age_combo, into = c('f','p_age_num'), remove = F) %>%
-    mutate(p_age_num = as.numeric(p_age_num)) %>%
-    mutate(look_tminus1 = ifelse(look_tminus1_num == 1, 'look away',
-                                 ifelse(look_tminus1_num == 2, 'side-on',
-                                        'look at')),
-           f_age_cat = ifelse(f_age_num == 1, '10-15 yrs',
-                              ifelse(f_age_num == 2, '16-20 yrs',
-                                     ifelse(f_age_num == 3, '21-25 yrs',
-                                            '26-35 yrs'))),
-           p_age_cat = ifelse(p_age_num == 1, '10-15 yrs',
-                              ifelse(p_age_num == 2, '16-20 yrs',
-                                     ifelse(p_age_num == 3, '21-25 yrs',
-                                            '26-35 yrs')))) %>%
-    mutate(look_tminus1 = factor(look_tminus1, levels = c('look away',
-                                                          'side-on',
-                                                          'look at'))) %>%
-    ggplot()+
-    geom_density_ridges(aes(x = epred,
-                            y = f_age_cat,
-                            fill = p_age_cat),
-                        alpha = 0.6)+
-    labs(fill = 'target age category',
-         x = 'predicted probability of looking direction',
-         y = 'probability density',
-         title = predicted_direction)+
-    facet_grid(stim_type_long ~ look_tminus1,
-               scales = 'free_x')+
-    scale_fill_viridis_d()+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90))
-}
-(ridge_a <- ridge_pred(pred_a))
-(ridge_s <- ridge_pred(pred_s))
-(ridge_t <- ridge_pred(pred_t))
-
-ggsave(filename = 'lom1_predicted_ridges_away_splitpartner.png',
-       path = '../outputs/looking_ordinal_model_1/',
-       plot = ridge_a,
-       device = 'png', height = 1800, width = 2700, units = 'px')
-ggsave(filename = 'lom1_predicted_ridges_sideon_splitpartner.png',
-       path = '../outputs/looking_ordinal_model_1/',
-       plot = ridge_s,
-       device = 'png', height = 1800, width = 2700, units = 'px')
-ggsave(filename = 'lom1_predicted_ridges_towards_splitpartner.png',
-       path = '../outputs/looking_ordinal_model_1/',
-       plot = ridge_t,
-       device = 'png', height = 1800, width = 2700, units = 'px')
-
-## plot
-contrast_plot <- function(contrasts, direction, free_y = T){
-  contrasts %>%
-    filter(pred_type == direction) %>%
-    rename(f_age_num_alt = f_age_new,
-           f_age_num_org = f_age_num) %>%
-    separate(age_combo, into = c('f','p_age_num'), remove = F) %>%
-    mutate(p_age_num = as.numeric(p_age_num)) %>%
-    mutate(f_age_cat_org = ifelse(f_age_num_org == 1,'10-15 yrs',
-                                  ifelse(f_age_num_org == 2, '16-20 yrs',
-                                         ifelse(f_age_num_org == 3, '21-25 yrs',
-                                                '26-35 yrs'))),
-           f_age_cat_alt = ifelse(f_age_num_alt == 1,'10-15 yrs',
-                                  ifelse(f_age_num_alt == 2, '16-20 yrs',
-                                         ifelse(f_age_num_alt == 3, '21-25 yrs',
-                                                '26-35 yrs'))),
-           p_age_cat = ifelse(p_age_num == 1,'10-15 yrs',
-                              ifelse(p_age_num == 2, '16-20 yrs',
-                                     ifelse(p_age_num == 3, '21-25 yrs',
-                                            '26-35 yrs')))) %>%
-    mutate(comparison = paste0(f_age_cat_org,' to ',f_age_cat_alt),
-           stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
-                              ifelse(stim_type == 'l', 'lion', 'human'))) %>%
-    mutate(look_tminus1 = factor(look_tminus1,
-                                 levels = c('look away at t-1',
-                                            'side on at t-1',
-                                            'look at at t-1'))) %>%
-    ggplot()+
-    geom_hline(yintercept = 0, lty = 2)+
-    geom_violin(aes(x = comparison,
-                    y = difference,
-                    fill = p_age_cat),
-                position = position_dodge(0.5))+
-    scale_fill_viridis_d()+
-    facet_grid(look_tminus1 ~ stim_type,
-               scales = ifelse(free_y == T, 'free_y', 'fixed')
-    )+
-    labs(fill = 'target age',
-         title = direction)+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90, vjust = 0.5))
-}
-for(plot in c('look away','side on','look at')){
-  contrast_plot(contrasts = contrasts_long, direction = plot, free_y = F)
-  ggsave(plot = last_plot(), device = 'png',
-         filename = paste0('lom1_contrasts_fixedscales_',plot,'_splitpartner.png'),
-         path = '../outputs/looking_ordinal_model_1/',
-         height = 3000, width = 2100, unit = 'px')
-}
-for(plot in c('look away','side on','look at')){
-  contrast_plot(contrasts_long, plot, free_y = T)
-  ggsave(plot = last_plot(), device = 'png',
-         filename = paste0('lom1_contrasts_freescales_',plot,'_splitpartner.png'),
-         path = '../outputs/looking_ordinal_model_1/',
-         height = 3000, width = 2100, unit = 'px')
-}
-
-print('looking ordinal 1 complete')
-dev.off()
-
-#### looking ordinal 2 c -- probability of  changing  behaviour ####
-pdf('../outputs/looking_ordinal_model_2bda/niceplots_lookingordinal2.pdf')
-rm(list = ls()) ; gc() ; load('looking_direction/looking_ordinal_model2bda_agecontrasts.RData')
-rm(list = ls()[! ls() %in% c('age_look_org','contrasts','contrasts_long','look','age_mtx_org')]) ; gc()
-save.image('looking_direction/looking_ordinal_model2bda_agecontrasts_plotting_splitpartner.RData') # load('looking_direction/looking_ordinal_model2bda_agecontrasts_plotting_splitpartner.RData')
-
-## plot predictions
-age_look_org$data_id <- 1:nrow(age_look_org)
-extract_predictions <- function(array, slice, df){
-  matrix <- array[,,slice]
-  colnames(matrix) <- 1:nrow(df)
-  pred <- matrix %>%
-    as.data.frame() %>%
-    pivot_longer(cols = everything(), names_to = 'data_id', values_to = 'epred') %>%
-    mutate(data_id = as.integer(data_id)) %>%
-    left_join(df, by = 'data_id')%>%
-    mutate(stim_type_long = ifelse(stim_type == 'ctd','dove (control)',
-                                   ifelse(stim_type == 'l','lion','human'))) %>%
-    mutate(stim_type_long = factor(stim_type_long,
-                                   levels = c('dove (control)','lion','human'))) %>%
-    mutate(predicted_direction = slice)
-  return(pred)
-}
-pred_a <- extract_predictions(array = age_mtx_org, slice = 1, df = age_look_org)
-pred_s <- extract_predictions(array = age_mtx_org, slice = 2, df = age_look_org)
-pred_t <- extract_predictions(array = age_mtx_org, slice = 3, df = age_look_org)
-
-boxplot_pred <- function(pred){
-  predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'look away',
-                                ifelse(pred$predicted_direction[1] == 2, 'side-on',
-                                       'look at'))
-
-  pred %>%
-    mutate(look_tminus1 = ifelse(prev_num == 1, 'look away',
-                                 ifelse(prev_num == 2, 'side-on',
-                                        'look at')),
-           f_age_cat = ifelse(f_age_num == 1, '10-15 years',
-                              ifelse(f_age_num == 2, '16-20 years',
-                                     ifelse(f_age_num == 3, '21-25 years',
-                                            '26-35 years')))) %>%
-    mutate(look_tminus1 = factor(look_tminus1, levels = c('look away',
-                                                          'side-on',
-                                                          'look at'))) %>%
-    ggplot()+
-    geom_boxplot(aes(x = f_age_cat,
-                     # fill = as.factor(look_index), # successfully predicts actual data
-                     fill = look_tminus1,
-                     y = epred))+
-    labs(x = 'focal age category',
-         y = 'predicted probability of looking direction',
-         fill = 'looking in previous second',
-         title = predicted_direction)+
-    facet_grid(look_tminus1 ~ stim_type_long)+ # looks a bit rubbish, but freeing y then gives crazy scales. I ideally want one where I can limit the y to 0-0.2 for all but look_tminus1 = prediction_direction which can then go 0.8-1
-    scale_fill_viridis_d()+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90))
-
-}
-(box_a <- boxplot_pred(pred_a))
-(box_s <- boxplot_pred(pred_s))
-(box_t <- boxplot_pred(pred_t))
-
-density_pred <- function(pred){
-  predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'look away',
-                                ifelse(pred$predicted_direction[1] == 2, 'side-on',
-                                       ifelse(pred$predicted_direction[1] == 3, 'look at')))
-
-  graph <- pred %>%
-    mutate(look_tminus1 = ifelse(prev_num == 1, 'look away',
-                                 ifelse(prev_num == 2, 'side-on',
-                                        'look at')),
-           f_age_cat = ifelse(f_age_num == 1, '10-15 years',
-                              ifelse(f_age_num == 2, '16-20 years',
-                                     ifelse(f_age_num == 3, '21-25 years',
-                                            '26-35 years')))) %>%
-    mutate(look_tminus1 = factor(look_tminus1, levels = c('look away',
-                                                          'side-on',
-                                                          'look at'))) %>%
-    ggplot()+
-    geom_density(aes(x = epred,
-                     fill = f_age_cat),
-                 alpha = 0.4)+
-    labs(fill = 'focal age category',
-         x = 'predicted probability of looking',
-         y = 'probability density',
-         title = predicted_direction)+
-    facet_grid(look_tminus1 ~ stim_type_long,
-               scales = 'free')+
-    scale_fill_viridis_d()+
-    theme(legend.position = 'bottom')
-  return(graph)
-}
-(dens_a <- density_pred(pred_a))
-(dens_s <- density_pred(pred_s))
-(dens_t <- density_pred(pred_t))
-
-ridge_pred <- function(pred){
-  predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'look away',
-                                ifelse(pred$predicted_direction[1] == 2, 'side-on',
-                                       'look at'))
-
-  pred %>%
-    mutate(look_tminus1 = ifelse(prev_num == 1, 'look away',
-                                 ifelse(prev_num == 2, 'side-on',
-                                        'look at')),
-           f_age_cat = ifelse(f_age_num == 1, '10-15 years',
-                              ifelse(f_age_num == 2, '16-20 years',
-                                     ifelse(f_age_num == 3, '21-25 years',
-                                            '26-35 years')))) %>%
-    mutate(look_tminus1 = factor(look_tminus1, levels = c('look away',
-                                                          'side-on',
-                                                          'look at'))) %>%
-    ggplot()+
-    geom_density_ridges(aes(x = epred,
-                            y = f_age_cat,
-                            fill = f_age_cat),
-                        alpha = 0.6)+
-    labs(fill = 'focal age category',
-         x = 'predicted probability of looking direction',
-         y = 'probability density',
-         title = predicted_direction)+
-    facet_grid(stim_type_long ~ look_tminus1,
-               scales = 'free_x')+
-    scale_fill_viridis_d()+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90))
-}
-(ridge_a <- ridge_pred(pred_a))
-(ridge_s <- ridge_pred(pred_s))
-(ridge_t <- ridge_pred(pred_t))
-
-ggsave(filename = 'lom2_predicted_ridges_away.png',
-       path = '../outputs/looking_ordinal_model_2bda/',
-       plot = ridge_a,
-       device = 'png', height = 1800, width = 2700, units = 'px')
-ggsave(filename = 'lom2_predicted_ridges_sideon.png',
-       path = '../outputs/looking_ordinal_model_2bda/',
-       plot = ridge_s,
-       device = 'png', height = 1800, width = 2700, units = 'px')
-ggsave(filename = 'lom2_predicted_ridges_towards.png',
-       path = '../outputs/looking_ordinal_model_2bda/',
-       plot = ridge_t,
-       device = 'png', height = 1800, width = 2700, units = 'px')
-
-## plot
-contrast_plot <- function(contrasts, direction, free_y = T){
-  contrasts %>%
-    filter(look_pred == direction) %>%
-    rename(f_age_cat_org = f_age_cat,
-           f_age_num_org = f_age_num) %>%
-    mutate(f_age_num_alt = ifelse(f_age_num_org == 4, 1,
-                                  f_age_num_org + 1)) %>%
-    mutate(f_age_cat_alt = ifelse(f_age_num_alt == 1,'10-15 yrs',
-                                  ifelse(f_age_num_alt == 2, '16-20 yrs',
-                                         ifelse(f_age_num_alt == 3, '21-25 yrs',
-                                                '26-35 yrs')))) %>%
-    mutate(comparison = paste0(f_age_cat_org,' to ',f_age_cat_alt),
-           stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
-                              ifelse(stim_type == 'l', 'lion','human'))) %>%
-    mutate(prev_action = factor(prev_action,
-                                 levels = c('look directly away',
-                                            'side-on',
-                                            'look at directly')),
-           stim_type = factor(stim_type,
-                                levels = c('dove (control)',
-                                           'lion',
-                                           'human'))) %>%
-    ggplot()+
-    geom_violin(aes(x = comparison,
-                    y = difference,
-                    fill = comparison),
-                position = position_dodge(0.5))+
-    scale_fill_viridis_d()+
-    facet_grid(prev_action ~ stim_type,
-               scales = ifelse(free_y == T, 'free_y', 'fixed')
-    )+
-    labs(fill = 'comparison',
-         title = ifelse(direction == 'away', 'look away',
-                        ifelse(direction == 'side', 'side-on',
-                               'look towards')))+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90, vjust = 0.5))
-}
-(contrasts_a_fixed <- contrast_plot(contrasts_long, 'away', free_y = F))
-(contrasts_s_fixed <- contrast_plot(contrasts_long, 'side', free_y = F))
-(contrasts_t_fixed <- contrast_plot(contrasts_long, 'twds', free_y = F))
-
-(contrasts_a_free <- contrast_plot(contrasts_long, 'away', free_y = T))
-(contrasts_s_free <- contrast_plot(contrasts_long, 'side', free_y = T))
-(contrasts_t_free <- contrast_plot(contrasts_long, 'twds', free_y = T))
-
-for(plot in c('away','side','twds')){
-  contrast_plot(contrasts_long, plot, free_y = F)
-  ggsave(plot = last_plot(), device = 'png',
-         filename = paste0('lom2_contrasts_fixedscales_',plot,'.png'),
-         path = '../outputs/looking_ordinal_model_2bda/',
-         height = 3000, width = 2100, unit = 'px')
-}
-for(plot in c('away','side','twds')){
-  contrast_plot(contrasts_long, plot, free_y = T)
-  ggsave(plot = last_plot(), device = 'png',
-         filename = paste0('lom2_contrasts_freescales_',plot,'.png'),
-         path = '../outputs/looking_ordinal_model_2bda/',
-         height = 3000, width = 2100, unit = 'px')
-}
-
-dev.off()
-pdf('../outputs/looking_ordinal_model_2bda/niceplots_lookingordinal2_splitpartner.pdf')
-
-ridge_pred <- function(pred){
-  predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'look away',
-                                ifelse(pred$predicted_direction[1] == 2, 'side-on',
-                                       'look at'))
-  
-  pred %>%
-    mutate(look_tminus1 = ifelse(prev_num == 1, 'look away',
-                                 ifelse(prev_num == 2, 'side-on',
-                                        'look at')),
-           f_age_cat = ifelse(f_age_num == 1, '10-15 years',
-                              ifelse(f_age_num == 2, '16-20 years',
-                                     ifelse(f_age_num == 3, '21-25 years',
-                                            '26-35 years')))) %>%
-    mutate(look_tminus1 = factor(look_tminus1, levels = c('look away',
-                                                          'side-on',
-                                                          'look at'))) %>%
-    separate(age_combo, into = c('f','p_age_cat'), remove = F) %>%
-    mutate(p_age_cat = ifelse(p_age_cat == '1', '10-15 yrs',
-                              ifelse(p_age_cat == '2', '16-20 yrs',
-                                     ifelse(p_age_cat == '3', '21-25 yrs', '26-35 yrs')))) %>%
-    ggplot()+
-    geom_density_ridges(aes(x = epred,
-                            y = f_age_cat,
-                            fill = p_age_cat),
-                        alpha = 0.6)+
-    labs(fill = 'target age category',
-         x = 'predicted probability of looking direction',
-         y = 'probability density',
-         title = predicted_direction)+
-    facet_grid(stim_type_long ~ look_tminus1,
-               scales = 'free_x')+
-    scale_fill_viridis_d()+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90))
-}
-(ridge_a <- ridge_pred(pred_a))
-(ridge_s <- ridge_pred(pred_s))
-(ridge_t <- ridge_pred(pred_t))
-print('ridge plots done')
-
-ggsave(filename = 'lom2_predicted_ridges_away_splitpartner.png',
-       path = '../outputs/looking_ordinal_model_2bda/',
-       plot = ridge_a,
-       device = 'png', height = 1800, width = 2700, units = 'px')
-ggsave(filename = 'lom2_predicted_ridges_sideon_splitpartner.png',
-       path = '../outputs/looking_ordinal_model_2bda/',
-       plot = ridge_s,
-       device = 'png', height = 1800, width = 2700, units = 'px')
-ggsave(filename = 'lom2_predicted_ridges_towards_splitpartner.png',
-       path = '../outputs/looking_ordinal_model_2bda/',
-       plot = ridge_t,
-       device = 'png', height = 1800, width = 2700, units = 'px')
-
-## plot
-contrast_plot <- function(contrasts, direction, free_y = T){
-  contrasts %>%
-    filter(look_pred == direction) %>%
-    rename(f_age_cat_org = f_age_cat,
-           f_age_num_org = f_age_num) %>%
-    mutate(f_age_num_alt = ifelse(f_age_num_org == 4, 1,
-                                  f_age_num_org + 1)) %>%
-    mutate(f_age_cat_alt = ifelse(f_age_num_alt == 1,'10-15 yrs',
-                                  ifelse(f_age_num_alt == 2, '16-20 yrs',
-                                         ifelse(f_age_num_alt == 3, '21-25 yrs',
-                                                '26-35 yrs')))) %>%
-    mutate(comparison = paste0(f_age_cat_org,' to ',f_age_cat_alt),
-           stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
-                              ifelse(stim_type == 'l', 'lion','human'))) %>%
-    mutate(prev_action = factor(prev_action,
-                                levels = c('look directly away',
-                                           'side-on',
-                                           'look at directly')),
-           stim_type = factor(stim_type,
-                              levels = c('dove (control)',
-                                         'lion',
-                                         'human'))) %>%
-    ggplot()+
-    geom_violin(aes(x = comparison,
-                    y = difference,
-                    fill = p_age_cat),
-                position = position_dodge(0.5))+
-    scale_fill_viridis_d()+
-    facet_grid(prev_action ~ stim_type,
-               scales = ifelse(free_y == T, 'free_y', 'fixed')
-    )+
-    labs(fill = 'target age',
-         title = ifelse(direction == 'away', 'look away',
-                        ifelse(direction == 'side', 'side-on',
-                               'look towards')))+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90, vjust = 0.5))
-}
-(contrasts_a_fixed <- contrast_plot(contrasts_long, 'away', free_y = F))
-(contrasts_s_fixed <- contrast_plot(contrasts_long, 'side', free_y = F))
-(contrasts_t_fixed <- contrast_plot(contrasts_long, 'twds', free_y = F))
-
-(contrasts_a_free <- contrast_plot(contrasts_long, 'away', free_y = T))
-(contrasts_s_free <- contrast_plot(contrasts_long, 'side', free_y = T))
-(contrasts_t_free <- contrast_plot(contrasts_long, 'twds', free_y = T))
-
-for(plot in c('away','side','twds')){
-  contrast_plot(contrasts_long, plot, free_y = F)
-  ggsave(plot = last_plot(), device = 'png',
-         filename = paste0('lom2_contrasts_fixedscales_',plot,'_splitpartner.png'),
-         path = '../outputs/looking_ordinal_model_2bda/',
-         height = 3000, width = 2100, unit = 'px')
-}
-for(plot in c('away','side','twds')){
-  contrast_plot(contrasts_long, plot, free_y = T)
-  ggsave(plot = last_plot(), device = 'png',
-         filename = paste0('lom2_contrasts_freescales_',plot,'_splitpartner.png'),
-         path = '../outputs/looking_ordinal_model_2bda/',
-         height = 3000, width = 2100, unit = 'px')
-}
-
-print('looking ordinal 2 complete')
-dev.off()
-
-#### looking ordinal 2 p -- probability of performing behaviour ####
-pdf('../outputs/looking_ordinal_model_2bda/niceplots_lookingordinal2_noprev.pdf')
-rm(list = ls()) ; gc() ; load('looking_direction/looking_noprev_agecontrasts.RData')
-ls()
-
-## plot predictions
-age_look_org$data_id <- 1:nrow(age_look_org)
-extract_predictions <- function(array, slice, df){
-  matrix <- array[,,slice]
-  colnames(matrix) <- 1:nrow(df)
-  pred <- matrix %>%
-    as.data.frame() %>%
-    pivot_longer(cols = everything(), names_to = 'data_id', values_to = 'epred') %>%
-    mutate(data_id = as.integer(data_id)) %>%
-    left_join(df, by = 'data_id')%>%
-    mutate(stim_type_long = ifelse(stim_type == 'ctd','dove (control)',
-                                   ifelse(stim_type == 'l','lion','human'))) %>%
-    mutate(stim_type_long = factor(stim_type_long,
-                                   levels = c('dove (control)','lion','human'))) %>%
-    mutate(predicted_direction = slice)
-  return(pred)
-}
-pred_a <- extract_predictions(array = age_mtx_org, slice = 1, df = age_look_org)
-pred_s <- extract_predictions(array = age_mtx_org, slice = 2, df = age_look_org)
-pred_t <- extract_predictions(array = age_mtx_org, slice = 3, df = age_look_org)
-
-str(pred_a)
-save.image('looking_direction/looking_noprev_plotting.RData') # load('looking_direction/looking_noprev_plotting.RData')
-
-boxplot_pred <- function(pred){
-  predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'look away',
-                                ifelse(pred$predicted_direction[1] == 2, 'side-on',
-                                       'look at'))
-
-  pred %>%
-    separate(age_combo, into = c('f','p_age_cat'), remove = F) %>%
-    mutate(f_age_cat = ifelse(f_age_num == 1, '10-15 yrs',
-                              ifelse(f_age_num == 2, '16-20 yrs',
-                                     ifelse(f_age_num == 3, '21-25 yrs',
-                                            '26-35 yrs'))),
-           p_age_cat = ifelse(p_age_cat == '1', '10-15 yrs',
-                              ifelse(p_age_cat == '2', '16-20 yrs',
-                                     ifelse(p_age_cat == '3', '21-25 yrs',
-                                            '26-35 yrs')))) %>%
-    ggplot()+
-    geom_boxplot(aes(x = f_age_cat,
-                     # fill = as.factor(look_index), # successfully predicts actual data
-                     fill = p_age_cat,
-                     y = epred))+
-    labs(x = 'focal age category',
-         y = 'predicted probability of looking direction',
-         fill = 'target age',
-         title = predicted_direction)+
-    facet_grid(bda ~ stim_type_long)+
-    scale_fill_viridis_d()+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90))
-
-}
-(box_a <- boxplot_pred(pred_a))
-(box_s <- boxplot_pred(pred_s))
-(box_t <- boxplot_pred(pred_t))
-
-density_pred <- function(pred){
-  predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'look away',
-                                ifelse(pred$predicted_direction[1] == 2, 'side-on',
-                                       ifelse(pred$predicted_direction[1] == 3, 'look at')))
-
-  graph <- pred %>%
-    separate(age_combo, into = c('f','p_age_cat'), remove = F) %>%
-    mutate(f_age_cat = ifelse(f_age_num == 1, '10-15 yrs',
-                              ifelse(f_age_num == 2, '16-20 yrs',
-                                     ifelse(f_age_num == 3, '21-25 yrs',
-                                            '26-35 yrs'))),
-           p_age_cat = ifelse(p_age_cat == '1', '10-15 yrs',
-                              ifelse(p_age_cat == '2', '16-20 yrs',
-                                     ifelse(p_age_cat == '3', '21-25 yrs',
-                                            '26-35 yrs')))) %>%
-    ggplot()+
-    geom_density(aes(x = epred,
-                     fill = f_age_cat),
-                 alpha = 0.4)+
-    labs(fill = 'focal age category',
-         x = 'predicted probability of looking',
-         y = 'probability density',
-         title = predicted_direction)+
-    facet_grid(bda ~ stim_type_long,
-               scales = 'free')+
-    scale_fill_viridis_d()+
-    theme(legend.position = 'bottom')
-  return(graph)
-}
-(dens_a <- density_pred(pred_a))
-(dens_s <- density_pred(pred_s))
-(dens_t <- density_pred(pred_t))
-
-ridge_pred <- function(pred){
-  predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'look away',
-                                ifelse(pred$predicted_direction[1] == 2, 'side-on',
-                                       'look at'))
-
-  pred %>%
-    separate(age_combo, into = c('f','p_age_cat'), remove = F) %>%
-    mutate(f_age_cat = ifelse(f_age_num == 1, '10-15 yrs',
-                              ifelse(f_age_num == 2, '16-20 yrs',
-                                     ifelse(f_age_num == 3, '21-25 yrs',
-                                            '26-35 yrs'))),
-           p_age_cat = ifelse(p_age_cat == '1', '10-15 yrs',
-                              ifelse(p_age_cat == '2', '16-20 yrs',
-                                     ifelse(p_age_cat == '3', '21-25 yrs',
-                                            '26-35 yrs')))) %>%
-    mutate(bda = factor(bda, levels = c('before','during','after'))) %>%
-    ggplot()+
-    geom_density_ridges(aes(x = epred,
-                            y = f_age_cat,
-                            fill = p_age_cat),
-                        alpha = 0.6)+
-    labs(fill = 'focal age category',
-         x = 'predicted probability of looking direction',
-         y = 'probability density',
-         title = predicted_direction)+
-    facet_grid(bda ~ stim_type_long,
-               scales = 'free_x')+
-    scale_fill_viridis_d()+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90))
-}
-(ridge_a <- ridge_pred(pred_a))
-(ridge_s <- ridge_pred(pred_s))
-(ridge_t <- ridge_pred(pred_t))
-
-ggsave(filename = 'lom2_noprev_predicted_ridges_away.png',
-       path = '../outputs/looking_ordinal_model_2bda/',
-       plot = ridge_a,
-       device = 'png', height = 1800, width = 2700, units = 'px')
-ggsave(filename = 'lom2_noprev_predicted_ridges_sideon.png',
-       path = '../outputs/looking_ordinal_model_2bda/',
-       plot = ridge_s,
-       device = 'png', height = 1800, width = 2700, units = 'px')
-ggsave(filename = 'lom2_noprev_predicted_ridges_towards.png',
-       path = '../outputs/looking_ordinal_model_2bda/',
-       plot = ridge_t,
-       device = 'png', height = 1800, width = 2700, units = 'px')
-
-## plot
-contrast_plot <- function(contrasts, direction, free_y = T){
-  contrasts %>%
-    filter(look_pred == direction) %>%
-    rename(f_age_cat_org = f_age_cat,
-           f_age_num_org = f_age_num) %>%
-    mutate(f_age_num_alt = ifelse(f_age_num_org == 4, 1,
-                                  f_age_num_org + 1)) %>%
-    mutate(f_age_cat_alt = ifelse(f_age_num_alt == 1,'10-15 yrs',
-                                  ifelse(f_age_num_alt == 2, '16-20 yrs',
-                                         ifelse(f_age_num_alt == 3, '21-25 yrs',
-                                                '26-35 yrs')))) %>%
-    mutate(comparison = paste0(f_age_cat_org,' to ',f_age_cat_alt),
-           stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
-                              ifelse(stim_type == 'l', 'lion','human'))) %>%
-    mutate(stim_type = factor(stim_type,
-                                levels = c('dove (control)',
-                                           'lion',
-                                           'human'))) %>%
-    ggplot()+
-    geom_violin(aes(x = comparison,
-                    y = difference,
-                    fill = p_age_cat),
-                position = position_dodge(0.5))+
-    scale_fill_viridis_d()+
-    facet_grid(bda ~ stim_type,
-               scales = ifelse(free_y == T, 'free_y', 'fixed')
-    )+
-    labs(fill = 'comparison',
-         title = ifelse(direction == 'away', 'look away',
-                        ifelse(direction == 'side', 'side-on',
-                               'look towards')))+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90, vjust = 0.5))
-}
-(contrasts_a_fixed <- contrast_plot(contrasts_long, 'away', free_y = F))
-(contrasts_s_fixed <- contrast_plot(contrasts_long, 'side', free_y = F))
-(contrasts_t_fixed <- contrast_plot(contrasts_long, 'twds', free_y = F))
-
-(contrasts_a_free <- contrast_plot(contrasts_long, 'away', free_y = T))
-(contrasts_s_free <- contrast_plot(contrasts_long, 'side', free_y = T))
-(contrasts_t_free <- contrast_plot(contrasts_long, 'twds', free_y = T))
-
-for(plot in c('away','side','twds')){
-  contrast_plot(contrasts_long, plot, free_y = F)
-  ggsave(plot = last_plot(), device = 'png',
-         filename = paste0('lom2_noprev_contrasts_fixedscales_',plot,'.png'),
-         path = '../outputs/looking_ordinal_model_2bda/',
-         height = 3000, width = 2100, unit = 'px')
-}
-for(plot in c('away','side','twds')){
-  contrast_plot(contrasts_long, plot, free_y = T)
-  ggsave(plot = last_plot(), device = 'png',
-         filename = paste0('lom2_noprev_contrasts_freescales_',plot,'.png'),
-         path = '../outputs/looking_ordinal_model_2bda/',
-         height = 3000, width = 2100, unit = 'px')
-}
-
-print('looking ordinal 2 complete')
-dev.off()
-
-#### nearest neighbour c -- probability of  changing  behaviour ####
-pdf('../outputs/neighbour_binomial_model_bda/niceplots_nearestneighbour.pdf')
-rm(list = ls()) ; gc() ; load('nearest_neighbour/neighbour_binomial_agecontrasts.RData')
-rm(list = ls()[! ls() %in% c('contrasts','contrasts_long','age_nn_org','age_mtx_org','nn')]) ; gc()
-print('data loaded')
-
-## plot predictions
-colnames(age_mtx_org) <- 1:nrow(age_nn_org)
-age_nn_org$data_id <- 1:nrow(age_nn_org)
-pred <- age_mtx_org %>%
-  as.data.frame() %>%
-  pivot_longer(cols = everything(), names_to = 'data_id', values_to = 'epred') %>%
-  mutate(data_id = as.integer(data_id)) %>%
-  left_join(age_nn_org, by = 'data_id') %>%
-  mutate(stim_type_long = ifelse(stim_type == 'ctd','dove (control)',
-                                 ifelse(stim_type == 'l','lion','human'))) %>%
-  mutate(stim_type_long = factor(stim_type_long,
-                                 levels = c('dove (control)','lion','human')))
-print('data created')
-
-pred %>%
-  mutate(prev = ifelse(prev == 0, 'not neighbours at t-1','neighbours at t-1')) %>%
-  mutate(prev = factor(prev, levels = c('neighbours at t-1', 'not neighbours at t-1'))) %>%
-  ggplot()+
-  geom_boxplot(aes(x = age_combo,
-                   # fill = as.factor(move_index), # successfully predicts actual data
-                   fill = prev,
-                   y = epred))+
-  labs(x = 'age category combination',
-       y = 'predicted probability\nof being neighbours',
-       fill = 'neighbours in previous second')+
-  facet_wrap(. ~ stim_type_long)+
-  scale_fill_viridis_d()+
-  theme(legend.position = 'bottom')
-print('boxplots run')
-
-pred %>%
-  ggplot()+
-  geom_density(aes(x = epred,
-                   fill = age_combo),
-               alpha = 0.4)+
-  labs(fill = 'age category combination',
-       x = 'predicted probability\nof being neighbours',
-       y = 'probability density')+
-  facet_grid(prev ~ stim_type_long,
-             scales = 'free')+
-  scale_fill_viridis_d()+
-  theme(legend.position = 'bottom')
-print('data loaded')
-
-pred %>%
-  mutate(prev = ifelse(prev == 0, 'not neighbours at t-1','neighbours at t-1')) %>%
-  mutate(prev = factor(prev, levels = c('neighbours at t-1', 'not neighbours at t-1'))) %>%
-  separate(age_combo, into = c('f_age_num','p_age_num'), sep = '_', remove = T) %>%
-  mutate(f_age_cat = ifelse(f_age_num == 1, '10-15',
-                            ifelse(f_age_num == 2, '16-20',
-                                   ifelse(f_age_num == 3, '21-25',
-                                          '26-35'))),
-         p_age_cat = ifelse(p_age_num == 1, '10-15',
-                            ifelse(p_age_num == 2, '16-20',
-                                   ifelse(p_age_num == 3, '21-25',
-                                          '26-35')))) %>%
-  mutate(age_combo = paste0('F',f_age_num, '-P',p_age_num),
-         age_combo_long = paste0(f_age_cat,' and ',p_age_cat)) %>%
-  ggplot()+
-  geom_density_ridges(aes(x = epred,
-                          y = age_combo,
-                          fill = age_combo),
-                      alpha = 0.6)+
-  labs(fill = 'age category\ncombination',
-       x = 'predicted probability\nof being neighbours',
-       y = 'probability density')+
-  facet_grid(stim_type_long ~ prev,
-             scales = 'free_x')+
-  scale_fill_viridis_d()+
-  theme(legend.position = 'bottom')
-print('ridges produced')
-ggsave(filename = 'nbm_predicted_ridges.png',
-       path = '../outputs/neighbour_binomial_model_bda/',
-       device = 'png', height = 3600, width = 2000, units = 'px')
-print('ridges saved')
-
-rm(pred) ; gc()
-
-## contrasts
-contrasts_long <- contrasts_long %>%
-  mutate(comparison = paste0(combo1, '->', combo2),
-         stim_type = ifelse(stim_num == 'stim2a', 'dove (control)',
-                            ifelse(stim_num == 'stim2b', 'dove (control)',
-                                   ifelse(stim_num == 'stim2c', 'dove (control)',
-                                          ifelse(stim_num == 'stim15a.old', 'lion',
-                                                 ifelse(stim_num == 'stim15b', 'lion',
-                                                        ifelse(stim_num == 'stim16b', 'lion',
-                                                               ifelse(stim_num < 11, 'dove (control)',
-                                                                      ifelse(stim_num < 11, 'dove (control)',
-                                                                             ifelse(stim_num < 21, 'lion', 'human')))))))))) %>%
-  mutate(stim_type = factor(stim_type, levels = c('dove (control)', 'lion', 'human')))
-
-contrasts_long %>%
-  filter(combo1 %in% c(11,12,13,14)) %>%
-  mutate(prev = ifelse(prev == 0, 'not neighbours at t-1', 'neighbours at t-1')) %>%
-  mutate(prev = factor(prev, levels = c('neighbours at t-1', 'not neighbours at t-1'))) %>%
-  ggplot()+
-  geom_violin(aes(x = comparison,
-                  y = difference,
-                  fill = combo2),
-              alpha = 0.6)+
-  scale_fill_viridis_d()+
-  facet_grid(stim_type ~ prev)+
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = 'none')
-contrasts_long %>%
-  filter(combo1 %in% c(21,22,23,24)) %>%
-  mutate(prev = ifelse(prev == 0, 'not neighbours at t-1', 'neighbours at t-1')) %>%
-  mutate(prev = factor(prev, levels = c('neighbours at t-1', 'not neighbours at t-1'))) %>%
-  ggplot()+
-  geom_violin(aes(x = comparison,
-                  y = difference,
-                  fill = combo2),
-              alpha = 0.6)+
-  scale_fill_viridis_d()+
-  facet_grid(stim_type ~ prev)+
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = 'none')
-contrasts_long %>%
-  filter(combo1 %in% c(31,32,33,34)) %>%
-  mutate(prev = ifelse(prev == 0, 'not neighbours at t-1', 'neighbours at t-1')) %>%
-  mutate(prev = factor(prev, levels = c('neighbours at t-1', 'not neighbours at t-1'))) %>%
-  ggplot()+
-  geom_violin(aes(x = comparison,
-                  y = difference,
-                  fill = combo2),
-              alpha = 0.6)+
-  scale_fill_viridis_d()+
-  facet_grid(stim_type ~ prev)+
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = 'none')
-contrasts_long %>%
-  mutate(prev = ifelse(prev == 0, 'not neighbours at t-1', 'neighbours at t-1')) %>%
-  mutate(prev = factor(prev, levels = c('neighbours at t-1', 'not neighbours at t-1'))) %>%
-  filter(combo1 %in% c(41,42,43,44)) %>%
-  ggplot()+
-  geom_violin(aes(x = comparison,
-                  y = difference,
-                  fill = combo2),
-              alpha = 0.6)+
-  scale_fill_viridis_d()+
-  facet_grid(stim_type ~ prev)+
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = 'none')
-
-contrasts_long <- contrasts_long %>%
-  mutate(combo1 = as.integer(combo1),
-         combo2 = as.integer(combo2)) %>%
-  mutate(change = combo2 - combo1)
-
-contrasts_long %>%
-  filter(change %in% c(1,10)) %>%
-  filter(combo1 %in% c(11,12,13,14)) %>%
-  mutate(prev = ifelse(prev == 0, 'not neighbours at t-1', 'neighbours at t-1'),
-         change = ifelse(change == 1, 'partner age increased', 'focal age increased')) %>%
-  mutate(prev = factor(prev, levels = c('neighbours at t-1',
-                                        'not neighbours at t-1')),
-         change = factor(change, levels = c('partner age increased',
-                                            'focal age increased')),
-         comparison = factor(comparison,
-                             levels = c('11->12','12->13','13->14',
-                                        '11->21','12->22','13->23','14->24'))) %>%
-  ggplot()+
-  geom_violin(aes(x = comparison,
-                  y = difference,
-                  fill = change, colour = change),
-              alpha = 0.6)+
-  scale_fill_viridis_d(end = 0.5)+ scale_colour_viridis_d(end = 0.5)+
-  facet_grid(prev ~ stim_type, scales = 'free_y')+
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = 'bottom')
-
-contrasts_long %>%
-  filter(change %in% c(1,10)) %>%
-  filter(combo1 %in% c(11,12,13,14)) %>%
-  mutate(prev = ifelse(prev == 0, 'not neighbours at t-1', 'neighbours at t-1'),
-         change = ifelse(change == 1, 'partner age increased', 'focal age increased')) %>%
-  mutate(prev = factor(prev, levels = c('neighbours at t-1',
-                                        'not neighbours at t-1')),
-         change = factor(change, levels = c('partner age increased',
-                                            'focal age increased')),
-         comparison = factor(comparison,
-                             levels = c('14->24','13->23','12->22','11->21',
-                                        '13->14','12->13','11->12'))) %>%
-  ggplot()+
-  geom_density_ridges(aes(x = difference,
-                          y = comparison,
-                          fill = change, colour = change),
-                      #rel_min_height = 0.01,
-                      alpha = 0.6)+
-  scale_fill_viridis_d(end = 0.5)+ scale_colour_viridis_d(end = 0.5)+
-  scale_x_continuous(name = 'contrast (mean per datum predicted)',
-                     limits = c(-0.015, 0.025))+
-  facet_grid(prev ~ stim_type)+
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = 'bottom')
-
-plot <- contrasts_long %>%
-  filter(change %in% c(1,10)) %>%
-  mutate(prev = ifelse(prev == 0, 'not neighbours at t-1', 'neighbours at t-1'),
-         change = ifelse(change == 1, 'partner age increased', 'focal age increased')) %>%
-  mutate(prev = factor(prev, levels = c('neighbours at t-1',
-                                        'not neighbours at t-1')),
-         change = factor(change, levels = c('partner age increased',
-                                            'focal age increased')),
-         comparison = factor(comparison,
-                             levels = c('43->44','42->43','41->42',
-                                        '33->34','32->33','31->32',
-                                        '34->44','33->43','32->42','31->41',
-                                        '23->24','22->23','21->22',
-                                        '24->34','23->33','22->32','21->31',
-                                        '13->14','12->13','11->12',
-                                        '14->24','13->23','12->22','11->21')))
-(dove <- plot %>%
-    filter(stim_type == 'dove (control)') %>%
-    ggplot()+
-    geom_density_ridges(aes(x = difference,
-                            y = comparison,
-                            fill = change, colour = change),
-                        #rel_min_height = 0.001,
-                        alpha = 0.6)+
-    scale_fill_viridis_d(end = 0.5)+ scale_colour_viridis_d(end = 0.5)+
-    scale_x_continuous(name = 'contrast (mean per datum predicted)')+
-    facet_grid(. ~ prev, scales = 'free_x')+
-    labs(title = 'dove (control)')+
-    theme(axis.text.x = element_text(angle = 90),
-          legend.position = 'bottom'))
-ggsave(plot = dove, device = 'png',
-       filename = 'neighbour_contrasts_freescale_ctd.png',
-       path = '../outputs/neighbour_binomial_model_bda/',
-       height = 2100, width = 1800, unit = 'px')
-dove + scale_x_continuous(limits = c(-0.012, 0.012),
-                          name = 'contrast (mean per datum predicted)')
-ggsave(plot = last_plot(), device = 'png',
-       filename = 'neighbour_contrasts_setscale_ctd.png',
-       path = '../outputs/neighbour_binomial_model_bda/',
-       height = 2100, width = 1800, unit = 'px')
-
-(lion <- plot %>%
-    filter(stim_type == 'lion') %>%
-    ggplot()+
-    geom_density_ridges(aes(x = difference,
-                            y = comparison,
-                            fill = change, colour = change),
-                        #rel_min_height = 0.001,
-                        alpha = 0.6)+
-    scale_fill_viridis_d(end = 0.5)+ scale_colour_viridis_d(end = 0.5)+
-    scale_x_continuous(name = 'contrast (mean per datum predicted)')+
-    facet_grid(. ~ prev, scales = 'free_x')+
-    labs(title = 'lion')+
-    theme(axis.text.x = element_text(angle = 90),
-          legend.position = 'bottom'))
-ggsave(plot = lion, device = 'png',
-       filename = 'neighbour_contrasts_freescale_l.png',
-       path = '../outputs/neighbour_binomial_model_bda/',
-       height = 2100, width = 1800, unit = 'px')
-lion + scale_x_continuous(limits = c(-0.02, 0.02),
-                          name = 'contrast (mean per datum predicted)')
-ggsave(plot = last_plot(), device = 'png',
-       filename = 'neighbour_contrasts_setscale_l.png',
-       path = '../outputs/neighbour_binomial_model_bda/',
-       height = 2100, width = 1800, unit = 'px')
-
-(human <- plot %>%
-    filter(stim_type == 'human') %>%
-    ggplot()+
-    geom_density_ridges(aes(x = difference,
-                            y = comparison,
-                            fill = change, colour = change),
-                        #rel_min_height = 0.001,
-                        alpha = 0.6)+
-    scale_fill_viridis_d(end = 0.5)+ scale_colour_viridis_d(end = 0.5)+
-    scale_x_continuous(name = 'contrast (mean per datum predicted)')+
-    facet_grid(. ~ prev, scales = 'free_x')+
-    labs(title = 'human')+
-    theme(axis.text.x = element_text(angle = 90),
-          legend.position = 'bottom'))
-ggsave(plot = human, device = 'png',
-       filename = 'neighbour_contrasts_freescale_h.png',
-       path = '../outputs/neighbour_binomial_model_bda/',
-       height = 2100, width = 1800, unit = 'px')
-human + scale_x_continuous(limits = c(-0.02, 0.02),
-                          name = 'contrast (mean per datum predicted)')
-ggsave(plot = last_plot(), device = 'png',
-       filename = 'neighbour_contrasts_setscale_h.png',
-       path = '../outputs/neighbour_binomial_model_bda/',
-       height = 2100, width = 1800, unit = 'px')
-
-(prev0 <- plot %>%
-    filter(prev == 'not neighbours at t-1') %>%
-    ggplot()+
-    geom_density_ridges(aes(x = difference,
-                            y = comparison,
-                            fill = change, colour = change),
-                        #rel_min_height = 0.001,
-                        alpha = 0.6)+
-    geom_vline(xintercept = 0, lty = 2)+
-    scale_fill_viridis_d(end = 0.5)+ scale_colour_viridis_d(end = 0.5)+
-    scale_x_continuous(name = 'contrast (mean per datum predicted)')+
-    facet_grid(. ~ stim_type, scales = 'free_x')+
-    labs(title = 'not neighbours at t-1')+
-    theme(axis.text.x = element_text(angle = 90),
-          legend.position = 'bottom'))
-ggsave(plot = prev0, device = 'png',
-       filename = 'neighbour_contrasts_fullscale_prev0.png',
-       path = '../outputs/neighbour_binomial_model_bda/',
-       height = 2100, width = 1800, unit = 'px')
-prev0 +
-  scale_x_continuous(limits = c(-0.005, 0.005),
-                          name = 'contrast (mean per datum predicted)')
-ggsave(plot = last_plot(), device = 'png',
-       filename = 'neighbour_contrasts_setscale_prev0.png',
-       path = '../outputs/neighbour_binomial_model_bda/',
-       height = 2100, width = 1800, unit = 'px')
-
-(prev1 <- plot %>%
-    filter(prev == 'neighbours at t-1') %>%
-    ggplot()+
-    geom_vline(xintercept = 0, lty = 2)+
-    geom_density_ridges(aes(x = difference,
-                            y = comparison,
-                            fill = change, colour = change),
-                        #rel_min_height = 0.001,
-                        alpha = 0.6)+
-    scale_fill_viridis_d(end = 0.5)+ scale_colour_viridis_d(end = 0.5)+
-    scale_x_continuous(name = 'contrast (mean per datum predicted)')+
-    facet_grid(. ~ stim_type, scales = 'free_x')+
-    labs(title = 'neighbours at t-1')+
-    theme(axis.text.x = element_text(angle = 90),
-          legend.position = 'bottom'))
-ggsave(plot = prev1, device = 'png',
-       filename = 'neighbour_contrasts_fullscale_prev1.png',
-       path = '../outputs/neighbour_binomial_model_bda/',
-       height = 2100, width = 1800, unit = 'px')
-
-dev.off()
-
-#### nearest neighbour p -- probability of performing behaviour ####
+#### neighbour binomial ####
 pdf('../outputs/neighbour_binomial_model_bda/niceplots_nearestneighbour_noprev.pdf')
-rm(list = ls()) ; gc() ; load('nearest_neighbour/neighbour_noprev_agecontrasts.RData')
-rm(list = ls()[! ls() %in% c('contrasts','contrasts_long','age_nn_org','age_mtx_org','nn')]) ; gc()
-print('data loaded')
-
-save.image('nearest_neighbour/neighbour_noprev_agecontrasts_plotting.RData') # load('nearest_neighbour/neighbour_noprev_agecontrasts_plotting.RData')
+# load('nearest_neighbour/neighbour_noprev_agecontrasts.RData')
+# rm(list = ls()[! ls() %in% c('contrasts','contrasts_long','age_nn_org','age_mtx_org','nn',
+#                              'extract_predictions',
+#                              'ridge_pred_altogether','ridge_pred_splitpartner',
+#                              'contrast_plot_altogether','contrast_plot_splitpartner',
+#                              'contrast_YYvYO','contrast_YYvOY','contrast_YYvOO',
+#                              'contrast_YOvOY','contrast_YOvOO','contrast_OYvOO')]) ; gc()
+# print('data loaded')
+#
+# save.image('nearest_neighbour/neighbour_noprev_agecontrasts_plotting.RData')
+load('nearest_neighbour/neighbour_noprev_agecontrasts_plotting.RData')
 
 ## plot predictions
 colnames(age_mtx_org) <- 1:nrow(age_nn_org)
@@ -2532,19 +1136,18 @@ pred <- age_mtx_org %>%
   pivot_longer(cols = everything(), names_to = 'data_id', values_to = 'epred') %>%
   mutate(data_id = as.integer(data_id)) %>%
   left_join(age_nn_org, by = 'data_id') %>%
+  separate(age_rel, into = c('f_age','p_age'), remove = F, sep = 1) %>%
   mutate(stim_type_long = ifelse(stim_type == 'ctd','dove (control)',
+                                 ifelse(stim_type == 'l','lion','human')),
+         f_age_cat = ifelse(f_age == 'Y', 'young', 'old'),
+         p_age_cat = ifelse(p_age == 'Y', 'T: young', 'T: old'),
+         draw_id = rep(1:400, each = nrow(age_nn_org)),
+         stim_type_long = ifelse(stim_type == 'ctd','dove (control)',
                                  ifelse(stim_type == 'l','lion','human'))) %>%
   mutate(stim_type_long = factor(stim_type_long,
-                                 levels = c('dove (control)','lion','human'))) %>% 
-  separate(age_combo, into = c('f_age_num','p_age_num'), remove = F) %>% 
-  mutate(f_age_cat = ifelse(f_age_num == '1', '10-15 yrs',
-                            ifelse(f_age_num == '2', '16-20 yrs',
-                                   ifelse(f_age_num == '3', '21-25 yrs', '26-35 yrs'))),
-         p_age_cat = ifelse(p_age_num == '1', '10-15 yrs',
-                            ifelse(p_age_num == '2', '16-20 yrs',
-                                   ifelse(p_age_num == '3', '21-25 yrs', '26-35 yrs'))),
-         f_age_num = as.numeric(f_age_num),
-         p_age_num = as.numeric(p_age_num))
+                                 levels = c('dove (control)','lion','human')),
+         bda = factor(bda, levels = c('before','during','after')),
+         age_rel_long = paste0('F: ', f_age_cat, ', ', p_age_cat))
 print('data created')
 
 pred %>%
@@ -2563,7 +1166,7 @@ print('boxplots run')
 pred %>%
   ggplot()+
   geom_density(aes(x = epred,
-                   fill = age_combo),
+                   fill = age_rel),
                alpha = 0.4)+
   labs(fill = 'age category combination',
        x = 'predicted probability\nof being neighbours',
@@ -2572,228 +1175,358 @@ pred %>%
              scales = 'free')+
   scale_fill_viridis_d()+
   theme(legend.position = 'bottom')
-print('data loaded')
+print('density plots run')
 
+## plot predictions
 pred %>%
-  separate(age_combo, into = c('f_age_num','p_age_num'), sep = '_', remove = T) %>%
-  mutate(f_age_cat = ifelse(f_age_num == 1, '10-15',
-                            ifelse(f_age_num == 2, '16-20',
-                                   ifelse(f_age_num == 3, '21-25',
-                                          '26-35'))),
-         p_age_cat = ifelse(p_age_num == 1, '10-15',
-                            ifelse(p_age_num == 2, '16-20',
-                                   ifelse(p_age_num == 3, '21-25',
-                                          '26-35')))) %>%
-  mutate(age_combo = paste0('F',f_age_num, '-P',p_age_num),
-         age_combo_long = paste0(f_age_cat,' and ',p_age_cat)) %>%
   ggplot()+
   geom_density_ridges(aes(x = epred,
-                          y = age_combo,
+                          y = f_age_cat,
+                          colour = f_age_cat,
                           fill = f_age_cat),
-                      alpha = 0.6)+
-  labs(fill = 'age category\ncombination',
-       x = 'predicted probability\nof being neighbours',
-       y = 'probability density')+
-  facet_grid(stim_type_long ~ bda,
-             scales = 'free_x')+
+                      alpha = 0.6,
+                      scale = 0.9)+
+  labs(fill = 'focal age category',
+       colour = 'focal age category',
+       x = 'predicted probability',
+       y = 'focal age category')+
   scale_fill_viridis_d()+
-  theme(legend.position = 'bottom')
-print('ridges produced')
-ggsave(filename = 'nbm_noprev_predicted_ridges.png',
+  scale_colour_viridis_d()+
+  theme(legend.position = 'bottom',
+        axis.text.x = element_text(angle = 90))+
+  facet_grid(bda ~ stim_type_long, scales = 'free_x')
+ggsave(filename = 'nbm_noprev_predicted_ridges_altogether.png',
        path = '../outputs/neighbour_binomial_model_bda/',
-       device = 'png', height = 3600, width = 2000, units = 'px')
-print('ridges saved')
+       plot = last_plot(),
+       device = 'png', height = 1800, width = 1500, units = 'px')
 
+pred %>%
+  ggplot()+
+  geom_density_ridges(aes(x = epred,
+                          y = f_age_cat,
+                          colour = p_age_cat,
+                          fill = p_age_cat),
+                      alpha = 0.6,
+                      scale = 0.9)+
+  labs(fill = 'target age category',
+       colour = 'target age category',
+       x = 'predicted probability',
+       y = 'focal age category')+
+  scale_fill_viridis_d()+
+  scale_colour_viridis_d()+
+  theme(legend.position = 'bottom',
+        axis.text.x = element_text(angle = 90))+
+  facet_grid(bda ~ stim_type_long, scales = 'free_x')
+ggsave(filename = 'nbm_noprev_predicted_ridges_splitpartner.png',
+       path = '../outputs/neighbour_binomial_model_bda/',
+       plot = last_plot(),
+       device = 'png', height = 1800, width = 1500, units = 'px')
+
+pred %>%
+  ggplot()+
+  geom_density_ridges(aes(x = epred,
+                          y = f_age_cat,
+                          fill = bda,
+                          linetype = bda,
+                          colour = bda),
+                      alpha = 0.6,
+                      scale = 0.9)+
+  scale_fill_viridis_d()+
+  scale_linetype_manual(values = c(1,2,1),
+                        breaks = c('before','during','after'))+
+  scale_colour_manual(values = c('transparent','black','black'),
+                      breaks = c('before','during','after'))+
+  scale_y_discrete(expand = c(0,0))+
+  labs(fill = 'time relative to stimulus',
+       colour = 'time relative to stimulus',
+       linetype = 'time relative to stimulus',
+       x = 'predicted probability',
+       y = 'focal age category')+
+  facet_grid(stim_type_long ~ p_age_cat)+
+  theme(legend.position = 'bottom')+
+  guides(fill = guide_legend(nrow = 3),
+         linetype = guide_legend(nrow = 3))
+ggsave(filename = 'nbm_noprev_predicted_ridges_splitboth.png',
+       path = '../outputs/neighbour_binomial_model_bda/',
+       plot = last_plot(),
+       device = 'png', height = 1800, width = 1500, units = 'px')
+
+pred %>%
+  ggplot()+
+  geom_density_ridges(aes(x = epred,
+                          y = f_age_cat,
+                          fill = bda,
+                          linetype = bda,
+                          colour = bda),
+                      alpha = 0.6,
+                      scale = 0.9)+
+  scale_fill_viridis_d()+
+  scale_linetype_manual(values = c(1,2,1),
+                        breaks = c('before','during','after'))+
+  scale_colour_manual(values = c('transparent','black','black'),
+                      breaks = c('before','during','after'))+
+  scale_y_discrete(expand = c(0,0))+
+  labs(fill = 'time relative to stimulus',
+       colour = 'time relative to stimulus',
+       linetype = 'time relative to stimulus',
+       x = 'predicted probability',
+       y = 'focal age category')+
+  facet_grid(stim_type_long ~ .)+
+  theme(legend.position = 'bottom')+
+  guides(fill = guide_legend(nrow = 3),
+         linetype = guide_legend(nrow = 3))
+ggsave(filename = 'nbm_noprev_predicted_ridges_splittime.png',
+       path = '../outputs/neighbour_binomial_model_bda/',
+       plot = last_plot(),
+       device = 'png', height = 1800, width = 1500, units = 'px')
+print('ridges produced')
 rm(pred) ; gc()
 
 ## contrasts
-contrasts_long <- contrasts_long %>%
-  mutate(comparison = paste0(combo1, '->', combo2),
-         stim_type = ifelse(stim_num == 'stim2a', 'dove (control)',
-                            ifelse(stim_num == 'stim2b', 'dove (control)',
-                                   ifelse(stim_num == 'stim2c', 'dove (control)',
-                                          ifelse(stim_num == 'stim15a.old', 'lion',
-                                                 ifelse(stim_num == 'stim15b', 'lion',
-                                                        ifelse(stim_num == 'stim16b', 'lion',
-                                                               ifelse(stim_num < 11, 'dove (control)',
-                                                                      ifelse(stim_num < 11, 'dove (control)',
-                                                                             ifelse(stim_num < 21, 'lion', 'human')))))))))) %>%
-  mutate(stim_type = factor(stim_type, levels = c('dove (control)', 'lion', 'human')))
+make_long <- function(contrast_mtx, names, comparison){
+  colnames(contrast_mtx) <- names
+  contrast_df <- contrast_mtx %>%
+    as.data.frame() %>%
+    pivot_longer(cols = everything(),
+                 names_to = 'unique_data_combo',
+                 values_to = 'contrast') %>%
+    mutate(unique_data_combo = as.integer(unique_data_combo),
+           comparison = comparison)
+  return(contrast_df)
+}
 
-contrasts_long %>%
-  filter(combo1 %in% c(11,12,13,14)) %>%
-  ggplot()+
-  geom_violin(aes(x = comparison,
-                  y = difference,
-                  fill = combo2),
-              alpha = 0.6)+
-  scale_fill_viridis_d()+
-  facet_grid(bda ~ stim_type)+
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = 'none')
-contrasts_long %>%
-  filter(combo1 %in% c(21,22,23,24)) %>%
-  ggplot()+
-  geom_violin(aes(x = comparison,
-                  y = difference,
-                  fill = combo2),
-              alpha = 0.6)+
-  scale_fill_viridis_d()+
-  facet_grid(bda~ stim_type)+
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = 'none')
-contrasts_long %>%
-  filter(combo1 %in% c(31,32,33,34)) %>%
-  ggplot()+
-  geom_violin(aes(x = comparison,
-                  y = difference,
-                  fill = combo2),
-              alpha = 0.6)+
-  scale_fill_viridis_d()+
-  facet_grid(bda ~ stim_type)+
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = 'none')
-contrasts_long %>%
-  filter(combo1 %in% c(41,42,43,44)) %>%
-  ggplot()+
-  geom_violin(aes(x = comparison,
-                  y = difference,
-                  fill = combo2),
-              alpha = 0.6)+
-  scale_fill_viridis_d()+
-  facet_grid(bda ~ stim_type)+
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = 'none')
+contrast_YYvYO <- make_long(contrast_mtx = contrast_YYvYO,
+                            names = age_nn_org$unique_data_combo,
+                            comparison = 'YYvYO')
+contrast_YYvOY <- make_long(contrast_mtx = contrast_YYvOY,
+                            names = age_nn_org$unique_data_combo,
+                            comparison = 'YYvOY')
+contrast_YYvOO <- make_long(contrast_mtx = contrast_YYvOO,
+                            names = age_nn_org$unique_data_combo,
+                            comparison = 'YYvOO')
+contrast_YOvOY <- make_long(contrast_mtx = contrast_YOvOY,
+                            names = age_nn_org$unique_data_combo,
+                            comparison = 'YOvOY')
+contrast_YOvOO <- make_long(contrast_mtx = contrast_YOvOO,
+                            names = age_nn_org$unique_data_combo,
+                            comparison = 'YOvOO')
+contrast_OYvOO <- make_long(contrast_mtx = contrast_OYvOO,
+                            names = age_nn_org$unique_data_combo,
+                            comparison = 'OYvOO')
 
-contrasts_long <- contrasts_long %>%
-  mutate(combo1 = as.integer(combo1),
-         combo2 = as.integer(combo2)) %>%
-  mutate(change = combo2 - combo1)
+age_contrast_long <- rbind(contrast_YYvYO, contrast_YYvOY, contrast_YYvOO,
+                           contrast_YOvOY, contrast_YOvOO, contrast_OYvOO)
+saveRDS(age_contrast_long, '../data_processed/nn_contrasts_youngold.RDS')
 
-contrasts_long %>%
-  filter(change %in% c(1,10)) %>%
-  filter(combo1 %in% c(11,12,13,14)) %>%
-  mutate(change = factor(change, levels = c('partner age increased',
-                                            'focal age increased')),
-         comparison = factor(comparison,
-                             levels = c('11->12','12->13','13->14',
-                                        '11->21','12->22','13->23','14->24'))) %>%
-  ggplot()+
-  geom_violin(aes(x = comparison,
-                  y = difference,
-                  fill = change, colour = change),
-              alpha = 0.6)+
-  scale_fill_viridis_d(end = 0.5)+ scale_colour_viridis_d(end = 0.5)+
-  facet_grid(bda ~ stim_type, scales = 'free_y')+
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = 'bottom')
+age_contrast_long <- age_contrast_long %>%
+  left_join(distinct(age_nn_org), by = 'unique_data_combo') %>%
+  separate(col = comparison, into = c('original', 'altered'), sep = 'v', remove = F) %>%
+  separate(col = original, into = c('f_age_org','p_age_org'), sep = 1, remove = F) %>%
+  separate(col = altered,  into = c('f_age_alt','p_age_alt'), sep = 1, remove = F) %>%
+  mutate(f_age_org_short = ifelse(f_age_org == 'Y', 'young', 'old'),
+         f_age_alt_short = ifelse(f_age_alt == 'Y', 'young', 'old'),
+         p_age_org_short = ifelse(p_age_org == 'Y', 'young', 'old'),
+         p_age_alt_short = ifelse(p_age_alt == 'Y', 'young', 'old')) %>%
+  mutate(comparison_long = paste0('F: ', f_age_org_short, ' + T: ', p_age_org_short, ' to ',
+                                  'F: ', f_age_alt_short, ' + T: ', p_age_alt_short))
+save.image('nearest_neighbour/neighbour_binomial_ageplotting.RData')
+write_csv(age_contrast_long, '../data_processed/neighbour_binomial_agecontrasts_check.csv')
+age_contrast_long <- read_csv('../data_processed/neighbour_binomial_agecontrasts_check.csv')
 
-contrasts_long %>%
-  filter(change %in% c(1,10)) %>%
-  filter(combo1 %in% c(11,12,13,14)) %>%
-  mutate(change = factor(change, levels = c('partner age increased',
-                                            'focal age increased')),
-         comparison = factor(comparison,
-                             levels = c('14->24','13->23','12->22','11->21',
-                                        '13->14','12->13','11->12'))) %>%
-  ggplot()+
-  geom_density_ridges(aes(x = difference,
-                          y = comparison,
-                          fill = change, colour = change),
-                      #rel_min_height = 0.01,
-                      alpha = 0.6)+
-  scale_fill_viridis_d(end = 0.5)+ scale_colour_viridis_d(end = 0.5)+
-  scale_x_continuous(name = 'contrast (mean per datum predicted)',
-                     limits = c(-0.015, 0.025))+
-  facet_grid(bda ~ stim_type)+
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = 'bottom')
+# ## plot
+# length(which(is.na(age_contrast_long$comparison) == TRUE))
+# age_contrast_long %>%
+#   mutate(stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
+#                             ifelse(stim_type == 'l', 'lion',
+#                                    'human'))) %>%
+#   mutate(stim_type = factor(stim_type, levels = c('dove (control)','lion','human')),
+#          bda = factor(bda, levels = c('before','during','after'))) %>%
+#   ggplot()+
+#   geom_hline(yintercept = 0, lty = 3)+
+#   geom_violin(aes(x = comparison,
+#                   y = contrast,
+#                   fill = comparison),
+#               position = position_dodge(0.5))+
+#   scale_fill_viridis_d()+
+#   facet_grid(bda ~ stim_type, scales = 'free_y')+
+#   labs(fill = 'comparison')+
+#   theme(legend.position = 'bottom',
+#         axis.text.x = element_text(angle = 90, vjust = 0.5))
+# ggsave(plot = last_plot(), device = 'png',
+#        filename = 'nbm_violin_contrasts_noprev.png',
+#        path = '../outputs/neighbour_binomial_model_bda/',
+#        height = 1600, width = 1600, unit = 'px')
+#
+as.data.frame(head(age_contrast_long))
+plot_contrasts <- age_contrast_long %>%
+  mutate(stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
+                            ifelse(stim_type == 'l', 'lion', 'human')))
 
-plot <- contrasts_long %>%
-  filter(change %in% c(1,10)) %>%
-  mutate(change = factor(change, levels = c('partner age increased',
-                                            'focal age increased')),
-         comparison = factor(comparison,
-                             levels = c('43->44','42->43','41->42',
-                                        '33->34','32->33','31->32',
-                                        '34->44','33->43','32->42','31->41',
-                                        '23->24','22->23','21->22',
-                                        '24->34','23->33','22->32','21->31',
-                                        '13->14','12->13','11->12',
-                                        '14->24','13->23','12->22','11->21')))
-(dove <- plot %>%
-    filter(stim_type == 'dove (control)') %>%
+for(stimulus in c("dove (control)","lion","human")){
+  plot <- plot_contrasts %>%
+    filter(stim_type == stimulus) %>%
     ggplot()+
-    geom_density_ridges(aes(x = difference,
-                            y = comparison,
-                            fill = change, colour = change),
-                        #rel_min_height = 0.001,
-                        alpha = 0.6)+
-    scale_fill_viridis_d(end = 0.5)+ scale_colour_viridis_d(end = 0.5)+
-    scale_x_continuous(name = 'contrast (mean per datum predicted)')+
-    facet_grid(stim_type ~ bda, scales = 'free_x')+
-    labs(title = 'dove (control)')+
-    theme(axis.text.x = element_text(angle = 90),
-          legend.position = 'bottom'))
-ggsave(plot = dove, device = 'png',
-       filename = 'neighbour_noprev_contrasts_freescale_ctd.png',
+    geom_hline(yintercept = 0, lty = 3)+
+    geom_violin(aes(x = comparison,
+                    y = contrast),
+                fill = '#21918c',
+                colour = 'transparent')+
+    theme(legend.position = 'bottom',
+          axis.text.x = element_text(angle = 90, vjust = 0.5))+
+    labs(y = 'difference')
+  print(plot)
+}
+
+unique(plot_contrasts$comparison)
+
+plot_contrasts %>%
+  mutate(stim_type = factor(stim_type, levels = c('human','lion','dove (control)'))) %>%
+  ggplot()+
+  geom_vline(xintercept = 0, linetype = 3)+
+  geom_density_ridges(aes(y = stim_type,
+                          x = contrast,
+                          fill = comparison,
+                          linetype = comparison,
+                          colour = comparison),
+                      alpha = 0.6,
+                      size = 0.3,
+                      scale = 0.9)+
+  scale_fill_viridis_d()+
+  scale_linetype_manual(values = c(3,2,1,1,2,3),
+                        breaks = c('F: young + T: young to F: young + T: old',
+                                   'F: young + T: young to F: old + T: young',
+                                   'F: young + T: young to F: old + T: old',
+                                   'F: young + T: old to F: old + T: young',
+                                   'F: young + T: old to F: old + T: old',
+                                   'F: old + T: young to F: old + T: old'))+
+  scale_colour_manual(values = c('grey','grey','grey','black','black','black'),
+                      breaks = c('F: young + T: young to F: young + T: old',
+                                 'F: young + T: young to F: old + T: young',
+                                 'F: young + T: young to F: old + T: old',
+                                 'F: young + T: old to F: old + T: young',
+                                 'F: young + T: old to F: old + T: old',
+                                 'F: old + T: young to F: old + T: old'))+
+  scale_y_discrete(expand = c(0,0))+
+  labs(y = 'stimulus type',
+       fill = 'age change',
+       linetype = 'age change',
+       colour = 'age change',
+       x = 'contrast')+
+  theme(legend.position = 'bottom',
+        axis.text.x = element_text(angle = 90, vjust = 0.5))+
+  guides(fill = guide_legend(nrow = 3),
+         linetype = guide_legend(nrow = 3))
+ggsave(plot = last_plot(),
+       filename = 'nbm_noprev_contrastridges_alldata.png',
        path = '../outputs/neighbour_binomial_model_bda/',
-       height = 2100, width = 1800, unit = 'px')
-# dove + scale_x_continuous(limits = c(-0.012, 0.012),
-#                           name = 'contrast (mean per datum predicted)')
-# ggsave(plot = last_plot(), device = 'png',
-#        filename = 'neighbour_noprev_contrasts_setscale_ctd.png',
-#        path = '../outputs/neighbour_binomial_model_bda/',
-#        height = 2100, width = 1800, unit = 'px')
+       device = 'png', height = 2800, width = 1900, unit = 'px')
 
-# (lion <- plot %>%
-#     filter(stim_type == 'lion') %>%
-#     ggplot()+
-#     geom_density_ridges(aes(x = difference,
-#                             y = comparison,
-#                             fill = change, colour = change),
-#                         #rel_min_height = 0.001,
-#                         alpha = 0.6)+
-#     scale_fill_viridis_d(end = 0.5)+ scale_colour_viridis_d(end = 0.5)+
-#     scale_x_continuous(name = 'contrast (mean per datum predicted)')+
-#     facet_grid(. ~ prev, scales = 'free_x')+
-#     labs(title = 'lion')+
-#     theme(axis.text.x = element_text(angle = 90),
-#           legend.position = 'bottom'))
-# ggsave(plot = lion, device = 'png',
-#        filename = 'neighbour_noprev_contrasts_freescale_l.png',
-#        path = '../outputs/neighbour_binomial_model_bda/',
-#        height = 2100, width = 1800, unit = 'px')
-# lion + scale_x_continuous(limits = c(-0.02, 0.02),
-#                           name = 'contrast (mean per datum predicted)')
-# ggsave(plot = last_plot(), device = 'png',
-#        filename = 'neighbour_noprev_contrasts_setscale_l.png',
-#        path = '../outputs/neighbour_binomial_model_bda/',
-#        height = 2100, width = 1800, unit = 'px')
-# 
-# (human <- plot %>%
-#     filter(stim_type == 'human') %>%
-#     ggplot()+
-#     geom_density_ridges(aes(x = difference,
-#                             y = comparison,
-#                             fill = change, colour = change),
-#                         #rel_min_height = 0.001,
-#                         alpha = 0.6)+
-#     scale_fill_viridis_d(end = 0.5)+ scale_colour_viridis_d(end = 0.5)+
-#     scale_x_continuous(name = 'contrast (mean per datum predicted)')+
-#     facet_grid(. ~ prev, scales = 'free_x')+
-#     labs(title = 'human')+
-#     theme(axis.text.x = element_text(angle = 90),
-#           legend.position = 'bottom'))
-# ggsave(plot = human, device = 'png',
-#        filename = 'neighbour_noprev_contrasts_freescale_h.png',
-#        path = '../outputs/neighbour_binomial_model_bda/',
-#        height = 2100, width = 1800, unit = 'px')
-# human + scale_x_continuous(limits = c(-0.02, 0.02),
-#                           name = 'contrast (mean per datum predicted)')
-# ggsave(plot = last_plot(), device = 'png',
-#        filename = 'neighbour_noprev_contrasts_setscale_h.png',
-#        path = '../outputs/neighbour_binomial_model_bda/',
-#        height = 2100, width = 1800, unit = 'px')
+plot_contrasts %>%
+  mutate(comparison = paste0(original, '->', altered)) %>%
+  mutate(stim_type = factor(stim_type, levels = c('human','lion','dove (control)')),
+         bda = factor(bda, levels = c('before','during','after'))) %>%
+  filter(comparison != '26-35 yrs to 10-15 yrs') %>%
+  ggplot()+
+  geom_vline(xintercept = 0, linetype = 3)+
+  geom_density_ridges(aes(y = stim_type,
+                          x = contrast,
+                          fill = comparison,
+                          linetype = bda,
+                          colour = bda),
+                      alpha = 0.6,
+                      size = 0.3,
+                      scale = 0.9)+
+  scale_fill_viridis_d()+
+  scale_linetype_manual(values = c(1,2,1),
+                        breaks = c('before','during','after'))+
+  scale_colour_manual(values = c('transparent','black','black'),
+                      breaks = c('before','during','after'))+
+  scale_y_discrete(expand = c(0,0))+
+  labs(y = 'stimulus type',
+       fill = 'focal age change',
+       linetype = 'time relative to stimulus',
+       colour = 'time relative to stimulus',
+       x = 'contrast')+
+  theme(legend.position = 'bottom',
+        axis.text.x = element_text(angle = 90, vjust = 0.5))+
+  guides(fill = guide_legend(nrow = 3),
+         linetype = guide_legend(nrow = 3))
+ggsave(plot = last_plot(),
+       filename = 'nbm_noprev_contrastridges_splitbybda.png',
+       path = '../outputs/neighbour_binomial_model_bda/',
+       device = 'png', height = 2800, width = 1900, unit = 'px')
 
+print('neighbour binomial complete')
 dev.off()
+
+plot_contrasts %>%
+  mutate(comparison = paste0(original, '->', altered)) %>%
+  mutate(stim_type = factor(stim_type, levels = c('human','lion','dove (control)')),
+         bda = factor(bda, levels = c('before','during','after'))) %>%
+  filter(comparison != '26-35 yrs to 10-15 yrs') %>%
+  ggplot()+
+  geom_vline(xintercept = 0, linetype = 3)+
+  geom_density_ridges(aes(y = stim_type,
+                          x = contrast,
+                          fill = comparison,
+                          linetype = bda,
+                          colour = bda),
+                      alpha = 0.6,
+                      size = 0.3,
+                      scale = 0.9)+
+  scale_fill_viridis_d()+
+  scale_linetype_manual(values = c(1,2,1),
+                        breaks = c('before','during','after'))+
+  scale_colour_manual(values = c('transparent','black','black'),
+                      breaks = c('before','during','after'))+
+  scale_y_discrete(expand = c(0,0))+
+  labs(y = 'stimulus type',
+       fill = 'focal age change',
+       linetype = 'time relative to stimulus',
+       colour = 'time relative to stimulus',
+       x = 'contrast')+
+  facet_grid(. ~ bda)+
+  theme(legend.position = 'bottom',
+        axis.text.x = element_text(angle = 90, vjust = 0.5))+
+  guides(fill = guide_legend(nrow = 3),
+         linetype = guide_legend(nrow = 3))
+ggsave(plot = last_plot(),
+       filename = 'nbm_noprev_contrastridges_splitbybda_facet.png',
+       path = '../outputs/neighbour_binomial_model_bda/',
+       device = 'png', height = 2800, width = 1900, unit = 'px')
+
+plot_contrasts %>%
+  mutate(comparison = paste0(original, ' -> ', altered)) %>%
+  mutate(age_change = ifelse(comparison == 'OY -> OO', 'target',
+                             ifelse(comparison == 'YO -> OO', 'focal',
+                                    ifelse(comparison == 'YO -> OY', 'both',
+                                           ifelse(comparison == 'YY -> OO', 'both',
+                                                  ifelse(comparison == 'YY -> OY', 'focal',
+                                                         ifelse(comparison == 'YY -> YO', 'target', 'error'))))))) %>%
+  mutate(stim_type = factor(stim_type, levels = c('human','lion','dove (control)')),
+         bda = factor(bda, levels = c('before','during','after')),
+         comparison = factor(comparison, levels = c('YY -> YO', 'YY -> OY', 'YY -> OO',
+                                                    'YO -> OY', 'YO -> OO', 'OY -> OO')),
+         age_change = factor(age_change, levels = c('focal','target','both'))) %>%
+  ggplot()+
+  geom_vline(xintercept = 0, linetype = 3)+
+  geom_density_ridges(aes(y = stim_type,
+                          x = contrast,
+                          fill = age_change),
+                      alpha = 0.6,
+                      size = 0.3,
+                      scale = 0.9)+
+  scale_fill_viridis_d()+
+  scale_y_discrete(expand = c(0,0))+
+  labs(y = 'stimulus type',
+       fill = 'individual age changed',
+       x = 'contrast')+
+  facet_grid(comparison ~ bda)+
+  theme(legend.position = 'bottom',
+        axis.text.x = element_text(angle = 90, vjust = 0.5))+
+  guides(fill = guide_legend(nrow = 3),
+         linetype = guide_legend(nrow = 3))
+ggsave(plot = last_plot(),
+       filename = 'nbm_noprev_contrastridges_nicestfacet_wide.png',
+       path = '../outputs/neighbour_binomial_model_bda/',
+       device = 'png', height = 2400, width = 2000, unit = 'px')
