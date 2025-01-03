@@ -641,50 +641,341 @@ stim_new <- move %>%
                                                          focal, stim_num, pb_num))))
 
 ## redo predictions with different stimulus types: all doves
-ctd_move <- stim_new %>%
-  mutate(stim_type = 'ctd')
-ctd_mtx <- posterior_epred(object = mom_fit, newdata = ctd_move)
-colnames(ctd_mtx) <- ctd_move$unique_data_combo
-ctd_mtx <- ctd_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
+ctd_before <- stim_new %>%
+  mutate(stim_type = 'ctd',
+         bda = 'before')
+ctd_before_mtx <- posterior_epred(object = mom_fit, newdata = ctd_before)
+colnames(ctd_before_mtx) <- ctd_before$unique_data_combo
+ctd_before_mtx <- ctd_before_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
+
+ctd_during <- stim_new %>%
+  mutate(stim_type = 'ctd',
+         bda = 'during')
+ctd_during_mtx <- posterior_epred(object = mom_fit, newdata = ctd_during)
+colnames(ctd_during_mtx) <- ctd_during$unique_data_combo
+ctd_during_mtx <- ctd_during_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
+
+ctd_after <- stim_new %>%
+  mutate(stim_type = 'ctd',
+         bda = 'after')
+ctd_after_mtx <- posterior_epred(object = mom_fit, newdata = ctd_after)
+colnames(ctd_after_mtx) <- ctd_after$unique_data_combo
+ctd_after_mtx <- ctd_after_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
 
 ## redo predictions with different stimulus types: all lions
-lion_move <- stim_new %>%
-  mutate(stim_type = 'l')
-lion_mtx <- posterior_epred(object = mom_fit, newdata = lion_move)
-colnames(lion_mtx) <- lion_move$unique_data_combo
-lion_mtx <- lion_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
+lion_before <- stim_new %>%
+  mutate(stim_type = 'l',
+         bda = 'before')
+lion_before_mtx <- posterior_epred(object = mom_fit, newdata = lion_before)
+colnames(lion_before_mtx) <- lion_before$unique_data_combo
+lion_before_mtx <- lion_before_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
+
+lion_during <- stim_new %>%
+  mutate(stim_type = 'l',
+         bda = 'during')
+lion_during_mtx <- posterior_epred(object = mom_fit, newdata = lion_during)
+colnames(lion_during_mtx) <- lion_during$unique_data_combo
+lion_during_mtx <- lion_during_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
+
+lion_after <- stim_new %>%
+  mutate(stim_type = 'l',
+         bda = 'after')
+lion_after_mtx <- posterior_epred(object = mom_fit, newdata = lion_after)
+colnames(lion_after_mtx) <- lion_after$unique_data_combo
+lion_after_mtx <- lion_after_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
 
 ## redo predictions with different stimulus types: all humans
-human_move <- stim_new %>%
-  mutate(stim_type = 'h')
-human_mtx <- posterior_epred(object = mom_fit, newdata = human_move)
-colnames(human_mtx) <- human_move$unique_data_combo
-human_mtx <- human_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
+human_before <- stim_new %>%
+  mutate(stim_type = 'h',
+         bda = 'before')
+human_before_mtx <- posterior_epred(object = mom_fit, newdata = human_before)
+colnames(human_before_mtx) <- human_before$unique_data_combo
+human_before_mtx <- human_before_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
+
+human_during <- stim_new %>%
+  mutate(stim_type = 'h',
+         bda = 'during')
+human_during_mtx <- posterior_epred(object = mom_fit, newdata = human_during)
+colnames(human_during_mtx) <- human_during$unique_data_combo
+human_during_mtx <- human_during_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
+
+human_after <- stim_new %>%
+  mutate(stim_type = 'h',
+         bda = 'after')
+human_after_mtx <- posterior_epred(object = mom_fit, newdata = human_after)
+colnames(human_after_mtx) <- human_after$unique_data_combo
+human_after_mtx <- human_after_mtx[c(1:100,1001:1100,2001:2100,3001:3100),,]
 
 save.image('movement_direction/ordinal_noprev/moving_noprev_2bda_stimuluscontrasts.RData')
 
 ## calculate contrasts
-ctd_vs_lion <- lion_mtx - ctd_mtx
-ctd_vs_human <- human_mtx - ctd_mtx
-lion_vs_human <- human_mtx - lion_mtx
+ctd_vs_lion_before <- lion_before_mtx - ctd_before_mtx
+ctd_vs_human_before <- human_before_mtx - ctd_before_mtx
+lion_vs_human_before <- human_before_mtx - lion_before_mtx
+
+ctd_vs_lion_during <- lion_during_mtx - ctd_during_mtx
+ctd_vs_human_during <- human_during_mtx - ctd_during_mtx
+lion_vs_human_during <- human_during_mtx - lion_during_mtx
+
+ctd_vs_lion_after <- lion_after_mtx - ctd_after_mtx
+ctd_vs_human_after <- human_after_mtx - ctd_after_mtx
+lion_vs_human_after <- human_after_mtx - lion_after_mtx
+
+ctd_before_vs_during <- ctd_during_mtx - ctd_before_mtx
+ctd_before_vs_after  <- ctd_after_mtx - ctd_before_mtx
+ctd_during_vs_after  <- ctd_after_mtx - ctd_during_mtx
+
+lion_before_vs_during <- lion_during_mtx - lion_before_mtx
+lion_before_vs_after  <- lion_after_mtx - lion_before_mtx
+lion_during_vs_after  <- lion_after_mtx - lion_during_mtx
+
+human_before_vs_during <- human_during_mtx - human_before_mtx
+human_before_vs_after  <- human_after_mtx - human_before_mtx
+human_during_vs_after  <- human_after_mtx - human_during_mtx
 
 ## summarise contrasts
 contrasts <- move %>%
   select(-stim_type) %>%
-  mutate(ctd_vs_lion_mu = apply(ctd_vs_lion, 2, mean),
-         ctd_vs_lion_sd = apply(ctd_vs_lion, 2, sd),
-         ctd_vs_human_mu = apply(ctd_vs_human, 2, mean),
-         ctd_vs_human_sd = apply(ctd_vs_human, 2, sd),
-         lion_vs_human_mu = apply(lion_vs_human, 2, mean),
-         lion_vs_human_sd = apply(lion_vs_human, 2, sd))
+  mutate(ctd_vs_lion_before = apply(ctd_vs_lion_before, 2, mean),
+         ctd_vs_human_before = apply(ctd_vs_human_before, 2, mean),
+         lion_vs_human_before = apply(lion_vs_human_before, 2, mean),
+         
+         ctd_vs_lion_during = apply(ctd_vs_lion_during, 2, mean),
+         ctd_vs_human_during = apply(ctd_vs_human_during, 2, mean),
+         lion_vs_human_during = apply(lion_vs_human_during, 2, mean),
+         
+         ctd_vs_lion_after = apply(ctd_vs_lion_after, 2, mean),
+         ctd_vs_human_after = apply(ctd_vs_human_after, 2, mean),
+         lion_vs_human_after = apply(lion_vs_human_after, 2, mean),
+         
+         before_vs_during_ctd = apply(ctd_before_vs_during, 2, mean),
+         before_vs_after_ctd = apply(ctd_before_vs_after, 2, mean),
+         during_vs_after_ctd = apply(ctd_during_vs_after, 2, mean),
+         
+         before_vs_during_lion = apply(lion_before_vs_during, 2, mean),
+         before_vs_after_lion = apply(lion_before_vs_after, 2, mean),
+         during_vs_after_lion = apply(lion_during_vs_after, 2, mean),
+         
+         before_vs_during_human = apply(human_before_vs_during, 2, mean),
+         before_vs_after_human = apply(human_before_vs_after, 2, mean),
+         during_vs_after_human = apply(human_during_vs_after, 2, mean))
+
 contrasts_long <- contrasts %>%
-  pivot_longer(cols = c(ctd_vs_lion_mu, ctd_vs_human_mu, lion_vs_human_mu),
+  pivot_longer(cols = c(ctd_vs_lion_before, ctd_vs_human_before, lion_vs_human_before,
+                        ctd_vs_lion_during, ctd_vs_human_during, lion_vs_human_during,
+                        ctd_vs_lion_after, ctd_vs_human_after, lion_vs_human_after,
+                        before_vs_during_ctd, before_vs_after_ctd, during_vs_after_ctd,
+                        before_vs_during_lion, before_vs_after_lion, during_vs_after_lion,
+                        before_vs_during_human, before_vs_after_human, during_vs_after_human),
                names_to = 'contrast', values_to = 'difference') %>%
-  separate(contrast, into = c('contrast','mu'),
-           sep = -3, remove = T) %>%
-  select(-mu, -ctd_vs_lion_sd, -ctd_vs_human_sd, -lion_vs_human_sd)
+  separate(contrast, into = c('original','vs','altered','context'),
+           sep = '_', remove = F) %>%
+  select(-vs)
 
 ## produce values for reporting
+print('dove vs lion -- before')
+median(ctd_vs_lion_before)  ; mean(ctd_vs_lion_before)  ; sd(ctd_vs_lion_before)
+quantile(ctd_vs_lion_before, prob = c(0.025, 0.5, 0.975))
+( length(which(ctd_vs_lion_before < 0)) / length(ctd_vs_lion_before) ) * 100
+# "dove vs lion -- before"
+# -0.0003931697
+# 2.498126e-17
+# 0.04489826
+#          2.5%           50%         97.5%
+# -0.0989171204 -0.0003931697  0.1066938246
+# 51.90628
+print('dove vs human -- before')
+median(ctd_vs_human_before) ; mean(ctd_vs_human_before) ; sd(ctd_vs_human_before)
+quantile(ctd_vs_human_before, prob = c(0.025, 0.5, 0.975))
+( length(which(ctd_vs_human_before < 0)) / length(ctd_vs_human_before) ) * 100
+# "dove vs human -- before"
+# 0.0001962928
+# -1.076202e-18
+# 0.04061287
+#          2.5%           50%         97.5%
+# -0.0963036610  0.0001962928  0.0910058276
+# 48.62877
+print('lion vs human -- before')
+median(lion_vs_human_before); mean(lion_vs_human_before); sd(lion_vs_human_before)
+quantile(lion_vs_human_before, prob = c(0.025, 0.5, 0.975))
+( length(which(lion_vs_human_before < 0)) / length(lion_vs_human_before) ) * 100
+# "lion vs human -- before"
+# 0.0006152352
+# 6.477275e-18
+# 0.05227421
+#          2.5%           50%         97.5%
+# -0.1246563796  0.0006152352  0.1125558453
+# 47.09632
+
+print('dove vs lion -- during')
+median(ctd_vs_lion_during)  ; mean(ctd_vs_lion_during)  ; sd(ctd_vs_lion_during)
+quantile(ctd_vs_lion_during, prob = c(0.025, 0.5, 0.975))
+( length(which(ctd_vs_lion_during < 0)) / length(ctd_vs_lion_during) ) * 100
+# "dove vs lion -- during"
+# 0.002529335
+# 1.097817e-16
+# 0.1012384
+#          2.5%          50%        97.5%
+# -0.227770445  0.002529335  0.225385816
+# 47.23296
+print('dove vs human -- during')
+median(ctd_vs_human_during) ; mean(ctd_vs_human_during) ; sd(ctd_vs_human_during)
+quantile(ctd_vs_human_during, prob = c(0.025, 0.5, 0.975))
+( length(which(ctd_vs_human_during < 0)) / length(ctd_vs_human_during) ) * 100
+# "dove vs human -- during"
+# 0.002334388
+# -3.010792e-17
+# 0.05352549
+#          2.5%          50%        97.5%
+# -0.132889366  0.002334388  0.111847999
+# 44.18667
+print('lion vs human -- during')
+median(lion_vs_human_during); mean(lion_vs_human_during); sd(lion_vs_human_during)
+quantile(lion_vs_human_during, prob = c(0.025, 0.5, 0.975))
+( length(which(lion_vs_human_during < 0)) / length(lion_vs_human_during) ) * 100
+# "lion vs human -- during"
+# 0.0003890309
+# -4.829903e-18
+# 0.06419151
+#          2.5%           50%         97.5%
+# -0.1520296458  0.0003890309  0.1393879715
+# 49.03226
+
+print('dove vs lion -- after')
+median(ctd_vs_lion_after)  ; mean(ctd_vs_lion_after)  ; sd(ctd_vs_lion_after)
+quantile(ctd_vs_lion_after, prob = c(0.025, 0.5, 0.975))
+( length(which(ctd_vs_lion_after < 0)) / length(ctd_vs_lion_after) ) * 100
+# "dove vs lion -- after"
+# -6.935843e-05
+# 9.928891e-18
+# 0.07741673
+#          2.5%           50%         97.5%
+# -1.742479e-01 -6.935843e-05  1.832100e-01
+# 50.22513
+print('dove vs human -- after')
+median(ctd_vs_human_after) ; mean(ctd_vs_human_after) ; sd(ctd_vs_human_after)
+quantile(ctd_vs_human_after, prob = c(0.025, 0.5, 0.975))
+( length(which(ctd_vs_human_after < 0)) / length(ctd_vs_human_after) ) * 100
+# "dove vs human -- after"
+# 8.104571e-05
+# -3.693633e-17
+# 0.0341957
+#          2.5%           50%         97.5%
+# -7.809751e-02  8.104571e-05  7.482195e-02
+# 49.17874
+print('lion vs human -- after')
+median(lion_vs_human_after); mean(lion_vs_human_after); sd(lion_vs_human_after)
+quantile(lion_vs_human_after, prob = c(0.025, 0.5, 0.975))
+( length(which(lion_vs_human_after < 0)) / length(lion_vs_human_after) ) * 100
+# "lion vs human -- after"
+# 0.0001570439
+# -1.311377e-18
+# 0.07324986
+#          2.5%           50%         97.5%
+# -0.1730261311  0.0001570439  0.1601111696
+# 49.55446
+
+print('dove -- before vs during')
+median(ctd_before_vs_during)  ; mean(ctd_before_vs_during)  ; sd(ctd_before_vs_during)
+quantile(ctd_before_vs_during, prob = c(0.025, 0.5, 0.975))
+( length(which(ctd_before_vs_during < 0)) / length(ctd_before_vs_during) ) * 100
+# "dove -- before vs during"
+# -0.004547793
+# 1.184894e-17
+# 0.03967489
+#          2.5%          50%        97.5%
+# -0.079244927 -0.004547793  0.086157490
+# 57.31174
+print('lion -- before vs during')
+median(lion_before_vs_during)  ; mean(lion_before_vs_during)  ; sd(lion_before_vs_during)
+quantile(lion_before_vs_during, prob = c(0.025, 0.5, 0.975))
+( length(which(lion_before_vs_during < 0)) / length(lion_before_vs_during) ) * 100
+# "lion -- before vs during"
+# 0.0005097983
+# -1.033583e-17
+# 0.06826246
+#          2.5%           50%         97.5%
+# -0.1389840639  0.0005097983  0.1406767648
+# 49.10707
+print('human -- before vs during')
+median(human_before_vs_during)  ; mean(human_before_vs_during)  ; sd(human_before_vs_during)
+quantile(human_before_vs_during, prob = c(0.025, 0.5, 0.975))
+( length(which(human_before_vs_during < 0)) / length(human_before_vs_during) ) * 100
+# "human -- before vs during"
+# -0.0004058518
+# -3.679702e-17
+# 0.01990462
+#          2.5%           50%         97.5%
+# -0.0429135164 -0.0004058518  0.0435304356
+# 51.9699
+
+print('dove -- before vs after')
+median(ctd_before_vs_after)  ; mean(ctd_before_vs_after)  ; sd(ctd_before_vs_after)
+quantile(ctd_before_vs_after, prob = c(0.025, 0.5, 0.975))
+( length(which(ctd_before_vs_after < 0)) / length(ctd_before_vs_after) ) * 100
+# "dove -- before vs after"
+# -0.0002240497
+# 3.578486e-17
+# 0.008915405
+#          2.5%           50%         97.5%
+# -0.0198031219 -0.0002240497  0.0213846625
+# 54.43829
+print('lion -- before vs after')
+median(lion_before_vs_after)  ; mean(lion_before_vs_after)  ; sd(lion_before_vs_after)
+quantile(lion_before_vs_after, prob = c(0.025, 0.5, 0.975))
+( length(which(lion_before_vs_after < 0)) / length(lion_before_vs_after) ) * 100
+# "lion -- before vs after"
+# 0.0003686601
+# 1.064202e-17
+# 0.0712211
+#          2.5%           50%         97.5%
+# -0.1434077651  0.0003686601  0.1452347579
+# 49.40424
+print('human -- before vs after')
+median(human_before_vs_after)  ; mean(human_before_vs_after)  ; sd(human_before_vs_after)
+quantile(human_before_vs_after, prob = c(0.025, 0.5, 0.975))
+( length(which(human_before_vs_after < 0)) / length(human_before_vs_after) ) * 100
+# "human -- before vs after"
+# -0.001024985
+# 2.900313e-17
+# 0.02732494
+#          2.5%          50%        97.5%
+# -0.056536928 -0.001024985  0.057456127
+# 52.63844
+
+print('dove -- during vs after')
+median(ctd_during_vs_after)  ; mean(ctd_during_vs_after)  ; sd(ctd_during_vs_after)
+quantile(ctd_during_vs_after, prob = c(0.025, 0.5, 0.975))
+( length(which(ctd_during_vs_after < 0)) / length(ctd_during_vs_after) ) * 100
+# "dove -- during vs after"
+# 0.003762167
+# 1.105849e-17
+# 0.03226886
+#          2.5%          50%        97.5%
+# -0.072103241  0.003762167  0.065066278
+# 42.10783
+print('lion -- during vs after')
+median(lion_during_vs_after)  ; mean(lion_during_vs_after)  ; sd(lion_during_vs_after)
+quantile(lion_during_vs_after, prob = c(0.025, 0.5, 0.975))
+( length(which(lion_during_vs_after < 0)) / length(lion_during_vs_after) ) * 100
+# "lion -- during vs after"
+# -4.013247e-05
+# 3.021342e-17
+# 0.0102537
+#          2.5%           50%         97.5%
+# -2.295673e-02 -4.013247e-05  2.423272e-02
+# 51.03931
+print('human -- during vs after')
+median(human_during_vs_after)  ; mean(human_during_vs_after)  ; sd(human_during_vs_after)
+quantile(human_during_vs_after, prob = c(0.025, 0.5, 0.975))
+( length(which(human_during_vs_after < 0)) / length(human_during_vs_after) ) * 100
+# "human -- during vs after"
+# -0.0001636495
+# 2.566709e-17
+# 0.009883111
+#          2.5%           50%         97.5%
+# -0.0219530454 -0.0001636495  0.0236350634
+# 53.60621 reporting
 print('dove vs lion')
 median(ctd_vs_lion)  ; mean(ctd_vs_lion)  ; sd(ctd_vs_lion)
 quantile(ctd_vs_lion, prob = c(0.025, 0.5, 0.975))
@@ -721,16 +1012,31 @@ quantile(lion_vs_human, prob = c(0.025, 0.5, 0.975))
 
 ## plot contrasts
 contrasts_long %>%
-  mutate(contrast = ifelse(contrast == 'ctd_vs_human',
-                           'dove -> human',
-                           ifelse(contrast == 'ctd_vs_lion',
-                                  'dove -> lion', 'lion -> human')),
-         bda = factor(bda, levels = c('before','during','after'))) %>%
+  filter(context %in% c('before','during','after')) %>% 
+  mutate(context = factor(context, levels = c('before','during','after'))) %>% 
   ggplot()+
   geom_density(aes(x = difference, colour = contrast))+
-  facet_grid(f_age_cat ~ bda)+
+  facet_grid(f_age_cat ~ context)+
   scale_colour_viridis_d()+
   labs(colour = 'effect of changing stimulus')
+ggsave(plot = last_plot(),
+       filename = 'mom_noprev_stimulus_contrasts_splittime_new1.png',
+       path = '../outputs/movement_ordinal_model_2bda/',
+       device = 'png', height = 2400, width = 1800, unit = 'px')
+
+contrasts_long %>%
+  filter(! context %in% c('before','during','after')) %>% 
+  mutate(context = ifelse(context == 'ctd', 'dove (control)', context)) %>% 
+  mutate(context = factor(context, levels = c('ctd','lion','human'))) %>% 
+  ggplot()+
+  geom_density(aes(x = difference, colour = contrast))+
+  facet_grid(f_age_cat ~ context)+
+  scale_colour_viridis_d()+
+  labs(colour = 'effect of changing stimulus')
+ggsave(plot = last_plot(),
+       filename = 'mom_noprev_stimulus_contrasts_splittime_new2.png',
+       path = '../outputs/movement_ordinal_model_2bda/',
+       device = 'png', height = 2400, width = 1800, unit = 'px')
 
 save.image('movement_direction/ordinal_noprev/moving_noprev_2bda_stimuluscontrasts.RData')
 
