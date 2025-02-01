@@ -541,7 +541,6 @@ plot_contrasts %>%
                       size = 0.3,
                       scale = 0.9)+
   scale_fill_viridis_d()+
-
   scale_linetype_manual(values = c(1,2,1),
                         breaks = c('10-15 to 16-20 yrs',
                                    '16-20 to 21-25 yrs',
@@ -602,112 +601,7 @@ plot_contrasts %>%
 ggsave(plot = last_plot(),
        filename = 'mom_noprev_contrastridges_splitbybda.png',
        path = '../outputs/movement_ordinal_model_2bda/',
-       device = 'png', height = 2800, width = 1900, unit = 'px')
-
-
-# load('movement_direction/ordinal_noprev/moving_noprev_2bda_stimuluscontrasts.RData')
-plot_contrasts <- contrasts_long %>%
-  rename(f_age_cat_org = f_age_cat,
-         f_age_num_org = f_age_num) %>%
-  mutate(f_age_num_alt = ifelse(f_age_num_org == 4, 1,
-                                f_age_num_org + 1)) %>%
-  mutate(f_age_cat_alt = ifelse(f_age_num_alt == 1,'10-15 yrs',
-                                ifelse(f_age_num_alt == 2, '16-20 yrs',
-                                       ifelse(f_age_num_alt == 3, '21-25 yrs',
-                                              '26-35 yrs'))),
-         move_pred = ifelse(move_pred == 'awaydirect',
-                            'directly away',
-                            ifelse(move_pred == 'awayangle',
-                                   'away at an angle',
-                                   ifelse(move_pred == 'neither',
-                                          'neither towards or away',
-                                          ifelse(move_pred == 'twdsangle',
-                                                 'approach at an angle',
-                                                 'directly approach')))),
-         stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
-                            ifelse(stim_type == 'l', 'lion', 'human'))) %>%
-  mutate(comparison = paste0(f_age_cat_org,' to ',f_age_cat_alt),
-         move_pred = factor(move_pred,
-                            levels = c('directly away', 'away at an angle',
-                                       'neither towards or away',
-                                       'approach at an angle', 'directly approach')))
-
-plot_contrasts %>%
-  mutate(p_age_cat = paste0('T: ',p_age_cat,' yrs'),
-         stim_type = factor(stim_type, levels = c('human','lion','dove (control)'))) %>%
-  filter(comparison != '26-35 to 10-15 yrs') %>%
-  ggplot()+
-  geom_vline(xintercept = 0, linetype = 3)+
-  geom_density_ridges(aes(y = stim_type,
-                          x = difference,
-                          fill = comparison,
-                          linetype = comparison,
-                          colour = comparison),
-                      alpha = 0.6,
-                      size = 0.3,
-                      scale = 0.9)+
-  scale_fill_viridis_d()+
-  scale_linetype_manual(values = c(1,2,1),
-                        breaks = c('10-15 to 16-20 yrs',
-                                   '16-20 to 21-25 yrs',
-                                   '21-25 to 26-35 yrs'))+
-  scale_colour_manual(values = c('transparent','black','black'),
-                      breaks = c('10-15 to 16-20 yrs',
-                                 '16-20 to 21-25 yrs',
-                                 '21-25 to 26-35 yrs'))+
-  scale_y_discrete(expand = c(0,0))+
-  labs(y = 'stimulus type',
-       fill = 'focal age change',
-       linetype = 'focal age change',
-       colour = 'focal age change',
-       x = 'contrast')+
-  facet_grid(move_pred ~ p_age_cat,
-             scales = 'fixed')+
-  theme(legend.position = 'bottom',
-        axis.text.x = element_text(angle = 90, vjust = 0.5))+
-  guides(fill = guide_legend(nrow = 3),
-         linetype = guide_legend(nrow = 3))
-ggsave(plot = last_plot(),
-       filename = 'mom_noprev_contrastridges_alldata.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       device = 'png', height = 2800, width = 1900, unit = 'px')
-
-plot_contrasts %>%
-  mutate(p_age_cat = paste0('T: ',p_age_cat,' yrs'),
-         stim_type = factor(stim_type, levels = c('human','lion','dove (control)')),
-         bda = factor(bda, levels = c('before','during','after'))) %>%
-  filter(comparison != '26-35 to 10-15 yrs') %>%
-  ggplot()+
-  geom_vline(xintercept = 0, linetype = 3)+
-  geom_density_ridges(aes(y = stim_type,
-                          x = difference,
-                          fill = comparison,
-                          linetype = bda,
-                          colour = bda),
-                      alpha = 0.6,
-                      size = 0.3,
-                      scale = 0.9)+
-  scale_fill_viridis_d()+
-  scale_linetype_manual(values = c(1,2,1),
-                        breaks = c('before','during','after'))+
-  scale_colour_manual(values = c('transparent','black','black'),
-                      breaks = c('before','during','after'))+
-  scale_y_discrete(expand = c(0,0))+
-  labs(y = 'stimulus type',
-       fill = 'focal age change',
-       linetype = 'time relative to stimulus',
-       colour = 'time relative to stimulus',
-       x = 'contrast')+
-  facet_grid(move_pred ~ p_age_cat,
-             scales = 'fixed')+
-  theme(legend.position = 'bottom',
-        axis.text.x = element_text(angle = 90, vjust = 0.5))+
-  guides(fill = guide_legend(nrow = 3),
-         linetype = guide_legend(nrow = 3))
-ggsave(plot = last_plot(),
-       filename = 'mom_noprev_contrastridges_splitbybda.png',
-       path = '../outputs/movement_ordinal_model_2bda/',
-       device = 'png', height = 2800, width = 1900, unit = 'px')
+       device = 'png', height = 2400, width = 2000, unit = 'px')
 
 print('movement ignoring t-1 behaviour complete')
 dev.off()
