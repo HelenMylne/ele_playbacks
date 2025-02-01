@@ -12,7 +12,7 @@ behav <- readRDS('../data_processed/behaviour_by_second_indexvariables_bda.RDS')
 num_chains <- 4
 num_iter <- 2000
 
-#### LOOKING DIRECTION -- all N(0,1) ####
+#### LOOKING DIRECTION -- all N(-1,1) ####
 # rm(list = ls()) ; gc()
 # load('looking_direction/looking_noprev_2bda_run.RData')
 
@@ -182,7 +182,6 @@ priors <- c(
   prior(normal(-1,1),      class = b,    coef = mof_age_num),
   prior(dirichlet(2,2,2),  class = simo, coef = mof_age_num1),
   # stimulus type
-  prior(normal(-1,1),      class = b,    coef = stim_typectd),
   prior(normal(-1,1),      class = b,    coef = stim_typel),
   prior(normal(-1,1),      class = b,    coef = stim_typeh),
   # time
@@ -262,33 +261,25 @@ nn <- nn %>%
 
 priors <- c(
   # age combination
-  prior(normal(-1,1),      class = b,    coef = age_combo1_1),
-  prior(normal(-1,1),      class = b,    coef = age_combo1_2),
-  prior(normal(-1,1),      class = b,    coef = age_combo1_3),
-  prior(normal(-1,1),      class = b,    coef = age_combo1_4),
-  prior(normal(-1,1),      class = b,    coef = age_combo2_1),
-  prior(normal(-1,1),      class = b,    coef = age_combo2_2),
-  prior(normal(-1,1),      class = b,    coef = age_combo2_3),
-  prior(normal(-1,1),      class = b,    coef = age_combo2_4),
-  prior(normal(-1,1),      class = b,    coef = age_combo3_1),
-  prior(normal(-1,1),      class = b,    coef = age_combo3_2),
-  prior(normal(-1,1),      class = b,    coef = age_combo3_3),
-  prior(normal(-1,1),      class = b,    coef = age_combo3_4),
-  prior(normal(-1,1),      class = b,    coef = age_combo4_1),
-  prior(normal(-1,1),      class = b,    coef = age_combo4_2),
-  prior(normal(-1,1),      class = b,    coef = age_combo4_3),
-  prior(normal(-1,1),      class = b,    coef = age_combo4_4),
+  prior(normal(0,1),          class = b,  coef = age_relOY),
+  prior(normal(0,1),          class = b,  coef = age_relYO),
+  prior(normal(0,1),          class = b,  coef = age_relYY),
   # stim type
-  prior(normal(-1,1),      class = b,    coef = stim_typeh),
-  prior(normal(-1,1),      class = b,    coef = stim_typel),
+  prior(normal(0,1),          class = b,  coef = stim_typeh),
+  prior(normal(0,1),          class = b,  coef = stim_typel),
   # before/during/after
-  prior(normal(-1,1),      class = b,    coef = bdabefore),
-  prior(normal(-1,1),      class = b,    coef = bdaduring),
+  prior(normal(0,1),          class = b,  coef = bdabefore),
+  prior(normal(0,1),          class = b,  coef = bdaduring),
   # interaction
-  prior(normal(-1,1),      class = b,    coef = stim_typeh:bdabefore),
-  prior(normal(-1,1),      class = b,    coef = stim_typeh:bdaduring),
-  prior(normal(-1,1),      class = b,    coef = stim_typel:bdabefore),
-  prior(normal(-1,1),      class = b,    coef = stim_typel:bdaduring))
+  prior(normal(0,1),          class = b,  coef = stim_typeh:bdabefore),
+  prior(normal(0,1),          class = b,  coef = stim_typeh:bdaduring),
+  prior(normal(0,1),          class = b,  coef = stim_typel:bdabefore),
+  prior(normal(0,1),          class = b,  coef = stim_typel:bdaduring),
+  # random effects / intercepts
+  prior(student_t(3, 0, 0.5), class = sd, group = focal),
+  prior(student_t(3, 0, 0.5), class = sd, group = pb_num),
+  prior(student_t(3, 0, 0.5), class = sd, group = stim_num),
+  prior(student_t(3, 0, 1),   class = Intercept))
 
 nbm_prior <- brm(
   formula = action ~ 0 + age_combo + stim_type * bda +
