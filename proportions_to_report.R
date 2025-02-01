@@ -13,7 +13,7 @@ set.seed(12345)
 prop <- readRDS('../data_processed/proportions_of_time_per_behaviour.RDS') %>%
   mutate(stim_type_full = ifelse(stim_type == 'l', 'lion',
                                  ifelse(stim_type == 'ctd', 'control', 'human')))
-bda <- read_csv('../data_processed/behaviour_by_second_indexvariables_bda.RDS')
+bda <- readRDS('../data_processed/behaviour_by_second_indexvariables_bda.RDS')
 
 # make sure age data is present for all rows
 ages <- bda %>% 
@@ -347,11 +347,14 @@ head(read_csv('../outputs/proportions_move_ctd.csv'))
 
 #### nearest neighbour ####
 nn <- bda %>%
-  filter(action != 'out_of_sight') %>% 
+  filter(action_name != 'out_of_sight') %>% 
   filter(activity == 'nn') %>%
-  filter(action == '1') %>% 
-  mutate(age_difference = ifelse(f_age_num > p_age_num, 'partner younger',
-                                 ifelse(f_age_num == p_age_num, 'matched', 'partner older'))) %>% 
+  filter(action_name == 1) %>% 
+  mutate(age_difference = ifelse(as.numeric(f_age_num) > as.numeric(p_age_num),
+                                 'partner younger',
+                                 ifelse(as.numeric(f_age_num) == as.numeric(p_age_num),
+                                        'matched',
+                                        'partner older'))) %>% 
   select(bda, age_difference, focal, stim_type, second) %>% 
   filter(!is.na(age_difference))
 
@@ -379,6 +382,11 @@ nn_summary <- nn_summary %>%
   mutate(percent = propn * 100)
 View(nn_summary %>%
        group_by(bda, age_difference, stim_type) %>%
+       summarise(mean = mean(percent, na.rm = T),
+                 stdv = sd(percent, na.rm = T)))
+
+View(nn_summary %>%
+       group_by(age_difference) %>%
        summarise(mean = mean(percent, na.rm = T),
                  stdv = sd(percent, na.rm = T)))
 
