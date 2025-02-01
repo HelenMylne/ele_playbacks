@@ -247,6 +247,65 @@ nn <- nn %>%
   filter(f_age_cat != 'unkage')
 sort(unique(nn$age_rel))
 
+## plot raw data
+ggplot(nn)+
+  geom_bar(aes(x = age_rel, fill = action_name))+
+  scale_x_discrete(name = 'relative ages')+
+  scale_fill_viridis_d(end = 0.5)+
+  labs(fill = 'neighbours')+
+  scale_y_continuous(expand = c(0,0),
+                     limits = c(0,65000))
+
+nn_prop <- table(nn$age_rel, nn$action_name) %>% 
+  as.data.frame() %>% 
+  rename(age_rel = Var1,
+         neighbours = Var2,
+         count = Freq) %>% 
+  mutate(neighbours = ifelse(neighbours == 0, 'no','yes'),
+         prop = NA) %>% 
+  mutate(neighbours = factor(neighbours, levels = c('yes','no')))
+for(i in 1:nrow(nn_prop)){
+  nn_prop$prop[i] <- nn_prop$count[i] / sum(nn_prop$count[nn_prop$age_rel == nn_prop$age_rel[i]])
+}
+
+ggplot(nn_prop)+
+  geom_col(aes(x = age_rel, fill = neighbours, y = prop))+
+  scale_x_discrete(name = 'relative ages')+
+  scale_fill_viridis_d(end = 0.5)+
+  labs(fill = 'neighbours')+
+  scale_y_continuous(expand = c(0,0),
+                     name = 'proportion')
+
+dyads <- nn %>% 
+  select(pb_num, focal, partner, f_age_wide, p_age_wide, age_rel) %>% 
+  distinct()
+table(dyads$age_rel)
+
+nodes <- nn %>% 
+  select(pb_num, focal, f_age_wide) %>% 
+  distinct()
+table(nodes$f_age_wide)
+
+groups <- nn %>% 
+  select(pb_num, f_age_wide) %>% 
+  distinct()
+table(groups$f_age_wide, groups$pb_num)
+
+playbacks <- nn %>% 
+  select(pb_num) %>% 
+  distinct() %>% 
+  mutate(prop_old = NA,
+         group_size = NA)
+for(i in 1:nrow(playbacks)){
+  pb <- nodes %>% 
+    filter(pb_num == playbacks$pb_num[i])
+  playbacks$prop_old[i] <- length(which(pb$f_age_wide == 'O')) / nrow(pb)
+  playbacks$group_size[i] <- nrow(pb)
+}
+
+ggplot(playbacks)+
+  geom_point(aes(x = group_size, y = prop_old))
+
 #### set prior                                                       ####
 get_prior(formula = action ~ 1 + age_rel + stim_type * bda +
             (1|focal) + (1|stim_num) + (1|pb_num),
