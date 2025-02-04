@@ -185,7 +185,7 @@ behav <- behav %>%
   filter(!is.na(f_age_num))
 
 ######## nearest neighbour                                           ####
-pdf('../outputs/neighbour_binomial_model_bda/neighbour_noprev_modelchecks.pdf')
+pdf('../outputs/neighbour_binomial_model_bda/neighbour_noprev_modelchecks_offset.pdf')
 
 #### create data                                                     ####
 ## select specific data
@@ -306,8 +306,25 @@ for(i in 1:nrow(playbacks)){
 ggplot(playbacks)+
   geom_point(aes(x = group_size, y = prop_old))
 
-#### set prior                                                       ####
-get_prior(formula = action ~ 1 + age_rel + stim_type * bda +
+#### ACCOUNT FOR POPULATION AGE DISTRIBUTION                         ####
+ages <- prop.table(table(nodes$f_age_wide)) %>% 
+  as.data.frame() %>% 
+  rename(age = Var1, prop = Freq)
+age_combos <- data.frame(age_rel = c('OO', 'OY', 'YO', 'YY'),
+                         focal = c( 'O', 'O' , 'Y' , 'Y' ),
+                         target = c('O', 'Y' , 'O' , 'Y' ),
+                         prop_agerel_popn = NA,
+                         logit_prop_agerel_popn = NA)
+for(i in 1:nrow(age_combos)){
+  age_combos$prop_agerel_popn[i] <- ages$prop[ages$age == age_combos$focal[i]] * ages$prop[ages$age == age_combos$target[i]]
+  age_combos$logit_prop_agerel_popn[i] <- LaplacesDemon::logit(age_combos$prop_agerel_popn[i])
+}
+
+nn <- nn %>% 
+  left_join(age_combos[,c('age_rel','logit_prop_agerel_popn')], by = 'age_rel')
+
+#### set prior: ADD OFFSET TO ACCOUNT FOR POPN AGE DISTRIBUTION      ####
+get_prior(formula = action ~ 1 + offset(logit_prop_agerel_popn) + age_rel + stim_type * bda +
             (1|focal) + (1|stim_num) + (1|pb_num),
           data = nn, family = bernoulli("logit"))
 #                prior     class                 coef    group resp dpar nlpar lb ub       source
@@ -358,7 +375,7 @@ priors <- c(
 num_chains <- 4
 num_iter <- 2000
 nbm_prior <- brm(
-  formula = action ~ 1 + age_rel + stim_type * bda +
+  formula = action ~ 1 + offset(logit_prop_agerel_popn) + age_rel + stim_type * bda +
     (1|focal) + (1|stim_num) + (1|pb_num),
   data = nn, family = bernoulli("logit"),
   prior = priors, chains = num_chains, cores = num_chains,
@@ -368,7 +385,7 @@ pp_check(nbm_prior)
 
 #### fit model                                                       ####
 nbm_fit <- brm(
-  formula = action ~ 1 + age_rel + stim_type * bda +
+  formula = action ~ 1 + offset(logit_prop_agerel_popn) + age_rel + stim_type * bda +
     (1|focal) + (1|stim_num) + (1|pb_num),
   data = nn, family = bernoulli("logit"),
   prior = priors, chains = num_chains, cores = num_chains,
@@ -376,10 +393,10 @@ nbm_fit <- brm(
   control = list(adapt_delta = 0.9,
                  max_treedepth = 10))
 
-save.image('nearest_neighbour/neighbour_noprev_run.RData')
+save.image('nearest_neighbour/neighbour_noprev_run_offset.RData')
 
 ## check model fit
-# load('nearest_neighbour/neighbour_noprev_run.RData')
+# load('nearest_neighbour/neighbour_noprev_run_offset.RData')
 (summary <- summary(nbm_fit))
 #
 par(mfrow = c(3,1))
@@ -448,7 +465,7 @@ names(neighbour_labels) <- c(1:4)
           axis.text.y = element_text(size = 12),
           legend.title = element_text(size = 12),
           legend.text = element_text(size = 10)) )
-ggsave(plot = focal_age_plot, filename = '../outputs/neighbour_binomial_model_bda/neighbour_noprev_marginaleffects_focalage.png',
+ggsave(plot = focal_age_plot, filename = '../outputs/neighbour_binomial_model_bda/neighbour_noprev_marginaleffects_focalage_offset.png',
        device = 'png', width = 8.3, height = 5.8)
 
 (stim_plot <- stim_effect %>%
@@ -473,7 +490,7 @@ ggsave(plot = focal_age_plot, filename = '../outputs/neighbour_binomial_model_bd
           axis.text = element_text(size = 12),
           legend.title = element_text(size = 12),
           legend.text = element_text(size = 10)) )
-ggsave(plot = stim_plot, filename = '../outputs/neighbour_binomial_model_bda/neighbour_noprev_marginaleffects_stimtype.png', device = 'png',
+ggsave(plot = stim_plot, filename = '../outputs/neighbour_binomial_model_bda/neighbour_noprev_marginaleffects_stimtype_offset.png', device = 'png',
        width = 8.3, height = 5.8)
 rm(focal_age_plot,stim_plot,age_effect,prev_effect,stim_effect,bda_effect) ;gc()
 
@@ -497,18 +514,18 @@ draws %>%
   facet_wrap(. ~ parameter, scales = 'free')+
   theme(legend.position = 'none')
 
-save.image('nearest_neighbour/neighbour_noprev_run.RData')
+save.image('nearest_neighbour/neighbour_noprev_run_offset.RData')
 
 ## reset plotting
 dev.off()
 
 #### predict from model                                              ####
-# load('nearest_neighbour/neighbour_noprev_run.RData')
+# load('nearest_neighbour/neighbour_noprev_run_offset.RData')
 rm(list = ls()[! ls() %in% c('nbm_fit','nn','behav','num_iter','num_chains')])
 
 pred <- posterior_epred(object = nbm_fit,
                         newdata = nn)
-save.image('nearest_neighbour/neighbour_noprev_predictions.RData')
+save.image('nearest_neighbour/neighbour_noprev_predictions_offset.RData')
 
 ## convert to data frame
 nn$data_row <- 1:nrow(nn)
@@ -520,14 +537,14 @@ predictions <- predictions %>%
   mutate(data_row = as.integer(data_row)) %>%
   left_join(nn, by = 'data_row')
 
-save.image('nearest_neighbour/neighbour_noprev_predictions.RData')
+save.image('nearest_neighbour/neighbour_noprev_predictions_offset.RData')
 rm(pred) ; gc()
 
 print(paste0('predictions calculated at ',Sys.time()))
 
 #### plot predictions                                                ####
-pdf('../outputs/neighbour_binomial_model_bda/neighbour_noprev_modelpredictions.pdf')
-# load('nearest_neighbour/neighbour_noprev_predictions.RData')
+pdf('../outputs/neighbour_binomial_model_bda/neighbour_noprev_modelpredictions_offset.pdf')
+# load('nearest_neighbour/neighbour_noprev_predictions_offset.RData')
 
 predictions %>%
   mutate(stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
@@ -547,15 +564,15 @@ predictions %>%
        y = 'predicted probability')+
   theme(legend.position = 'bottom')
 ggsave(path = '../outputs/neighbour_binomial_model_bda/',
-       filename = 'neighbour_noprev_modelpredictions.png',
+       filename = 'neighbour_noprev_modelpredictions_offset.png',
        device = 'png', height = 1200, width = 1600, units = 'px')
 
 ## reset plotting
 dev.off()
 
 #### calculate posterior contrasts from predictions                  ####
-load('nearest_neighbour/neighbour_noprev_predictions.RData')
-pdf('../outputs/neighbour_binomial_model_bda/neighbour_noprev_modelcontrasts.pdf')
+load('nearest_neighbour/neighbour_noprev_predictions_offset.RData')
+pdf('../outputs/neighbour_binomial_model_bda/neighbour_noprev_modelcontrasts_offset.pdf')
 
 ## stim type                                                         ####
 stim_new <- nn %>%
@@ -630,8 +647,8 @@ human_after_mtx <- posterior_epred(object = nbm_fit, newdata = human_after)
 colnames(human_after_mtx) <- human_after$unique_data_combo
 human_after_mtx <- human_after_mtx[c(1:100,1001:1100,2001:2100,3001:3100),]
 
-save.image('nearest_neighbour/neighbour_noprev_stimuluscontrasts.RData')
-# load('nearest_neighbour/neighbour_noprev_stimuluscontrasts.RData')
+save.image('nearest_neighbour/neighbour_noprev_stimuluscontrasts_offset.RData')
+# load('nearest_neighbour/neighbour_noprev_stimuluscontrasts_offset.RData')
 
 ## calculate contrasts
 ctd_vs_lion_before <- lion_before_mtx - ctd_before_mtx
@@ -937,24 +954,18 @@ contrasts_long %>%
   scale_colour_viridis_d()+
   labs(colour = 'effect of changing stimulus')
 
-save.image('nearest_neighbour/neighbour_noprev_stimuluscontrasts.RData')
+save.image('nearest_neighbour/neighbour_noprev_stimuluscontrasts_offset.RData')
 
 ## age combo                                                         ####
-# load('nearest_neighbour/neighbour_noprev_stimuluscontrasts.RData')
+# load('nearest_neighbour/neighbour_noprev_stimuluscontrasts_offset.RData')
 rm(list = ls()[!ls() %in% c('nbm_fit','nn','behav','num_iter','num_chains')]) ; gc()
 
 ## create new dataframe to predict from
 age_new <- nn %>%
   dplyr::select(age_rel, stim_type, bda,
                 focal, stim_num, pb_num) %>%
-  mutate(unique_data_combo = as.integer(as.factor(paste0(age_rel, bda,
+  mutate(unique_data_combo = as.integer(as.factor(paste0(stim_type, bda,
                                                          focal, stim_num, pb_num))))
-
-## predict with original ages
-age_nn_org <- age_new
-age_mtx_org <- posterior_epred(object = nbm_fit, newdata = age_nn_org)
-colnames(age_mtx_org) <- age_nn_org$unique_data_combo
-age_mtx_org <- age_mtx_org[c(1:100,1001:1100,2001:2100,3001:3100),]
 
 ## redo predictions with altered age combinations
 age_predict <- function(df, age_combination, model){
@@ -970,7 +981,7 @@ mtx_OY <- age_predict(df = age_new, age_combination = 'OY', model = nbm_fit)
 mtx_YO <- age_predict(df = age_new, age_combination = 'YO', model = nbm_fit)
 mtx_YY <- age_predict(df = age_new, age_combination = 'YY', model = nbm_fit)
 
-save.image('nearest_neighbour/neighbour_noprev_agecontrasts.RData')
+save.image('nearest_neighbour/neighbour_noprev_agecontrasts_offset.RData')
 
 ## calculate contrasts
 contrast_YYvYO <- mtx_YY - mtx_YO
@@ -1011,7 +1022,7 @@ contrasts_long <- contrasts %>%
          -mu, -v)
 
 ## save contrasts
-save.image('nearest_neighbour/neighbour_noprev_agecontrasts.RData')
+save.image('nearest_neighbour/neighbour_noprev_agecontrasts_offset.RData')
 
 ## produce values for reporting
 print('YY vs YO')
@@ -1093,7 +1104,7 @@ length(which(contrast_OYvOO < 0)) / length(contrast_OYvOO)
          title = 'changing focal age',
          x = 'contrast'))
 ggsave(plot = colour_plot, device = 'png',
-       filename = 'nbm_noprev_focalage_contrasts.png',
+       filename = 'nbm_noprev_focalage_contrasts_offset.png',
        path = '../outputs/neighbour_binomial_model_bda/',
        width = 2200, height = 2400, units = 'px')
 ggsave(plot = colour_plot, device = 'svg',
@@ -1116,7 +1127,7 @@ ggsave(plot = colour_plot, device = 'svg',
          title = 'changing partner age',
          x = 'contrast'))
 ggsave(plot = facet_plot, device = 'png',
-       filename = 'nbm_noprev_partnerage_contrasts.png',
+       filename = 'nbm_noprev_partnerage_contrasts_offset.png',
        path = '../outputs/neighbour_binomial_model_bda/',
        width = 2200, height = 2400, units = 'px')
 ggsave(plot = facet_plot, device = 'svg',
@@ -1124,282 +1135,5 @@ ggsave(plot = facet_plot, device = 'svg',
        path = '../outputs/neighbour_binomial_model_bda/',
        width = 2200, height = 2400, units = 'px')
 
-save.image('nearest_neighbour/neighbour_noprev_agecontrasts.RData')
+save.image('nearest_neighbour/neighbour_noprev_agecontrasts_offset.RData')
 
-######## create new model to compare to null model                   ########
-rm(list = ls()) ; gc()
-load('nearest_neighbour/neighbour_noprev_predictions.RData')
-ls()
-
-#### extract random effect values for offsets                        ####
-random <- as_draws_df(nbm_fit) %>%
-  dplyr::select(-b_Intercept, -b_age_relOY, -b_age_relYO, -b_age_relYY,
-                -b_stim_typeh, -b_stim_typel, -b_bdabefore, -b_bdaduring,
-                -`b_stim_typeh:bdabefore`, -`b_stim_typel:bdabefore`,
-                -`b_stim_typeh:bdaduring`, -`b_stim_typel:bdaduring`,
-                -lprior, -`lp__`)
-colnames(random)
-stim_num <- random %>%
-  dplyr::select(grep(pattern = 'stim_num', x = colnames(random)),
-                `.chain`, `.iteration`, `.draw`) %>%
-  pivot_longer(cols = 1:(length(unique(nn$stim_num)) + 1),
-               names_to = 'parameter',
-               values_to = 'mcmc')
-rand_stim <- stim_num %>%
-  group_by(parameter) %>%
-  summarise(mean_stim = mean(mcmc),
-            sd_stim = sd(mcmc)) %>%
-  separate(parameter, into = c('r_stim','stim_intercept'),
-           remove = F, sep = 11) %>%
-  separate(stim_intercept, into = c('stim_num','intercept'),
-           remove = T, sep = ',') %>%
-  dplyr::select(-intercept)
-
-pb_num <- random %>%
-  dplyr::select(grep(pattern = 'pb_num', x = colnames(random)),
-                `.chain`, `.iteration`, `.draw`) %>%
-  pivot_longer(cols = 1:(length(unique(nn$pb_num)) + 1),
-               names_to = 'parameter',
-               values_to = 'mcmc')
-rand_pb <- pb_num %>%
-  group_by(parameter) %>%
-  summarise(mean_pb = mean(mcmc),
-            sd_pb = sd(mcmc)) %>%
-  separate(parameter, into = c('r_pb','pb_intercept'),
-           remove = F, sep = 9) %>%
-  separate(pb_intercept, into = c('pb_num','intercept'),
-           remove = T, sep = ',') %>%
-  dplyr::select(-intercept)
-
-focal <- random %>%
-  dplyr::select(grep(pattern = 'focal', x = colnames(random)),
-                `.chain`, `.iteration`, `.draw`) %>%
-  pivot_longer(cols = 1:(length(unique(nn$focal)) + 1),
-               names_to = 'parameter',
-               values_to = 'mcmc')
-rand_focal <- focal %>%
-  group_by(parameter) %>%
-  summarise(mean_focal = mean(mcmc),
-            sd_focal = sd(mcmc)) %>%
-  separate(parameter, into = c('r_focal','focal_intercept'),
-           remove = F, sep = 8) %>%
-  separate(focal_intercept, into = c('focal','intercept'),
-           remove = T, sep = ',') %>%
-  dplyr::select(-intercept)
-
-## apply mean random effect values to data frame
-nn <- nn %>%
-  left_join(rand_stim[,c('stim_num','mean_stim','sd_stim')],
-            by = 'stim_num') %>%
-  mutate(pb_num = as.character(pb_num)) %>%
-  left_join(rand_pb[,c('pb_num','mean_pb','sd_pb')],
-            by = 'pb_num') %>%
-  mutate(pb_num = as.numeric(pb_num)) %>%
-  left_join(rand_focal[,c('focal','mean_focal','sd_focal')],
-            by = 'focal')
-
-#### reset priors (same as before but remove random effects)         ####
-priors2 <- c(
-  # age combination
-  prior(normal(0,1), class = b,  coef = age_relOY),
-  prior(normal(0,1), class = b,  coef = age_relYO),
-  prior(normal(0,1), class = b,  coef = age_relYY),
-  # stim type
-  prior(normal(0,1), class = b,  coef = stim_typeh),
-  prior(normal(0,1), class = b,  coef = stim_typel),
-  # before/during/after
-  prior(normal(0,1), class = b,  coef = bdabefore),
-  prior(normal(0,1), class = b,  coef = bdaduring),
-  # interaction
-  prior(normal(0,1), class = b,  coef = stim_typeh:bdabefore),
-  prior(normal(0,1), class = b,  coef = stim_typeh:bdaduring),
-  prior(normal(0,1), class = b,  coef = stim_typel:bdabefore),
-  prior(normal(0,1), class = b,  coef = stim_typel:bdaduring))
-
-#### refit model using offsets instead of random effects             ####
-nbm2_fit <- brm(
-  formula = action ~ 1 + age_rel + stim_type * bda +
-    offset(mean_focal) + offset(mean_stim) + offset(mean_pb),
-  data = nn, family = bernoulli("logit"),
-  prior = priors2, chains = num_chains, cores = num_chains,
-  iter = num_iter, warmup = num_iter/2, seed = 12345,
-  control = list(adapt_delta = 0.99,
-                 max_treedepth = 10))
-
-save.image('nearest_neighbour/neighbour_noprev_offset_fullmodel.RData')
-
-(summary2 <- summary(nbm2_fit))
-#
-par(mfrow = c(3,1))
-hist(summary2$fixed$Rhat, breaks = 50)
-hist(summary2$fixed$Bulk_ESS, breaks = 50)
-hist(summary2$fixed$Tail_ESS, breaks = 50)
-par(mfrow = c(1,1))
-
-## extract posterior distribution
-draws2 <- as_draws_df(nbm2_fit) %>%
-  select(-lprior, -`lp__`)
-parameters2 <- colnames(draws2)[1:(ncol(draws2)-3)]
-draws2 <- draws2  %>%
-  pivot_longer(cols = all_of(parameters2),
-               names_to = 'parameter',
-               values_to = 'draw') %>%
-  rename(chain = `.chain`,
-         position = `.iteration`,
-         draw_id = `.draw`) %>%
-  mutate(invlogit_draw = invlogit(draw))
-
-#### posterior predictive check                                      ####
-pp_check(nbm2_fit, ndraws = 100)
-
-#### plot traces                                                     ####
-draws2 %>%
-  ggplot(aes(x = position, y = draw, colour = as.factor(chain)))+
-  geom_line()+
-  facet_wrap(. ~ parameter, scales = 'free_y')+
-  theme(legend.position = 'none')
-
-#### plot density curves                                             ####
-draws2 %>%
-  ggplot(aes(x = draw, colour = as.factor(chain)))+
-  geom_density()+
-  facet_wrap(. ~ parameter, scales = 'free')+
-  theme(legend.position = 'none')
-
-save.image('nearest_neighbour/neighbour_noprev_offset_fullmodel.RData')
-
-#### predict from model                                              ####
-# load('nearest_neighbour/neighbour_noprev_offset_fullmodel.RData')
-rm(list = ls()[! ls() %in% c('nbm2_fit','nn','behav','num_iter','num_chains')])
-
-pred2 <- posterior_epred(object = nbm2_fit,
-                         newdata = nn)
-save.image('nearest_neighbour/neighbour_noprev_offset_fullmodel_predictions.RData')
-
-## convert to data frame
-predictions2 <- as.data.frame(pred2)
-colnames(predictions2) <- 1:nrow(nn)
-predictions2 <- predictions2 %>%
-  pivot_longer(cols = everything(),
-               names_to = 'data_row', values_to = 'epred') %>%
-  mutate(data_row = as.integer(data_row)) %>%
-  left_join(nn, by = 'data_row')
-
-save.image('nearest_neighbour/neighbour_noprev_offset_fullmodel_predictions.RData')
-rm(pred2) ; gc()
-
-print(paste0('predictions calculated at ',Sys.time()))
-
-#### plot predictions                                                ####
-pdf('../outputs/neighbour_binomial_model_bda/neighbour_noprev_offset_fullmodel_predictions.pdf')
-# load('nearest_neighbour/neighbour_noprev_offset_fullmodel_predictions.RData')
-
-predictions2 %>%
-  mutate(stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
-                            ifelse(stim_type == 'l', 'lion', 'human'))) %>%
-  mutate(stim_type = factor(stim_type, levels = c('dove (control)', 'lion', 'human')),
-         bda = factor(bda, levels = c('before','during','after'))) %>%
-  ggplot()+
-  geom_violin(aes(x = f_age_cat,
-                  y = epred,
-                  colour = bda)) +
-  facet_grid(p_age_cat ~ stim_type)+
-  scale_fill_viridis_d()+
-  scale_colour_viridis_d()+
-  labs(colour = 'time relative to stimulus:',
-       fill = 'time relative to stimulus:',
-       x = 'age category of focal elephant',
-       y = 'predicted probability')+
-  theme(legend.position = 'bottom')
-ggsave(path = '../outputs/neighbour_binomial_model_bda/',
-       filename = 'neighbour_noprev_offset_fullmodel_predictions.png',
-       device = 'png', height = 1200, width = 1600, units = 'px')
-
-######## compare to null                                             ########
-rm(list = ls()[! ls() %in% c('predictions2','nn','num_chains','num_iter')]) ; gc()
-
-load('nearest_neighbour/neighbour_noprev_predictions_null.RData')
-rm(list = ls()[! ls() %in% c('predictions_null',
-                             'predictions2','nn',
-                             'num_chains','num_iter')]) ; gc()
-
-save.image('nearest_neighbour/neighbour_noprev_offset_nullcompare.RData')
-# load('nearest_neighbour/neighbour_noprev_offset_nullcompare.RData')
-
-predictions_null$model_type <- 'null'
-predictions2$model_type <- 'full'
-
-pred_all <- rbind(predictions2,predictions_null)
-save.image('nearest_neighbour/neighbour_noprev_offset_nullcompare.RData')
-# load('nearest_neighbour/neighbour_noprev_nullcompare.RData')
-
-pred_all <- pred_all %>%
-  mutate(iteration = rep(rep(1:num_iter, each = nrow(nn)), (num_chains*2) ) )
-
-mid <- sample(x = (1:(num_chains*num_iter)), size = 1000, replace = F)
-pred_all <- pred_all %>%
-  filter(iteration %in% mid)
-
-gc()
-save.image('nearest_neighbour/neighbour_noprev_nullcompare_offset_smallfiles.RData')
-# load('nearest_neighbour/neighbour_noprev_nullcompare_smallfiles.RData')
-predictions <- pred_all %>% 
-  filter(model_type == 'live')
-
-predictions_null <- pred_all %>% 
-  filter(model_type == 'null')
-
-(null_lwr <- quantile(x = predictions_null$epred, probs = 0.025))
-(null_upr <- quantile(x = predictions_null$epred, probs = 0.975))
-
-(live_lwr <- quantile(x = predictions$epred, probs = 0.025))
-(live_upr <- quantile(x = predictions$epred, probs = 0.975))
-
-length(which(predictions$epred > null_lwr)) / nrow(predictions)
-length(which(predictions$epred < null_upr)) / nrow(predictions)
-
-length(which(predictions$epred > null_lwr & predictions$epred < null_upr)) / nrow(predictions)
-
-(all <- pred_all %>% 
-    mutate(model_type = ifelse(model_type == 'live',
-                               'relative age + stimulus * time',
-                               'stimulus * time'),
-           stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
-                              ifelse(stim_type == 'l', 'lion', 'human')),
-           f_age_cat = paste0('F: ',f_age_cat),
-           p_age_cat = paste0('T: ',p_age_cat)) %>% 
-    mutate(stim_type = factor(stim_type,
-                              levels = c('dove (control)','lion','human')),
-           bda = factor(bda, levels = c('before','during','after'))) %>% 
-    ggplot()+
-    geom_density(aes(x = epred,
-                     fill = model_type,
-                     colour = model_type),
-                 alpha = 0.5)+
-    scale_colour_viridis_d(end = 0.5)+
-    scale_fill_viridis_d(end = 0.5)+
-    labs(x = 'predicted probability of being neighbours',
-         fill = 'model type',
-         colour = 'model type'))
-ggsave(plot = all, device = 'png',
-       filename = 'compare_neighbour_null.png',
-       path = '../outputs/neighbour_binomial_model_bda/',
-       height = 1200, width = 1600, units = 'px')
-
-(facet_stim <- all + 
-    facet_grid(bda ~ stim_type)+
-    theme(legend.position = 'bottom'))
-ggsave(plot = facet_stim, device = 'png',
-       filename = 'compare_neighbour_null_facetstim.png',
-       path = '../outputs/neighbour_binomial_model_bda/',
-       height = 1600, width = 2000, units = 'px')
-
-(facet_age <- all + 
-    facet_grid(p_age_cat ~ f_age_cat)+
-    theme(legend.position = 'bottom'))
-ggsave(plot = facet_age, device = 'png',
-       filename = 'compare_neighbour_null_facetage.png',
-       path = '../outputs/neighbour_binomial_model_bda/',
-       height = 1600, width = 2400, units = 'px')
-
-dev.off()
