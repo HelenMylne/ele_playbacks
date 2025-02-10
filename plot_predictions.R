@@ -38,7 +38,7 @@ extract_predictions <- function(array, slice, df){
 #                                                              'not moving at t-1')))
 #     }
 #   }
-#   
+#
 #   if(type == 'move_dir'){
 #     if(prev == TRUE){
 #       pred_df <- pred_df %>%
@@ -55,7 +55,7 @@ extract_predictions <- function(array, slice, df){
 #                                                              'approach directly')))
 #     }
 #   }
-#   
+#
 #   if(type == 'look'){
 #     if(prev == TRUE){
 #       pred_df <- pred_df %>%
@@ -67,8 +67,8 @@ extract_predictions <- function(array, slice, df){
 #                                                              'look towards')))
 #     }
 #   }
-#   
-#   pred_df <- pred_df %>% 
+#
+#   pred_df <- pred_df %>%
 #     mutate(f_age_cat = ifelse(f_age_num == 1, '10-15 yrs',
 #                               ifelse(f_age_num == 2, '16-20 yrs',
 #                                      ifelse(f_age_num == 3, '21-25 yrs',
@@ -87,7 +87,7 @@ extract_predictions <- function(array, slice, df){
 #     scale_fill_viridis_d()+
 #     theme(legend.position = 'bottom',
 #           axis.text.x = element_text(angle = 90))
-#   
+#
 #   if(prev == TRUE){
 #     plot <- plot + facet_grid(prev_action ~ stim_type,
 #                       scales = 'free_x')
@@ -98,7 +98,7 @@ extract_predictions <- function(array, slice, df){
 #   }
 #   return(plot)
 # }
-# 
+#
 # ridge_pred_splitpartner <- function(pred, type, prev){
 #   if(type == 'move_dir'){
 #     predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'move directly away',
@@ -121,7 +121,7 @@ extract_predictions <- function(array, slice, df){
 #                                                              'approach directly')))
 #     }
 #   }
-#   
+#
 #   if(type == 'look'){
 #     predicted_direction <- ifelse(pred$predicted_direction[1] == 1, 'look away',
 #                                   ifelse(pred$predicted_direction[1] == 2, 'side-on',
@@ -136,18 +136,18 @@ extract_predictions <- function(array, slice, df){
 #                                                              'look towards')))
 #     }
 #   }
-#   
-#   pred <- pred %>% 
+#
+#   pred <- pred %>%
 #     mutate(f_age_cat = ifelse(f_age_num == 1, '10-15 yrs',
 #                               ifelse(f_age_num == 2, '16-20 yrs',
 #                                      ifelse(f_age_num == 3, '21-25 yrs',
-#                                             '26-35 yrs')))) %>% 
+#                                             '26-35 yrs')))) %>%
 #     separate(age_combo, into = c('f','p_age_cat'), remove = F) %>%
 #     mutate(p_age_cat = ifelse(p_age_cat == '1', '10-15 yrs',
 #                               ifelse(p_age_cat == '2', '16-20 yrs',
-#                                      ifelse(p_age_cat == '3', '21-25 yrs', '26-35 yrs')))) %>% 
+#                                      ifelse(p_age_cat == '3', '21-25 yrs', '26-35 yrs')))) %>%
 #     mutate(stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
-#                               ifelse(stim_type == 'l', 'lion', 'human'))) %>% 
+#                               ifelse(stim_type == 'l', 'lion', 'human'))) %>%
 #     mutate(stim_type = factor(stim_type, levels = c('dove (control)','lion','human')))
 #   plot <- pred %>%
 #     ggplot()+
@@ -163,7 +163,7 @@ extract_predictions <- function(array, slice, df){
 #     scale_fill_viridis_d()+
 #     theme(legend.position = 'bottom',
 #           axis.text.x = element_text(angle = 90))
-#   
+#
 #   if(prev == TRUE){
 #     plot <- plot + facet_grid(prev_action ~ stim_type,
 #                       scales = 'free_x')
@@ -174,14 +174,14 @@ extract_predictions <- function(array, slice, df){
 #   }
 #   return(plot)
 # }
-# 
+#
 #### create contrast plotting functions         ####
 contrast_plot_altogether <- function(contrasts, type, direction, #prev,
                                      free_y){
   if(type == 'move'){
     contrasts <- contrasts %>%
       filter(move_pred == direction)
-    
+
     # if(prev == TRUE){
     #   contrasts <- contrasts %>%
     #     mutate(prev_action = ifelse(move_tminus1_num == 1, 'move away directly',
@@ -207,7 +207,7 @@ contrast_plot_altogether <- function(contrasts, type, direction, #prev,
                                               'towards at an angle',
                                               'towards directly'))))
   }
-  
+
   if(type == 'look'){
     contrasts <- contrasts %>%
       filter(look_pred == direction)
@@ -222,7 +222,7 @@ contrast_plot_altogether <- function(contrasts, type, direction, #prev,
                          ifelse(direction == 'side', 'side-on',
                                 'look towards'))
   }
-  
+
   plot <- contrasts %>%
     rename(f_age_cat_org = f_age_cat,
            f_age_num_org = f_age_num) %>%
@@ -234,7 +234,7 @@ contrast_plot_altogether <- function(contrasts, type, direction, #prev,
                                                 '26-35 yrs')))) %>%
     mutate(comparison = paste0(f_age_cat_org,' to ',f_age_cat_alt),
            stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
-                              ifelse(stim_type == 'l', 'lion', 'human'))) %>% 
+                              ifelse(stim_type == 'l', 'lion', 'human'))) %>%
     mutate(stim_type = factor(stim_type,
                               levels = c('dove (control)',
                                          'lion',
@@ -252,7 +252,7 @@ contrast_plot_altogether <- function(contrasts, type, direction, #prev,
     theme(legend.position = 'bottom',
           axis.text.x = element_text(angle = 90, vjust = 0.5))+
     facet_grid(bda ~ stim_type)
-  
+
   # if(prev == TRUE){
   #   plot <- plot + facet_grid(prev_action ~ stim_type,
   #              scales = ifelse(free_y == T, 'free_y', 'fixed'))
@@ -264,7 +264,7 @@ contrast_plot_altogether <- function(contrasts, type, direction, #prev,
   return(plot)
 }
 
-contrast_plot_splitpartner <- function(contrasts, type, direction, #prev, 
+contrast_plot_splitpartner <- function(contrasts, type, direction, #prev,
                                        free_y){
   if(type == 'move'){
     contrasts <- contrasts %>%
@@ -297,7 +297,7 @@ contrast_plot_splitpartner <- function(contrasts, type, direction, #prev,
                                               'towards at an angle',
                                               'towards directly'))))
   }
-  
+
   if(type == 'look'){
     contrasts <- contrasts %>%
       filter(look_pred == direction)
@@ -312,7 +312,7 @@ contrast_plot_splitpartner <- function(contrasts, type, direction, #prev,
                          ifelse(direction == 'side', 'side-on',
                                 'look towards'))
   }
-  
+
   plot <- contrasts %>%
     rename(f_age_cat_org = f_age_cat,
            f_age_num_org = f_age_num) %>%
@@ -854,21 +854,21 @@ for(plot in c('away','side','twds')){
          filename = paste0('lom_noprev_contrasts_fixedscales_',plot,'_altogether.png'),
          path = '../outputs/looking_ordinal_model_2bda/',
          height = 3000, width = 2100, unit = 'px')
-  
+
   contrast_plot_altogether(contrasts_long, type = 'look', direction = plot,#prev = F,
                            free_y = F)
   ggsave(plot = last_plot(), device = 'png',
          filename = paste0('lom_noprev_contrasts_freescales_',plot,'_altogether.png'),
          path = '../outputs/looking_ordinal_model_2bda/',
          height = 3000, width = 2100, unit = 'px')
-  
+
   contrast_plot_splitpartner(contrasts_long, type = 'look', direction = plot,#prev = F,
                              free_y = F)
   ggsave(plot = last_plot(), device = 'png',
          filename = paste0('lom_noprev_contrasts_fixedscales_',plot,'_splitpartner.png'),
          path = '../outputs/looking_ordinal_model_2bda/',
          height = 3000, width = 2100, unit = 'px')
-  
+
   contrast_plot_splitpartner(contrasts_long, type = 'look', direction = plot,#prev = F,
                              free_y = F)
   ggsave(plot = last_plot(), device = 'png',
@@ -1227,33 +1227,25 @@ print('movement binomial complete')
 dev.off()
 
 #### neighbour binomial ####
-pdf('../outputs/neighbour_binomial_model_bda/niceplots_nearestneighbour_noprev.pdf')
-# load('nearest_neighbour/neighbour_noprev_agecontrasts.RData')
-# rm(list = ls()[! ls() %in% c('contrasts','contrasts_long','age_nn_org','age_mtx_org','nn',
-#                              'extract_predictions',
-#                              'ridge_pred_altogether','ridge_pred_splitpartner',
-#                              'contrast_plot_altogether','contrast_plot_splitpartner',
-#                              'contrast_YYvYO','contrast_YYvOY','contrast_YYvOO',
-#                              'contrast_YOvOY','contrast_YOvOO','contrast_OYvOO')]) ; gc()
-# print('data loaded')
-#
-# save.image('nearest_neighbour/neighbour_noprev_agecontrasts_plotting.RData')
-load('nearest_neighbour/neighbour_noprev_agecontrasts_plotting.RData')
+pdf('../outputs/neighbour_binomial_model_bda/niceplots_nearestneighbour_noprev_offset.pdf')
 
 ## plot predictions
-colnames(age_mtx_org) <- 1:nrow(age_nn_org)
-age_nn_org$data_id <- 1:nrow(age_nn_org)
-pred <- age_mtx_org %>%
+load('nearest_neighbour/neighbour_noprev_predictions_offset.RData')
+ls()
+
+colnames(pred) <- 1:nrow(nn)
+nn$data_id <- 1:nrow(nn)
+pred <- pred %>%
   as.data.frame() %>%
   pivot_longer(cols = everything(), names_to = 'data_id', values_to = 'epred') %>%
   mutate(data_id = as.integer(data_id)) %>%
-  left_join(age_nn_org, by = 'data_id') %>%
+  left_join(nn, by = 'data_id') %>%
   separate(age_rel, into = c('f_age','p_age'), remove = F, sep = 1) %>%
   mutate(stim_type_long = ifelse(stim_type == 'ctd','dove (control)',
                                  ifelse(stim_type == 'l','lion','human')),
          f_age_cat = ifelse(f_age == 'Y', 'young', 'old'),
          p_age_cat = ifelse(p_age == 'Y', 'T: young', 'T: old'),
-         draw_id = rep(1:400, each = nrow(age_nn_org)),
+         draw_id = rep(1:4000, each = nrow(nn)),
          stim_type_long = ifelse(stim_type == 'ctd','dove (control)',
                                  ifelse(stim_type == 'l','lion','human'))) %>%
   mutate(stim_type_long = factor(stim_type_long,
@@ -1307,7 +1299,7 @@ pred %>%
   theme(legend.position = 'bottom',
         axis.text.x = element_text(angle = 90))+
   facet_grid(bda ~ stim_type_long, scales = 'free_x')
-ggsave(filename = 'nbm_noprev_predicted_ridges_altogether.png',
+ggsave(filename = 'nbm_noprev_predicted_ridges_altogether_offset.png',
        path = '../outputs/neighbour_binomial_model_bda/',
        plot = last_plot(),
        device = 'png', height = 1800, width = 1500, units = 'px')
@@ -1329,7 +1321,7 @@ pred %>%
   theme(legend.position = 'bottom',
         axis.text.x = element_text(angle = 90))+
   facet_grid(bda ~ stim_type_long, scales = 'free_x')
-ggsave(filename = 'nbm_noprev_predicted_ridges_splitpartner.png',
+ggsave(filename = 'nbm_noprev_predicted_ridges_splitpartner_offset.png',
        path = '../outputs/neighbour_binomial_model_bda/',
        plot = last_plot(),
        device = 'png', height = 1800, width = 1500, units = 'px')
@@ -1358,7 +1350,7 @@ pred %>%
   theme(legend.position = 'bottom')+
   guides(fill = guide_legend(nrow = 3),
          linetype = guide_legend(nrow = 3))
-ggsave(filename = 'nbm_noprev_predicted_ridges_splitboth.png',
+ggsave(filename = 'nbm_noprev_predicted_ridges_splitboth_offset.png',
        path = '../outputs/neighbour_binomial_model_bda/',
        plot = last_plot(),
        device = 'png', height = 1800, width = 1500, units = 'px')
@@ -1387,7 +1379,7 @@ pred %>%
   theme(legend.position = 'bottom')+
   guides(fill = guide_legend(nrow = 3),
          linetype = guide_legend(nrow = 3))
-ggsave(filename = 'nbm_noprev_predicted_ridges_splittime.png',
+ggsave(filename = 'nbm_noprev_predicted_ridges_splittime_offset.png',
        path = '../outputs/neighbour_binomial_model_bda/',
        plot = last_plot(),
        device = 'png', height = 1800, width = 1500, units = 'px')
@@ -1395,43 +1387,57 @@ print('ridges produced')
 rm(pred) ; gc()
 
 ## contrasts
+rm(list = ls()[! ls() %in% c('contrast_plot_altogether','contrast_plot_splitpartner')]) ; gc()
+load('nearest_neighbour/neighbour_noprev_agecontrasts_offset.RData')
+rm(list = ls()[! ls() %in% c('contrasts','contrasts_long','nn',
+                             'contrast_plot_altogether','contrast_plot_splitpartner',
+                             'contrast_YYvYO','contrast_YYvOY','contrast_YYvOO',
+                             'contrast_YOvOY','contrast_YOvOO','contrast_OYvOO')]) ; gc()
+print('data loaded')
+
+save.image('nearest_neighbour/neighbour_noprev_offset_agecontrasts_plotting.RData')
+# load('nearest_neighbour/neighbour_noprev_offset_agecontrasts_plotting.RData')
+
+ls()
+nn$data_id <- 1:nrow(nn)
+
 make_long <- function(contrast_mtx, names, comparison){
   colnames(contrast_mtx) <- names
   contrast_df <- contrast_mtx %>%
     as.data.frame() %>%
     pivot_longer(cols = everything(),
-                 names_to = 'unique_data_combo',
+                 names_to = 'data_id',
                  values_to = 'contrast') %>%
-    mutate(unique_data_combo = as.integer(unique_data_combo),
-           comparison = comparison)
+    mutate(comparison = comparison,
+           data_id = as.integer(data_id))
   return(contrast_df)
 }
 
 contrast_YYvYO <- make_long(contrast_mtx = contrast_YYvYO,
-                            names = age_nn_org$unique_data_combo,
-                            comparison = 'YYvYO')
+                            names = nn$data_id, comparison = 'YYvYO')
+print('YYvYO done')
 contrast_YYvOY <- make_long(contrast_mtx = contrast_YYvOY,
-                            names = age_nn_org$unique_data_combo,
-                            comparison = 'YYvOY')
+                            names = nn$data_id, comparison = 'YYvOY')
+print('YYvOY done')
 contrast_YYvOO <- make_long(contrast_mtx = contrast_YYvOO,
-                            names = age_nn_org$unique_data_combo,
-                            comparison = 'YYvOO')
+                            names = nn$data_id, comparison = 'YYvOO')
+print('YYvOO done')
 contrast_YOvOY <- make_long(contrast_mtx = contrast_YOvOY,
-                            names = age_nn_org$unique_data_combo,
-                            comparison = 'YOvOY')
+                            names = nn$data_id, comparison = 'YOvOY')
+print('YOvsOY done')
 contrast_YOvOO <- make_long(contrast_mtx = contrast_YOvOO,
-                            names = age_nn_org$unique_data_combo,
-                            comparison = 'YOvOO')
+                            names = nn$data_id, comparison = 'YOvOO')
+print('YOvOO done')
 contrast_OYvOO <- make_long(contrast_mtx = contrast_OYvOO,
-                            names = age_nn_org$unique_data_combo,
-                            comparison = 'OYvOO')
+                            names = nn$data_id, comparison = 'OYvOO')
+print('OYvOO done')
 
 age_contrast_long <- rbind(contrast_YYvYO, contrast_YYvOY, contrast_YYvOO,
                            contrast_YOvOY, contrast_YOvOO, contrast_OYvOO)
-saveRDS(age_contrast_long, '../data_processed/nn_contrasts_youngold.RDS')
+saveRDS(age_contrast_long, '../data_processed/nn_contrasts_youngold_trimmed.RDS')
 
 age_contrast_long <- age_contrast_long %>%
-  left_join(distinct(age_nn_org), by = 'unique_data_combo') %>%
+  left_join(distinct(nn), by = 'data_id') %>%
   separate(col = comparison, into = c('original', 'altered'), sep = 'v', remove = F) %>%
   separate(col = original, into = c('f_age_org','p_age_org'), sep = 1, remove = F) %>%
   separate(col = altered,  into = c('f_age_alt','p_age_alt'), sep = 1, remove = F) %>%
@@ -1441,9 +1447,8 @@ age_contrast_long <- age_contrast_long %>%
          p_age_alt_short = ifelse(p_age_alt == 'Y', 'young', 'old')) %>%
   mutate(comparison_long = paste0('F: ', f_age_org_short, ' + T: ', p_age_org_short, ' to ',
                                   'F: ', f_age_alt_short, ' + T: ', p_age_alt_short))
-save.image('nearest_neighbour/neighbour_binomial_ageplotting.RData')
-write_csv(age_contrast_long, '../data_processed/neighbour_binomial_agecontrasts_check.csv')
-age_contrast_long <- read_csv('../data_processed/neighbour_binomial_agecontrasts_check.csv')
+save.image('nearest_neighbour/neighbour_binomial_ageplotting_offset.RData')
+saveRDS(age_contrast_long, '../data_processed/neighbour_binomial_agecontrasts_check_trimmed.RDS')
 
 # ## plot
 # length(which(is.na(age_contrast_long$comparison) == TRUE))
@@ -1465,7 +1470,7 @@ age_contrast_long <- read_csv('../data_processed/neighbour_binomial_agecontrasts
 #   theme(legend.position = 'bottom',
 #         axis.text.x = element_text(angle = 90, vjust = 0.5))
 # ggsave(plot = last_plot(), device = 'png',
-#        filename = 'nbm_violin_contrasts_noprev.png',
+#        filename = 'nbm_violin_contrasts_noprev_offset.png',
 #        path = '../outputs/neighbour_binomial_model_bda/',
 #        height = 1600, width = 1600, unit = 'px')
 #
@@ -1474,138 +1479,135 @@ plot_contrasts <- age_contrast_long %>%
   mutate(stim_type = ifelse(stim_type == 'ctd', 'dove (control)',
                             ifelse(stim_type == 'l', 'lion', 'human')))
 
-for(stimulus in c("dove (control)","lion","human")){
-  plot <- plot_contrasts %>%
-    filter(stim_type == stimulus) %>%
-    ggplot()+
-    geom_hline(yintercept = 0, lty = 3)+
-    geom_violin(aes(x = comparison,
-                    y = contrast),
-                fill = '#21918c',
-                colour = 'transparent')+
-    theme(legend.position = 'bottom',
-          axis.text.x = element_text(angle = 90, vjust = 0.5))+
-    labs(y = 'difference')
-  print(plot)
-}
-
-unique(plot_contrasts$comparison)
-
-plot_contrasts %>%
-  mutate(stim_type = factor(stim_type, levels = c('human','lion','dove (control)'))) %>%
-  ggplot()+
-  geom_vline(xintercept = 0, linetype = 3)+
-  geom_density_ridges(aes(y = stim_type,
-                          x = contrast,
-                          fill = comparison,
-                          linetype = comparison,
-                          colour = comparison),
-                      alpha = 0.6,
-                      size = 0.3,
-                      scale = 0.9)+
-  scale_fill_viridis_d()+
-  scale_linetype_manual(values = c(3,2,1,1,2,3),
-                        breaks = c('F: young + T: young to F: young + T: old',
-                                   'F: young + T: young to F: old + T: young',
-                                   'F: young + T: young to F: old + T: old',
-                                   'F: young + T: old to F: old + T: young',
-                                   'F: young + T: old to F: old + T: old',
-                                   'F: old + T: young to F: old + T: old'))+
-  scale_colour_manual(values = c('grey','grey','grey','black','black','black'),
-                      breaks = c('F: young + T: young to F: young + T: old',
-                                 'F: young + T: young to F: old + T: young',
-                                 'F: young + T: young to F: old + T: old',
-                                 'F: young + T: old to F: old + T: young',
-                                 'F: young + T: old to F: old + T: old',
-                                 'F: old + T: young to F: old + T: old'))+
-  scale_y_discrete(expand = c(0,0))+
-  labs(y = 'stimulus type',
-       fill = 'age change',
-       linetype = 'age change',
-       colour = 'age change',
-       x = 'contrast')+
-  theme(legend.position = 'bottom',
-        axis.text.x = element_text(angle = 90, vjust = 0.5))+
-  guides(fill = guide_legend(nrow = 3),
-         linetype = guide_legend(nrow = 3))
-ggsave(plot = last_plot(),
-       filename = 'nbm_noprev_contrastridges_alldata.png',
-       path = '../outputs/neighbour_binomial_model_bda/',
-       device = 'png', height = 2800, width = 1900, unit = 'px')
-
-plot_contrasts %>%
-  mutate(comparison = paste0(original, '->', altered)) %>%
-  mutate(stim_type = factor(stim_type, levels = c('human','lion','dove (control)')),
-         bda = factor(bda, levels = c('before','during','after'))) %>%
-  filter(comparison != '26-35 yrs to 10-15 yrs') %>%
-  ggplot()+
-  geom_vline(xintercept = 0, linetype = 3)+
-  geom_density_ridges(aes(y = stim_type,
-                          x = contrast,
-                          fill = comparison,
-                          linetype = bda,
-                          colour = bda),
-                      alpha = 0.6,
-                      size = 0.3,
-                      scale = 0.9)+
-  scale_fill_viridis_d()+
-  scale_linetype_manual(values = c(1,2,1),
-                        breaks = c('before','during','after'))+
-  scale_colour_manual(values = c('transparent','black','black'),
-                      breaks = c('before','during','after'))+
-  scale_y_discrete(expand = c(0,0))+
-  labs(y = 'stimulus type',
-       fill = 'focal age change',
-       linetype = 'time relative to stimulus',
-       colour = 'time relative to stimulus',
-       x = 'contrast')+
-  theme(legend.position = 'bottom',
-        axis.text.x = element_text(angle = 90, vjust = 0.5))+
-  guides(fill = guide_legend(nrow = 3),
-         linetype = guide_legend(nrow = 3))
-ggsave(plot = last_plot(),
-       filename = 'nbm_noprev_contrastridges_splitbybda.png',
-       path = '../outputs/neighbour_binomial_model_bda/',
-       device = 'png', height = 2800, width = 1900, unit = 'px')
-
-print('neighbour binomial complete')
-dev.off()
-
-plot_contrasts %>%
-  mutate(comparison = paste0(original, '->', altered)) %>%
-  mutate(stim_type = factor(stim_type, levels = c('human','lion','dove (control)')),
-         bda = factor(bda, levels = c('before','during','after'))) %>%
-  filter(comparison != '26-35 yrs to 10-15 yrs') %>%
-  ggplot()+
-  geom_vline(xintercept = 0, linetype = 3)+
-  geom_density_ridges(aes(y = stim_type,
-                          x = contrast,
-                          fill = comparison,
-                          linetype = bda,
-                          colour = bda),
-                      alpha = 0.6,
-                      size = 0.3,
-                      scale = 0.9)+
-  scale_fill_viridis_d()+
-  scale_linetype_manual(values = c(1,2,1),
-                        breaks = c('before','during','after'))+
-  scale_colour_manual(values = c('transparent','black','black'),
-                      breaks = c('before','during','after'))+
-  scale_y_discrete(expand = c(0,0))+
-  labs(y = 'stimulus type',
-       fill = 'focal age change',
-       linetype = 'time relative to stimulus',
-       colour = 'time relative to stimulus',
-       x = 'contrast')+
-  facet_grid(. ~ bda)+
-  theme(legend.position = 'bottom',
-        axis.text.x = element_text(angle = 90, vjust = 0.5))+
-  guides(fill = guide_legend(nrow = 3),
-         linetype = guide_legend(nrow = 3))
-ggsave(plot = last_plot(),
-       filename = 'nbm_noprev_contrastridges_splitbybda_facet.png',
-       path = '../outputs/neighbour_binomial_model_bda/',
-       device = 'png', height = 2800, width = 1900, unit = 'px')
+# for(stimulus in c("dove (control)","lion","human")){
+#   plot <- plot_contrasts %>%
+#     filter(stim_type == stimulus) %>%
+#     ggplot()+
+#     geom_hline(yintercept = 0, lty = 3)+
+#     geom_violin(aes(x = comparison,
+#                     y = contrast),
+#                 fill = '#21918c',
+#                 colour = 'transparent')+
+#     theme(legend.position = 'bottom',
+#           axis.text.x = element_text(angle = 90, vjust = 0.5))+
+#     labs(y = 'difference')
+#   print(plot)
+# }
+# 
+# unique(plot_contrasts$comparison)
+# 
+# plot_contrasts %>%
+#   mutate(stim_type = factor(stim_type, levels = c('human','lion','dove (control)'))) %>%
+#   ggplot()+
+#   geom_vline(xintercept = 0, linetype = 3)+
+#   geom_density_ridges(aes(y = stim_type,
+#                           x = contrast,
+#                           fill = comparison,
+#                           linetype = comparison,
+#                           colour = comparison),
+#                       alpha = 0.6,
+#                       size = 0.3,
+#                       scale = 0.9)+
+#   scale_fill_viridis_d()+
+#   scale_linetype_manual(values = c(3,2,1,1,2,3),
+#                         breaks = c('F: young + T: young to F: young + T: old',
+#                                    'F: young + T: young to F: old + T: young',
+#                                    'F: young + T: young to F: old + T: old',
+#                                    'F: young + T: old to F: old + T: young',
+#                                    'F: young + T: old to F: old + T: old',
+#                                    'F: old + T: young to F: old + T: old'))+
+#   scale_colour_manual(values = c('grey','grey','grey','black','black','black'),
+#                       breaks = c('F: young + T: young to F: young + T: old',
+#                                  'F: young + T: young to F: old + T: young',
+#                                  'F: young + T: young to F: old + T: old',
+#                                  'F: young + T: old to F: old + T: young',
+#                                  'F: young + T: old to F: old + T: old',
+#                                  'F: old + T: young to F: old + T: old'))+
+#   scale_y_discrete(expand = c(0,0))+
+#   labs(y = 'stimulus type',
+#        fill = 'age change',
+#        linetype = 'age change',
+#        colour = 'age change',
+#        x = 'contrast')+
+#   theme(legend.position = 'bottom',
+#         axis.text.x = element_text(angle = 90, vjust = 0.5))+
+#   guides(fill = guide_legend(nrow = 3),
+#          linetype = guide_legend(nrow = 3))
+# ggsave(plot = last_plot(),
+#        filename = 'nbm_noprev_contrastridges_alldata_offset.png',
+#        path = '../outputs/neighbour_binomial_model_bda/',
+#        device = 'png', height = 2800, width = 1900, unit = 'px')
+# 
+# plot_contrasts %>%
+#   mutate(comparison = paste0(original, '->', altered)) %>%
+#   mutate(stim_type = factor(stim_type, levels = c('human','lion','dove (control)')),
+#          bda = factor(bda, levels = c('before','during','after'))) %>%
+#   filter(comparison != '26-35 yrs to 10-15 yrs') %>%
+#   ggplot()+
+#   geom_vline(xintercept = 0, linetype = 3)+
+#   geom_density_ridges(aes(y = stim_type,
+#                           x = contrast,
+#                           fill = comparison,
+#                           linetype = bda,
+#                           colour = bda),
+#                       alpha = 0.6,
+#                       size = 0.3,
+#                       scale = 0.9)+
+#   scale_fill_viridis_d()+
+#   scale_linetype_manual(values = c(1,2,1),
+#                         breaks = c('before','during','after'))+
+#   scale_colour_manual(values = c('transparent','black','black'),
+#                       breaks = c('before','during','after'))+
+#   scale_y_discrete(expand = c(0,0))+
+#   labs(y = 'stimulus type',
+#        fill = 'focal age change',
+#        linetype = 'time relative to stimulus',
+#        colour = 'time relative to stimulus',
+#        x = 'contrast')+
+#   theme(legend.position = 'bottom',
+#         axis.text.x = element_text(angle = 90, vjust = 0.5))+
+#   guides(fill = guide_legend(nrow = 3),
+#          linetype = guide_legend(nrow = 3))
+# ggsave(plot = last_plot(),
+#        filename = 'nbm_noprev_contrastridges_splitbybda_offset.png',
+#        path = '../outputs/neighbour_binomial_model_bda/',
+#        device = 'png', height = 2800, width = 1900, unit = 'px')
+# 
+# plot_contrasts %>%
+#   mutate(comparison = paste0(original, '->', altered)) %>%
+#   mutate(stim_type = factor(stim_type, levels = c('human','lion','dove (control)')),
+#          bda = factor(bda, levels = c('before','during','after'))) %>%
+#   filter(comparison != '26-35 yrs to 10-15 yrs') %>%
+#   ggplot()+
+#   geom_vline(xintercept = 0, linetype = 3)+
+#   geom_density_ridges(aes(y = stim_type,
+#                           x = contrast,
+#                           fill = comparison,
+#                           linetype = bda,
+#                           colour = bda),
+#                       alpha = 0.6,
+#                       size = 0.3,
+#                       scale = 0.9)+
+#   scale_fill_viridis_d()+
+#   scale_linetype_manual(values = c(1,2,1),
+#                         breaks = c('before','during','after'))+
+#   scale_colour_manual(values = c('transparent','black','black'),
+#                       breaks = c('before','during','after'))+
+#   scale_y_discrete(expand = c(0,0))+
+#   labs(y = 'stimulus type',
+#        fill = 'focal age change',
+#        linetype = 'time relative to stimulus',
+#        colour = 'time relative to stimulus',
+#        x = 'contrast')+
+#   facet_grid(. ~ bda)+
+#   theme(legend.position = 'bottom',
+#         axis.text.x = element_text(angle = 90, vjust = 0.5))+
+#   guides(fill = guide_legend(nrow = 3),
+#          linetype = guide_legend(nrow = 3))
+# ggsave(plot = last_plot(),
+#        filename = 'nbm_noprev_contrastridges_splitbybda_facet_offset.png',
+#        path = '../outputs/neighbour_binomial_model_bda/',
+#        device = 'png', height = 2800, width = 1900, unit = 'px')
 
 plot_contrasts %>%
   mutate(comparison = paste0(original, ' -> ', altered)) %>%
@@ -1639,6 +1641,9 @@ plot_contrasts %>%
   guides(fill = guide_legend(nrow = 3),
          linetype = guide_legend(nrow = 3))
 ggsave(plot = last_plot(),
-       filename = 'nbm_noprev_contrastridges_nicestfacet_wide.png',
+       filename = 'nbm_noprev_contrastridges_nicestfacet_wide_offset.png',
        path = '../outputs/neighbour_binomial_model_bda/',
        device = 'png', height = 2400, width = 2000, unit = 'px')
+
+print('neighbour binomial complete')
+dev.off()
